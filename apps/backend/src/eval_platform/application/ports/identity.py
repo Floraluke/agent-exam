@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Protocol
 
 from eval_platform.domain.identity import Account, AuthenticatedActor, Session
+from eval_platform.domain.membership import Invitation, Member
 
 
 class Passwords(Protocol):
@@ -33,4 +34,24 @@ class IdentityRepository(Protocol):
 
     def recover_owner(self, username: str, password_hash: str) -> AuthenticatedActor:
         """Atomically replace password/version, revoke all sessions; keep owner ID."""
+        ...
+
+
+class MembershipRepository(Protocol):
+    def create_invitation(self, invitation: Invitation, token_hash: str) -> None: ...
+
+    def redeem_invitation(
+        self, token_hash: str, account: Account, now: datetime
+    ) -> None:
+        """Atomically consume one valid invitation and create one collaborator."""
+        ...
+
+    def list_invitations(self, cursor: str | None, limit: int) -> list[Invitation]: ...
+
+    def revoke_invitation(self, invitation_id: str, now: datetime) -> None: ...
+
+    def list_members(self, cursor: str | None, limit: int) -> list[Member]: ...
+
+    def disable_member(self, user_id: str) -> None:
+        """Only collaborators; atomically deactivate and revoke old access."""
         ...

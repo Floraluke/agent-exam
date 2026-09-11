@@ -7,6 +7,7 @@ import warnings
 
 from eval_platform.adapters.identity.passwords import Argon2Passwords
 from eval_platform.adapters.persistence.identity import PostgresIdentityRepository
+from eval_platform.adapters.persistence.membership import PostgresMembershipRepository
 from eval_platform.application.identity import IdentityService
 from eval_platform.delivery.http.config import database_url
 from eval_platform.domain.identity import IdentityConflict, IdentityUnavailable
@@ -16,13 +17,19 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="AgentExam 本机所有者维护")
     subcommands = parser.add_subparsers(dest="command", required=True)
     subcommands.add_parser("init-db", help="仅在明确的空白专属数据库建立身份表")
+    subcommands.add_parser("upgrade-members", help="仅为现有专属身份库补充邀请表")
     for command in ("bootstrap", "recover"):
         subcommands.add_parser(command).add_argument("username")
     arguments = parser.parse_args(argv)
     try:
-        if arguments.command != "init-db" and not sys.stdin.isatty():
+        if arguments.command in {"bootstrap", "recover"} and not sys.stdin.isatty():
             raise ValueError("密码只能从本机交互终端输入，不接受管道或参数")
-        repository = PostgresIdentityRepository(database_url())
+        dsn = database_url()
+        repository = PostgresIdentityRepository(dsn)
+        if arguments.command == "upgrade-members":
+            PostgresMembershipRepository(dsn).initialize_schema()
+            print("邀请表已建立；未创建账号或修改既有会话。")
+            return 0
         if arguments.command == "init-db":
             repository.initialize_schema()
             print("身份表已建立；未创建任何应用账号。")

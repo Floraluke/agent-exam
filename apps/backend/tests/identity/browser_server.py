@@ -4,11 +4,13 @@ import os
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from membership.memory import MemoryMembershipRepository
+
 from eval_platform.adapters.identity.passwords import Argon2Passwords
 from eval_platform.application.identity import IdentityService
+from eval_platform.application.membership import MembershipService
 from eval_platform.delivery.http.app import create_app
 from eval_platform.delivery.http.config import HttpConfig
-from identity.memory import MemoryIdentityRepository
 
 if os.environ.get("AGENTEXAM_IDENTITY_BROWSER_TEST") != "1":
     raise RuntimeError("Synthetic identity server requires the browser-test gate")
@@ -27,9 +29,12 @@ def browser_clock():
     return datetime.now(UTC) + timedelta(seconds=offset)
 
 
-service = IdentityService(MemoryIdentityRepository(), Argon2Passwords(), browser_clock)
+repository = MemoryMembershipRepository()
+passwords = Argon2Passwords()
+service = IdentityService(repository, passwords, browser_clock)
 service.bootstrap_owner("owner", "synthetic browser password")
 app = create_app(
     service,
     HttpConfig(public_origin="https://127.0.0.1:3100"),
+    MembershipService(repository, passwords, browser_clock),
 )

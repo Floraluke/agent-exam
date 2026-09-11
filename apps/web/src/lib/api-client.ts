@@ -3,20 +3,23 @@ import type { Actor, ApiErrorCode } from "./contracts";
 const messages: Record<ApiErrorCode, string> = {
   AUTHENTICATION_REQUIRED: "账号或密码不正确，或登录已失效。",
   FORBIDDEN: "请求未获允许，请从配置的同源入口访问。",
-  VALIDATION_ERROR: "请检查账号和密码格式。",
+  VALIDATION_ERROR: "请检查输入格式。",
   DEPENDENCY_UNAVAILABLE: "身份存储暂不可用，请稍后重试。",
-  RATE_LIMITED: "登录尝试过多，请稍等一分钟。",
+  RATE_LIMITED: "尝试过多，请稍等一分钟。",
   UNAVAILABLE: "暂时无法连接平台，请稍后重试。",
+  INVITATION_UNAVAILABLE: "邀请码无效、已过期、已撤销或已使用。",
+  IDENTITY_CONFLICT: "账号名称已被使用，或邀请已兑换，无法执行本操作。",
+  MEMBER_NOT_FOUND: "未找到该成员，请刷新列表。",
 };
 
 export class ApiError extends Error {
   constructor(readonly code: ApiErrorCode) { super(messages[code]); }
 }
 
-async function request(path: string, body?: object): Promise<unknown> {
+export async function request(path: string, body?: object): Promise<unknown> {
   let response: Response;
   try {
-    response = await fetch(`/api/v1/auth/${path}`, {
+    response = await fetch(`/api/v1/${path}`, {
       method: body === undefined ? "GET" : "POST",
       credentials: "same-origin",
       cache: "no-store",
@@ -60,7 +63,7 @@ function actor(value: unknown): Actor {
 }
 
 export async function currentActor(): Promise<Actor | null> {
-  try { return actor(await request("me")); }
+  try { return actor(await request("auth/me")); }
   catch (error) {
     if (error instanceof ApiError && error.code === "AUTHENTICATION_REQUIRED") return null;
     throw error;
@@ -68,7 +71,7 @@ export async function currentActor(): Promise<Actor | null> {
 }
 
 export async function login(username: string, password: string): Promise<Actor> {
-  return actor(await request("login", { username, password }));
+  return actor(await request("auth/login", { username, password }));
 }
 
-export async function logout(): Promise<void> { await request("logout", {}); }
+export async function logout(): Promise<void> { await request("auth/logout", {}); }

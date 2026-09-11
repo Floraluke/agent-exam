@@ -3,6 +3,8 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { ApiError, currentActor, login, logout } from "../../lib/api-client";
 import type { Actor } from "../../lib/contracts";
+import JoinPanel from "./join";
+import MembersPanel from "./members";
 
 export default function SessionPanel() {
   const [actor, setActor] = useState<Actor | null>(null);
@@ -11,6 +13,8 @@ export default function SessionPanel() {
   const [error, setError] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [joining, setJoining] = useState(false);
+  const [joined, setJoined] = useState(false);
 
   function explain(value: unknown) {
     setError(value instanceof ApiError ? value.message : "暂时无法连接平台，请稍后重试。");
@@ -51,7 +55,13 @@ export default function SessionPanel() {
       <p>角色：{actor.role === "owner" ? "评测机所有者" : "协作者"}</p>
       <p className="muted">账号入口已接通。评测提交、批准和报告将在后续任务中提供。</p>
       <button disabled={busy} onClick={signOut}>退出登录</button>
+      {actor.role === "owner" && <MembersPanel />}
     </> : <>
+      {joined && <p role="status">加入成功，请使用新账号登录。</p>}
+      {joining ? <>
+        <JoinPanel onJoined={() => { setJoining(false); setJoined(true); }} />
+        <button onClick={() => setJoining(false)}>返回登录</button>
+      </> : <>
       <h2>登录平台</h2>
       <p className="muted">使用应用账号。这里不接收 Codex 或模型提供方的凭据。</p>
       <form onSubmit={submit}>
@@ -66,6 +76,8 @@ export default function SessionPanel() {
         <button type="submit" disabled={busy}>{busy ? "正在登录…" : "登录"}</button>
       </form>
       <p className="muted small">不开放公共注册。所有者账号建立与恢复仅通过评测机本地维护命令完成。</p>
+      <button onClick={() => { setJoining(true); setJoined(false); }}>使用邀请码加入</button>
+      </>}
     </>}
   </section>;
 }

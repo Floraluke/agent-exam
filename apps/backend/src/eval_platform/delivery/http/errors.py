@@ -6,6 +6,12 @@ from starlette.datastructures import Headers
 from starlette.exceptions import HTTPException
 
 from eval_platform.delivery.http.schemas import ApiError, ErrorDetails
+from eval_platform.domain.identity import IdentityConflict
+from eval_platform.domain.membership import (
+    InvitationUnavailable,
+    MemberNotFound,
+    MembershipForbidden,
+)
 
 
 def error_response(status: int, code: str, message: str) -> JSONResponse:
@@ -32,6 +38,24 @@ async def validation_error(request: Request, exc: Exception) -> JSONResponse:
 
 async def dependency_error(request: Request, exc: Exception) -> JSONResponse:
     return error_response(503, "DEPENDENCY_UNAVAILABLE", "身份存储暂不可用，请稍后重试")
+
+
+async def membership_error(request: Request, exc: Exception) -> JSONResponse:
+    status, code, message = {
+        MembershipForbidden: (403, "FORBIDDEN", "只有所有者可以管理协作者"),
+        InvitationUnavailable: (
+            410,
+            "INVITATION_UNAVAILABLE",
+            "邀请无效、过期或已被使用",
+        ),
+        IdentityConflict: (
+            409,
+            "IDENTITY_CONFLICT",
+            "账号或邀请状态冲突，请检查后重试",
+        ),
+        MemberNotFound: (404, "MEMBER_NOT_FOUND", "成员不存在"),
+    }[type(exc)]
+    return error_response(status, code, message)
 
 
 async def framework_http_error(request: Request, exc: Exception) -> JSONResponse:

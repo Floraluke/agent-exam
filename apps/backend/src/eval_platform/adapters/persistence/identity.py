@@ -1,11 +1,9 @@
-from collections.abc import Iterator
-from contextlib import contextmanager
 from datetime import datetime
 from importlib.resources import files
 
-import psycopg
-from psycopg.rows import DictRow, dict_row
+from psycopg.rows import DictRow
 
+from eval_platform.adapters.persistence.connection import transaction
 from eval_platform.domain.identity import (
     Account,
     AuthenticatedActor,
@@ -19,31 +17,17 @@ class PostgresIdentityRepository:
     def __init__(self, dsn: str) -> None:
         self._dsn = dsn
 
-    @contextmanager
-    def _transaction(self) -> Iterator[psycopg.Connection[DictRow]]:
-        try:
-            with psycopg.connect(
-                self._dsn,
-                row_factory=dict_row,
-                connect_timeout=3,
-                options="-c statement_timeout=5000 -c lock_timeout=2000",
-            ) as connection:
-                yield connection
-        except psycopg.errors.UniqueViolation:
-            raise IdentityConflict from None
-        except psycopg.Error:
-            raise IdentityUnavailable from None
-
     def initialize_schema(self) -> None:
         """Explicit local maintenance only; never called during HTTP startup."""
-        schema = files(__package__).joinpath("identity.sql").read_text(encoding="utf-8")
-        with self._transaction() as connection:
-            connection.execute(schema)
+        with transaction(self._dsn) as connection:
+            for name in ("identity.sql", "membership.sql"):
+                schema = files(__package__).joinpath(name).read_text(encoding="utf-8")
+                connection.execute(schema)
 
     def create_owner(self, account: Account) -> None:
         if account.actor.role != "owner":
             raise IdentityConflict
-        with self._transaction() as connection:
+        with transaction(self._dsn) as connection:
             connection.execute(
                 "INSERT INTO accounts (user_id, username, role, password_hash) "
                 "VALUES (%s, %s, 'owner', %s)",
@@ -51,7 +35,7 @@ class PostgresIdentityRepository:
             )
 
     def find_account(self, username: str) -> Account | None:
-        with self._transaction() as connection:
+        with transaction(self._dsn) as connection:
             row = connection.execute(
                 "SELECT user_id, username, role, password_hash, auth_version, active "
                 "FROM accounts WHERE username = %s",
@@ -67,7 +51,7 @@ class PostgresIdentityRepository:
             )
 
     def issue_session(self, session: Session) -> bool:
-        with self._transaction() as connection:
+        with transaction(self._dsn) as connection:
             row = connection.execute(
                 "SELECT auth_version, active FROM accounts "
                 "WHERE user_id = %s FOR UPDATE",
@@ -94,7 +78,7 @@ class PostgresIdentityRepository:
     def session_actor(
         self, token_hash: str, now: datetime
     ) -> AuthenticatedActor | None:
-        with self._transaction() as connection:
+        with transaction(self._dsn) as connection:
             row = connection.execute(
                 "SELECT a.user_id, a.username, a.role FROM sessions s "
                 "JOIN accounts a ON a.user_id = s.user_id "
@@ -105,13 +89,13 @@ class PostgresIdentityRepository:
             return self._actor(row) if row else None
 
     def revoke_session(self, token_hash: str) -> None:
-        with self._transaction() as connection:
+        with transaction(self._dsn) as connection:
             connection.execute(
                 "DELETE FROM sessions WHERE token_hash = %s", (token_hash,)
             )
 
     def recover_owner(self, username: str, password_hash: str) -> AuthenticatedActor:
-        with self._transaction() as connection:
+        with transaction(self._dsn) as connection:
             row = connection.execute(
                 "UPDATE accounts SET password_hash = %s, "
                 "auth_version = auth_version + 1 "
