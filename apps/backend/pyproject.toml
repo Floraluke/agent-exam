@@ -7,13 +7,23 @@ name = "agentexam-backend"
 version = "0.1.0"
 description = "AgentExam modular backend and M0 evaluation prototype"
 requires-python = ">=3.13,<3.14"
-dependencies = ["pyarrow==22.0.0"]
+dependencies = [
+  "pyarrow==22.0.0",
+  "fastapi==0.141.1",
+  "uvicorn==0.52.4",
+  "psycopg[binary]==3.3.5",
+  "argon2-cffi==25.1.0",
+]
+
+[project.scripts]
+agentexam-owner = "eval_platform.delivery.owner:main"
 
 [dependency-groups]
 dev = [
   "mypy==1.18.2",
   "pytest==9.0.2",
   "ruff==0.15.17",
+  "httpx==0.28.1",
 ]
 
 [tool.setuptools.packages.find]
@@ -21,6 +31,7 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "eval_platform.adapters.tasks" = ["collect_patch.sh"]
+"eval_platform.adapters.persistence" = ["identity.sql"]
 
 [tool.pytest.ini_options]
 addopts = "-ra"
