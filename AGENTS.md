@@ -54,3 +54,17 @@
 - 修改后主动运行与风险相称的测试、静态检查或人工验证，并检查实际输出。
 - 不得把未运行、失败或被跳过的检查描述为通过；失败和限制必须如实记录。
 - 完成任务前核对代码、文件树、架构文档、问题记录和行动文档是否反映同一真实状态。
+
+## Agent skills
+
+### Issue tracker
+
+编写、读取规格或任务单前，阅读 [本地任务约定](docs/agents/issue-tracker.md)。
+
+### Triage labels
+
+设置任务标签前，阅读 [标签映射](docs/agents/triage-labels.md)。
+
+### Domain docs
+
+探索业务实现前，阅读 [领域文档约定](docs/agents/domain.md)。
