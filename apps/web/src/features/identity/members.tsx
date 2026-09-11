@@ -60,7 +60,7 @@ export default function MembersPanel() {
   return <section aria-label="成员管理">
     <h2>成员管理</h2>
     {error && <p role="alert" className="error">{error}</p>}
-    <button disabled={busy} onClick={() => run(refresh)}>刷新成员与邀请</button>
+    <button disabled={busy} onClick={() => { setToken(""); void run(refresh); }}>刷新成员与邀请</button>
     <h3>邀请协作者</h3>
     <p>邀请码 24 小时内有效且只能使用一次，请自行安全交给受邀者。</p>
     <button disabled={busy} onClick={() => run(create)}>创建邀请码</button>

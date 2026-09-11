@@ -10,6 +10,8 @@ test("owner invites a collaborator and disabling the member revokes browser acce
   await members.getByRole("button", { name: "创建邀请码" }).click();
   const token = await members.getByLabel("仅此一次的邀请码").inputValue();
   expect(token.length).toBeGreaterThan(30);
+  await members.getByRole("button", { name: "刷新成员与邀请" }).click();
+  await expect(members.getByLabel("仅此一次的邀请码")).toHaveCount(0);
   await page.reload();
   await expect(members.getByLabel("仅此一次的邀请码")).toHaveCount(0);
 
