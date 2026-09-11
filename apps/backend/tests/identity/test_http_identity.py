@@ -103,3 +103,41 @@ def test_http_surface_contains_only_the_three_approved_identity_endpoints(identi
         "username",
         "role",
     }
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "method", "statuses"),
+    [
+        ("login", "post", {400, 401, 403, 422, 429, 500, 503}),
+        ("me", "get", {401, 500, 503}),
+        ("logout", "post", {400, 403, 422, 500, 503}),
+    ],
+)
+def test_openapi_describes_the_real_identity_error_envelope(
+    identity_api, endpoint, method, statuses
+):
+    schema = identity_api.client.get("/openapi.json").json()
+    responses = schema["paths"][f"/api/v1/auth/{endpoint}"][method]["responses"]
+    for status in statuses:
+        assert str(status) in responses
+        error_schema = responses[str(status)]["content"]["application/json"]["schema"]
+        assert error_schema == {"$ref": "#/components/schemas/ApiError"}
+    models = schema["components"]["schemas"]
+    assert set(models["ApiError"]["properties"]) == {"error"}
+    assert set(models["ErrorDetails"]["properties"]) == {
+        "code",
+        "message",
+        "details",
+        "request_id",
+    }
+    assert "HTTPValidationError" not in models
+    if endpoint == "login":
+        invalid = identity_api.client.post(
+            "/api/v1/auth/login", json={}, headers=WRITE_HEADERS
+        )
+        assert invalid.status_code == 422
+        assert set(invalid.json()) == set(models["ApiError"]["properties"])
+        assert set(invalid.json()["error"]) == set(models["ErrorDetails"]["properties"])
+        assert "Retry-After" in responses["429"]["headers"]
+    if endpoint == "logout":
+        assert "content" not in responses["204"]

@@ -6,14 +6,21 @@ from eval_platform.delivery.http.schemas import (
     ActorResponse,
     EmptyRequest,
     LoginRequest,
+    error_responses,
 )
 from eval_platform.domain.identity import SESSION_LIFETIME
 
 
 def identity_router(service: IdentityService, config: HttpConfig) -> APIRouter:
-    router = APIRouter(prefix="/api/v1/auth", tags=["identity"])
+    router = APIRouter(
+        prefix="/api/v1/auth", tags=["identity"], responses=error_responses(500)
+    )
 
-    @router.post("/login", response_model=ActorResponse)
+    @router.post(
+        "/login",
+        response_model=ActorResponse,
+        responses=error_responses(400, 401, 403, 422, 429, 503),
+    )
     def login(body: LoginRequest, response: Response) -> ActorResponse:
         result = service.login(body.username, body.password.get_secret_value())
         response.set_cookie(
@@ -27,13 +34,17 @@ def identity_router(service: IdentityService, config: HttpConfig) -> APIRouter:
         )
         return ActorResponse.model_validate(result.actor)
 
-    @router.get("/me", response_model=ActorResponse)
+    @router.get(
+        "/me", response_model=ActorResponse, responses=error_responses(401, 503)
+    )
     def current_actor(request: Request) -> ActorResponse:
         return ActorResponse.model_validate(
             service.current_actor(request.cookies.get(config.cookie_name))
         )
 
-    @router.post("/logout", status_code=204)
+    @router.post(
+        "/logout", status_code=204, responses=error_responses(400, 403, 422, 503)
+    )
     def logout(request: Request, body: EmptyRequest | None = None) -> Response:
         service.logout(request.cookies.get(config.cookie_name))
         response = Response(status_code=204)

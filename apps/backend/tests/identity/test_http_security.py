@@ -135,3 +135,22 @@ def test_unexpected_dependency_failure_has_a_safe_structured_error():
     assert response.status_code == 500
     assert response.json()["error"]["code"] == "INTERNAL_ERROR"
     assert "synthetic unexpected secret" not in response.text
+
+
+@pytest.mark.parametrize(
+    ("path", "status", "code"),
+    [
+        ("/api/v1/auth/login", 405, "METHOD_NOT_ALLOWED"),
+        ("/api/v1/auth/unknown", 404, "RESOURCE_NOT_FOUND"),
+    ],
+)
+def test_framework_http_errors_use_safe_api_errors(identity_api, path, status, code):
+    response = identity_api.client.get(path)
+    assert response.status_code == status
+    assert set(response.json()) == {"error"}
+    assert response.json()["error"]["code"] == code
+    assert response.json()["error"]["details"] == {}
+    assert response.json()["error"]["request_id"].startswith("req_")
+    assert response.headers["cache-control"] == "no-store"
+    if status == 405:
+        assert response.headers["allow"] == "POST"

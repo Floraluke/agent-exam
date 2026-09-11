@@ -20,3 +20,28 @@ class ActorResponse(BaseModel):
 
 class EmptyRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
+
+
+class ErrorDetails(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    code: str
+    message: str
+    details: dict[str, object]
+    request_id: str
+
+
+class ApiError(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    error: ErrorDetails
+
+
+def error_responses(*statuses: int) -> dict[int | str, dict[str, object]]:
+    responses: dict[int | str, dict[str, object]] = {
+        status: {"model": ApiError, "description": "统一安全错误"}
+        for status in statuses
+    }
+    if 429 in responses:
+        responses[429]["headers"] = {
+            "Retry-After": {"schema": {"type": "string"}, "description": "等待秒数"}
+        }
+    return responses
