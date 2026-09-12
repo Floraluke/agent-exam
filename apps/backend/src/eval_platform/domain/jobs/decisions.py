@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal
 
-from eval_platform.domain.jobs.models import JobError, JobInputError
+from eval_platform.domain.jobs.models import JobError, JobInputError, JobStatus
 
 DecisionKind = Literal["approve", "reject"]
 
@@ -40,6 +40,18 @@ class OwnerDecision:
     decided_at: datetime
     idempotency_key_hash: str
     request_sha256: str
+
+    @property
+    def target_status(self) -> JobStatus:
+        return "QUEUED" if self.kind == "approve" else "REJECTED"
+
+    @property
+    def reason_code(self) -> str:
+        return "OWNER_APPROVED" if self.kind == "approve" else "OWNER_REJECTED"
+
+    @property
+    def cancels_runs(self) -> bool:
+        return self.kind == "reject"
 
 
 def decision_request_sha(kind: DecisionKind, reason: str | None) -> str:

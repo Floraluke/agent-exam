@@ -24,8 +24,14 @@ test("owner approves a frozen job and reloads its audit", async ({ page }) => {
     .toBe(created.job_id);
   await expect(jobs.getByText("等待所有者批准", { exact: true })).toBeVisible();
   await expect(jobs.getByText("冻结运行数：1", { exact: true })).toBeVisible();
+  await expect(jobs).toContainText("模型：openai_chatgpt / test-model");
+  await expect(jobs).toContainText("网络策略：agentexam-closed-book-v1");
+  await expect(jobs).toContainText("冻结版本：Harbor");
   await expect(jobs).not.toContainText("成绩");
   await expect(jobs).toContainText("不要填写凭据、Token 或宿主机路径");
+  await jobs.getByLabel("决定说明（可选）").fill("   ");
+  await jobs.getByRole("button", { name: "批准并排队" }).click();
+  await expect(jobs.getByRole("alert")).toHaveText("请检查输入格式。");
   await jobs.getByLabel("决定说明（可选）").fill("  已核对冻结范围  ");
   const stale = await page.context().newPage();
   await stale.goto(page.url());
@@ -41,6 +47,7 @@ test("owner approves a frozen job and reloads its audit", async ({ page }) => {
   await expect(jobs.getByText("已批准，等待执行", { exact: true })).toBeVisible();
   await expect(jobs.getByText("决定说明：已核对冻结范围", { exact: true }))
     .toBeVisible();
+  await expect(jobs.getByText(/^决定者：/)).toBeVisible();
   await staleJobs.getByRole("button", { name: "拒绝批次" }).click();
   await expect(staleJobs.getByRole("alert"))
     .toHaveText("批次状态已经改变，请刷新后查看。");

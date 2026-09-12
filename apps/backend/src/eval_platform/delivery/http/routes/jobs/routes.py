@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Header, Query, Request
@@ -20,6 +20,11 @@ from eval_platform.delivery.http.routes.jobs.schemas import (
 from eval_platform.delivery.http.schemas import error_responses
 from eval_platform.domain.identity import AuthenticatedActor
 from eval_platform.domain.jobs.models import JobInputError
+
+IdempotencyKey = Annotated[
+    str,
+    Header(min_length=8, max_length=128, pattern=r"^[A-Za-z0-9._~-]+$"),
+]
 
 
 def jobs_router(
@@ -46,11 +51,7 @@ def jobs_router(
     def submit(
         request: Request,
         body: JobRequest,
-        idempotency_key: str = Header(
-            min_length=8,
-            max_length=128,
-            pattern=r"^[A-Za-z0-9._~-]+$",
-        ),
+        idempotency_key: IdempotencyKey,
     ) -> JobSummary:
         record = jobs.submit(
             actor(request),
@@ -127,11 +128,7 @@ def jobs_router(
             job_id: UUID,
             request: Request,
             body: OwnerDecisionRequest,
-            idempotency_key: str = Header(
-                min_length=8,
-                max_length=128,
-                pattern=r"^[A-Za-z0-9._~-]+$",
-            ),
+            idempotency_key: IdempotencyKey,
         ) -> JobSummary:
             return decide(job_id, request, body, idempotency_key, "approve")
 
@@ -140,11 +137,7 @@ def jobs_router(
             job_id: UUID,
             request: Request,
             body: OwnerDecisionRequest,
-            idempotency_key: str = Header(
-                min_length=8,
-                max_length=128,
-                pattern=r"^[A-Za-z0-9._~-]+$",
-            ),
+            idempotency_key: IdempotencyKey,
         ) -> JobSummary:
             return decide(job_id, request, body, idempotency_key, "reject")
 

@@ -24,14 +24,12 @@ def decide(connection: psycopg.Connection[Any], decision: OwnerDecision) -> str:
     if row["status"] != "AWAITING_OWNER_APPROVAL":
         raise JobStateConflict
 
-    status = "QUEUED" if decision.kind == "approve" else "REJECTED"
-    reason_code = "OWNER_APPROVED" if decision.kind == "approve" else "OWNER_REJECTED"
     connection.execute(
         "UPDATE evaluation_jobs SET status=%s,row_version=1,owner_decided_by=%s,"
         "owner_decided_at=%s,owner_decision_reason=%s,owner_decision_key_hash=%s,"
         "owner_decision_request_sha256=%s WHERE job_id=%s",
         (
-            status,
+            decision.target_status,
             decision.actor_user_id,
             decision.decided_at,
             decision.reason,
@@ -48,14 +46,14 @@ def decide(connection: psycopg.Connection[Any], decision: OwnerDecision) -> str:
             str(uuid4()),
             decision.job_id,
             "AWAITING_OWNER_APPROVAL",
-            status,
-            reason_code,
+            decision.target_status,
+            decision.reason_code,
             decision.actor_user_id,
             decision.decided_at,
             decision.reason,
         ),
     )
-    if decision.kind == "reject":
+    if decision.cancels_runs:
         _cancel_runs(connection, decision)
     return decision.job_id
 

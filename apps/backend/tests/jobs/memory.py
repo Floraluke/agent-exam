@@ -70,19 +70,18 @@ class MemoryJobs:
                 raise JobStateConflict
             if record.status != "AWAITING_OWNER_APPROVAL":
                 raise JobStateConflict
-            status = "QUEUED" if decision.kind == "approve" else "REJECTED"
             event = StateEvent(
                 str(uuid4()),
                 2,
                 "AWAITING_OWNER_APPROVAL",
-                status,
-                "OWNER_APPROVED" if decision.kind == "approve" else "OWNER_REJECTED",
+                decision.target_status,
+                decision.reason_code,
                 decision.decided_at,
                 decision.actor_user_id,
                 decision.reason,
             )
             runs = record.runs
-            if decision.kind == "reject":
+            if decision.cancels_runs:
                 runs = tuple(
                     replace(
                         run,
@@ -103,7 +102,7 @@ class MemoryJobs:
                 )
             decided = replace(
                 record,
-                status=status,
+                status=decision.target_status,
                 runs=runs,
                 state_events=record.state_events + (event,),
                 owner_decided_by=decision.actor_user_id,

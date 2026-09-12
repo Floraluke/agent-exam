@@ -68,6 +68,17 @@ export type JobDetail = JobSummary & {
   }>;
   agent_snapshots: Array<{
     agent_configuration_id: string; display_name: string;
-    configuration_fingerprint: string;
+    agent_type: string; agent_version: string; model_provider: string; model: string;
+    reasoning_effort: string; configuration_fingerprint: string;
   }>;
+  limit_snapshot: Omit<LimitProfile, "limit_profile_id">;
+  network_policy_id: string;
+  network_policy_snapshot: {
+    mode: string; web_search: string; arbitrary_hosts: boolean;
+  };
+  tool_profile_id: string;
+  tool_profile_snapshot: {
+    agent_type: string; web_search: string; arbitrary_commands: boolean;
+  };
+  harbor_revision: string; swe_gym_revision: string; swe_bench_fork_revision: string;
 };
