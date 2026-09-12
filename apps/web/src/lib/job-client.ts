@@ -1,5 +1,7 @@
 import { ApiError, request } from "./api-client";
-import type { JobDetail, JobOptions, JobSummary, Page } from "./contracts";
+import type {
+  BatchPreset, JobDetail, JobOptions, JobSummary, LimitProfile, Page,
+} from "./contracts";
 
 function object(value: unknown): Record<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -59,6 +61,37 @@ function detail(value: unknown): JobDetail {
     }),
   };
 }
+function batchPreset(value: unknown): BatchPreset {
+  const item = object(value);
+  const minimum = number(item, "minimum_tasks");
+  const maximum = number(item, "maximum_tasks");
+  if (minimum < 1 || maximum < minimum) throw new ApiError("UNAVAILABLE");
+  return {
+    batch_preset: text(item, "batch_preset"),
+    minimum_tasks: minimum,
+    maximum_tasks: maximum,
+  };
+}
+function limitProfile(value: unknown): LimitProfile {
+  const item = object(value);
+  return {
+    limit_profile_id: text(item, "limit_profile_id"),
+    agent_wall_timeout_sec: number(item, "agent_wall_timeout_sec"),
+    agent_cpus: number(item, "agent_cpus"),
+    agent_memory_mb: number(item, "agent_memory_mb"),
+    agent_storage_mb: number(item, "agent_storage_mb"),
+    evaluator_wall_timeout_sec: number(item, "evaluator_wall_timeout_sec"),
+    evaluator_cpus: number(item, "evaluator_cpus"),
+    evaluator_memory_mb: number(item, "evaluator_memory_mb"),
+    pids_limit: number(item, "pids_limit"),
+    patch_warning_bytes: number(item, "patch_warning_bytes"),
+    patch_max_bytes: number(item, "patch_max_bytes"),
+    raw_artifact_max_bytes: number(item, "raw_artifact_max_bytes"),
+    raw_run_max_bytes: number(item, "raw_run_max_bytes"),
+    concurrency: number(item, "concurrency"),
+    max_retries: number(item, "max_retries"),
+  };
+}
 export async function jobOptions(): Promise<JobOptions> {
   const value = object(await request("job-options"));
   if (!Array.isArray(value.batch_presets) ||
@@ -68,7 +101,16 @@ export async function jobOptions(): Promise<JobOptions> {
       value.evaluation_tracks[0] !== "closed_book") {
     throw new ApiError("UNAVAILABLE");
   }
-  return value as JobOptions;
+  const maximumAgents = number(value, "maximum_agent_configurations");
+  const maximumRuns = number(value, "maximum_runs");
+  if (maximumAgents < 1 || maximumRuns < 1) throw new ApiError("UNAVAILABLE");
+  return {
+    batch_presets: value.batch_presets.map(batchPreset),
+    evaluation_tracks: ["closed_book"],
+    limit_profiles: value.limit_profiles.map(limitProfile),
+    maximum_agent_configurations: maximumAgents,
+    maximum_runs: maximumRuns,
+  };
 }
 export async function submitJob(body: object, key: string): Promise<JobSummary> {
   return summary(await request("jobs", body, { "Idempotency-Key": key }));

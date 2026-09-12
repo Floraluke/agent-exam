@@ -44,7 +44,9 @@ export default function JobsPanel() {
       setSelectedAgents((current) => current.filter((id) => agentIds.has(id)));
       setBatch(serverOptions.batch_presets[0]?.batch_preset ?? "");
       setLimit(serverOptions.limit_profiles[0]?.limit_profile_id ?? "");
-      if (jobPage.items[0]) setCurrent(await jobDetail(jobPage.items[0].job_id));
+      const requestedJob = new URL(window.location.href).searchParams.get("job");
+      const restoredJob = requestedJob ?? jobPage.items[0]?.job_id;
+      if (restoredJob) setCurrent(await jobDetail(restoredJob));
     } catch (value) { explain(value); }
     finally { setBusy(false); }
   }
@@ -65,6 +67,9 @@ export default function JobsPanel() {
         batch_preset: batch,
         limit_profile_id: limit,
       }, crypto.randomUUID());
+      const url = new URL(window.location.href);
+      url.searchParams.set("job", created.job_id);
+      window.history.replaceState(null, "", url);
       setCurrent(await jobDetail(created.job_id));
     } catch (value) { explain(value); }
     finally { setBusy(false); }

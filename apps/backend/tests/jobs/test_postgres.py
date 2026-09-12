@@ -136,6 +136,23 @@ def test_explicit_upgrade_and_recreated_http_restore_frozen_job(postgres_sandbox
         )
 
 
+def test_malformed_catalog_ids_are_validation_errors(postgres_sandbox):
+    with postgres_api(postgres_sandbox) as (client, jobs, repository, owner):
+        assert login(client).status_code == 200
+        response = client.post(
+            "/api/v1/jobs",
+            json={
+                "task_ids": ["not-a-uuid"],
+                "agent_configuration_ids": ["also-not-a-uuid"],
+                "evaluation_track": "closed_book",
+                "batch_preset": "demo",
+                "limit_profile_id": "default-single-host-v1",
+            },
+            headers={**WRITE_HEADERS, "Idempotency-Key": "malformed-pg-0001"},
+        )
+        assert response.status_code == 422
+
+
 def test_duplicate_run_failure_rolls_back_job_and_events(postgres_sandbox):
     with postgres_api(postgres_sandbox) as (client, jobs, repository, owner):
         login(client)

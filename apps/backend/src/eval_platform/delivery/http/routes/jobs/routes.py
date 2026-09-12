@@ -47,8 +47,8 @@ def jobs_router(
     ) -> JobSummary:
         record = jobs.submit(
             actor(request),
-            body.task_ids,
-            body.agent_configuration_ids,
+            [str(value) for value in body.task_ids],
+            [str(value) for value in body.agent_configuration_ids],
             body.evaluation_track,
             body.batch_preset,
             body.limit_profile_id,

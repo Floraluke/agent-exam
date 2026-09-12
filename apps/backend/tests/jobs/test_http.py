@@ -79,3 +79,16 @@ def test_submit_returns_frozen_waiting_job_and_refreshes(jobs_api):
     assert frozen["runs"][0]["state_events"][0]["reason_code"] == "JOB_SUBMITTED"
     page = jobs_api.client.get("/api/v1/jobs").json()
     assert [item["job_id"] for item in page["items"]] == [created["job_id"]]
+
+
+def test_submit_rejects_malformed_catalog_ids_before_repository_access(jobs_api):
+    jobs_api.login()
+    task, agent = jobs_api.register_catalogs()
+    body = submission(task["task_id"], agent["agent_configuration_id"])
+    for field in ("task_ids", "agent_configuration_ids"):
+        response = submit(
+            jobs_api,
+            {**body, field: ["not-a-uuid"]},
+            key=f"malformed-{field}-0001",
+        )
+        assert response.status_code == 422

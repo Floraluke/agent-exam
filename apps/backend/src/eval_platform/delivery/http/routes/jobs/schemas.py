@@ -3,6 +3,7 @@
 from dataclasses import asdict
 from datetime import datetime
 from typing import Literal
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -12,8 +13,8 @@ from eval_platform.domain.jobs.policy import SubmissionPolicy
 
 class JobRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    task_ids: list[str] = Field(max_length=60)
-    agent_configuration_ids: list[str] = Field(max_length=60)
+    task_ids: list[UUID] = Field(max_length=60)
+    agent_configuration_ids: list[UUID] = Field(max_length=60)
     evaluation_track: str = Field(min_length=1, max_length=64)
     batch_preset: str = Field(min_length=1, max_length=64)
     limit_profile_id: str = Field(min_length=1, max_length=64)
