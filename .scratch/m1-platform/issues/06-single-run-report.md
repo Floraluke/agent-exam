@@ -26,4 +26,4 @@
 
 2026-09-12：任务 05 已验收并完成双轴评审，阻塞解除。任务 06 以 `4944ce6` 为固定基准开工；首轮仅接通一个 `internal_test` Run，多组合在任务 07 前保持不可领取，不运行真实 Codex/Harbor，也不创建或调用 Judge/Review。
 
-2026-09-12：11 项验收全部完成。固定基准双轴初评发现真实 Harbor 契约、本地制品归档、缺失正文失败关闭、空 patch 不变量及若干项目规范问题；全部修复后，Spec 与 Standards targeted 复评均为无 findings。真实隔离 PG+MinIO+HTTP 为 46 passed，默认后端 306 passed/61 gated skipped，浏览器 14 passed；替身仅限 `internal_test`，未运行真实模型或改动 Judge/Review。
+2026-09-12：11 项验收全部完成。固定基准双轴初评发现真实 Harbor 契约、本地制品归档、缺失正文失败关闭、空 patch 不变量及若干项目规范问题；全部修复后，Spec 与 Standards targeted 复评均为无 findings。真实隔离 PG+MinIO+HTTP 为 46 passed，默认后端 306 passed/61 gated skipped，浏览器 14 passed；替身仅限 `internal_test`，未运行真实模型或改动 Judge/Review。评审闭环提交为 `c9b338c`。

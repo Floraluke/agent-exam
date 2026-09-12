@@ -100,3 +100,4 @@ docs/interfaces/HTTP_API.md              # 报告形状、空值、安全与错�
 - 最终静态检查过程中，首次 `ruff format --check` 准确指出刚加强的 Reporting 条件式尚需格式化；同组 Ruff 规则检查、mypy（109 个源文件）和 13 项针对性测试均通过。执行 Ruff 格式化后再次 `format --check` 为 186 个文件全部符合。该格式变化不改变行为；双轴复评正在读取当前现场。
 - 固定基准 Spec 初评的 4 项 P1 全部修复，targeted 复评无 findings；评审确认冻结版本实际进入既有 Harbor mapper、本地 Harbor/Fork 引用安全归档、真实对象丢失后报告失败关闭、空 patch 三项 false，且 Judge/Review 未被实现或调用。Standards 初评的非法标签、行动树、职责混合、重复状态常量及 201 行测试文件全部修复；最后一项把测试文件严格压缩为 200 行，Ruff 与 13 项定向测试复验通过，targeted 复评无 findings。
 - 任务 06 完成结论：11 项验收全部有实现与证据；所有成功、失败与跳过均按实际记录。当前没有任务 06 遗留阻塞；真实 Codex/Harbor 并未在本任务重跑，长期服务、远程部署和 Judge/Review 仍在授权边界外。下一任务只按任务 07 规格深化批量进度与收束。
+- 第三本地提交为 `c9b338c`（`fix: close single-run report review`），显式纳入 27 个任务 06 评审修复、测试、任务单和行动文件；未暂存混合旧文档、缓存、framework/runtime，也未推送。固定任务提交链为 `62a246c`、`2b64ef3`、`c9b338c`。
