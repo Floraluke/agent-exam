@@ -16,6 +16,14 @@ from eval_platform.domain.catalog import (
     TaskNotFound,
 )
 from eval_platform.domain.identity import IdentityConflict
+from eval_platform.domain.jobs.models import (
+    JobConfigurationDisabled,
+    JobError,
+    JobIdempotencyConflict,
+    JobInputError,
+    JobNotFound,
+    JobUnavailable,
+)
 from eval_platform.domain.membership import (
     InvitationUnavailable,
     MemberNotFound,
@@ -63,6 +71,19 @@ async def catalog_error(request: Request, exc: Exception) -> JSONResponse:
             "AGENT_CONFIGURATION_NOT_FOUND",
             "配置不存在",
         ),
+    }[type(exc)]
+    return error_response(status, code, message)
+
+
+async def job_error(request: Request, exc: Exception) -> JSONResponse:
+    assert isinstance(exc, JobError)
+    if isinstance(exc, JobInputError):
+        return error_response(400, exc.code, "评测批次选择无效")
+    status, code, message = {
+        JobConfigurationDisabled: (409, "AGENT_CONFIGURATION_DISABLED", "配置已禁用"),
+        JobIdempotencyConflict: (409, "IDEMPOTENCY_CONFLICT", "幂等键正文冲突"),
+        JobNotFound: (404, "JOB_NOT_FOUND", "评测批次不存在"),
+        JobUnavailable: (503, "DEPENDENCY_UNAVAILABLE", "评测批次存储暂不可用"),
     }[type(exc)]
     return error_response(status, code, message)
 

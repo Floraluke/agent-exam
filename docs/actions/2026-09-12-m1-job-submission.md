@@ -2,31 +2,31 @@
 
 ## 状态与情况说明
 
-- 状态：Blocked（待必要方案确认，不是技术故障）。本行动只完成开工核对与候选方案，尚未修改任务 04 业务代码、建表或执行其测试。
+- 状态：In Progress。用户已明确批准本行动记录的精确规模/最多三个配置、初始资源模板、访问范围、四张规划内表、必要 Interface 与子目录；旧 Blocked 只是上一窗口尚未回填的快照。任务 04 业务代码、建表和验收尚未开始，本轮从同一行动继续。
 - 用户已授权依次实施、评审和修复任务 02–04；任务 03 已在 `3302084` 完成收尾。已有任务是每个行动各自一份记录，本行动不复用[目录行动](2026-09-12-m1-task-agent-catalog.md)。
 - 对应[任务 04](../../.scratch/m1-platform/issues/04-job-submission.md)。现有身份、邀请、Task Catalog、Agent Registry 和存储 Adapter 已实现；Job Submission 及批次存储仍只有规划，不能把 M0 的本机执行请求当作持久 Job。
 - HTTP 为主要验收入口、少量浏览器接线、真实临时 PostgreSQL 事务验证已获确认。模型、Harbor 执行、真实凭据、长期数据库、远程部署、机器设置和推送不在本行动范围。
-- 本轮需确认精确批次/资源预置及必要新增结构；完整方案如下。未经确认不把候选写成已生效规则。
+- 本轮按下方已确认方案直接实施；临时 PG、合成验证、精确清理和关键节点本地提交沿用既有授权，不重复询问。
 
 ## 实施措施
 
 1. 已核对[数据模型](../architecture/DATA_MODEL.md#44-evaluation_jobs)、[HTTP Job 契约](../interfaces/HTTP_API.md#7-job-api)、[模块契约](../architecture/MODULE_CONTRACTS.md#64-job-submission)与已有代码、目录计数。
-2. 用户确认后，沿预先同意的 HTTP/真实存储 Interface 逐片红绿实现：受控选项与提交校验 → 原子 Job/Run 快照 → 幂等/并发 → 刷新查询与浏览器。
+2. 沿已确认的 HTTP/真实存储 Interface 逐片红绿实现：受控选项与提交校验 → 原子 Job/Run 快照 → 幂等/并发 → 刷新查询与浏览器。
 3. 同步架构实际文件树、数据表/约束、HTTP 输入输出与错误，不预建批准/执行/报告的空壳；关键实现检查点本地提交，固定以本行动开工前 `3302084` 为评审基准。
 4. 运行静态、完整默认测试、真实 PG 集成和少量浏览器；按 code-review 进行独立 Standards/Spec 评审并修复，最后勾选任务单。任务 04 结束即停止，不自动进入任务 05。
 
-## 待确认的最小方案
+## 已确认的最小方案
 
-### 产品行为与固定预置（候选）
+### 产品行为与固定预置
 
 - 批次规模沿现有候选锁定：demo 为 1–3 题、quick 为 5 题、standard 为 10–20 题；每批最多 3 个启用的 Codex 配置，每个组合只尝试一次，最大 60 条 Run。题目与配置去重后计数；空选择、规模不符、非法覆盖在创建前拒绝。
 - 当前正式受控种子仍只有任务 03 的单题/单配置；较大矩阵只用独立合成数据验证。页面不能把未登记任务补成假正式数据，也不因有规模选项就宣称已有 20 道可执行题。
-- 第一份只读限制预置拟沿用 M0 已运行的单题上限：Agent 900 秒、1 CPU、4096 MiB 内存、8192 MiB storage 配置；独立判卷 300 秒、1 CPU、4096 MiB；单并发、零自动重试。PID、patch/日志/原始制品阈值复用现有受控值；不让用户自填资源。历史出处见[真实单题行动](2026-09-05-m0-codex-harbor-implementation.md#2026-09-08第四次授权的固定真实单题)。
+- 第一份只读限制预置 `default-single-host-v1` 沿用 M0 已运行的单题上限：Agent 900 秒、1 CPU、4096 MiB 内存、8192 MiB storage 配置；独立判卷 300 秒、1 CPU、4096 MiB；单并发、零自动重试。PID、patch/日志/原始制品阈值复用现有受控值；不让用户自填资源。历史出处见[真实单题行动](2026-09-05-m0-codex-harbor-implementation.md#2026-09-08第四次授权的固定真实单题)。
 - 以上只是提交时冻结的初始上限，不是多题性能承诺或磁盘硬限额全部生效的证明；真正执行前仍按[资源规则](../interfaces/HARBOR_EXECUTION.md#12-单机资源规则)核验实际峰值和限制执行能力。本任务不启动执行来验证它。
 - 限制、闭卷网络和工具策略均为服务端版本化预置；前端只选 ID。暂不新增限制模板表或管理页面，Agent 的可空默认限制引用保持为空，Job 明确携带所选预置 ID 与快照；不为配置目录虚造外键绑定。
 - 协作者只能查询自己提交的 Job，所有者可查全部；他人不可见记录使用 404。应用身份仍来自可信会话，内部测试范围只由服务端测试装配决定，客户端不能用标记绕过批准。
 
-### 必要结构与复用理由（候选）
+### 必要结构与复用理由
 
 | 新增内容 | 最小职责 | 为什么现有能力不能承载 |
 |---|---|---|
@@ -43,53 +43,53 @@ Job 初始为 AWAITING_OWNER_APPROVAL，Run 初始为 PENDING。HTTP 不调用 E
 
 ## 需要修改的文件树
 
-仅本行动、任务单和权威文档指针已修改；以下代码树全部是候选，等待批准后才创建。每文件目标不超过 200 行，每层直接文件不超过 8。
+下列结构已按批准方案实际落地；每文件目标不超过 200 行，每层直接文件不超过 8。没有新增批准、Worker、执行或报告空壳。
 
 ```text
 apps/backend/src/eval_platform/
-├─ domain/jobs/                             # 候选新目录：批次不可变值及提交策略，不依赖框架
+├─ domain/jobs/                             # 已新增：批次不可变值及提交策略，不依赖框架
 │  ├─ __init__.py                           # 包入口
 │  ├─ models.py                             # Job/Run/快照值与安全错误
 │  └─ policy.py                             # 固定规模、限制、闭卷策略与正文规范化
-├─ application/job_submission.py            # 候选新增：授权、校验、提交/查询用例
-├─ application/ports/repositories.py        # 候选修改：增加最小 JobRepository Interface
-├─ adapters/persistence/jobs/               # 候选新目录：PostgreSQL 批次 Adapter
+├─ application/job_submission.py            # 已新增：授权、校验、提交/查询用例
+├─ application/ports/repositories.py        # 已修改：增加最小 JobRepository Interface
+├─ adapters/persistence/jobs/               # 已新增：PostgreSQL 批次 Adapter
 │  ├─ __init__.py / schema.sql              # 显式升级与四表最小约束
 │  ├─ records.py                           # 冻结值序列化/读出完整性
 │  ├─ repository.py                        # 幂等创建与查询的 Repository
 │  └─ publication.py                       # 同一事务插入组合/事件并复核目录状态
 └─ delivery/
-   ├─ jobs.py / job_presets.py              # 候选新增：本机升级/组装和可信配置，非模型凭据
+   ├─ jobs.py / job_presets.py              # 已新增：本机升级/组装和可信配置，非模型凭据
    └─ http/
-      ├─ app.py / errors.py                 # 候选修改：组装提交用例和安全错误
-      └─ routes/jobs/                       # 候选新目录：避免 HTTP 根目录超过 8 文件
+      ├─ app.py / errors.py                 # 已修改：组装提交用例和安全错误
+      └─ routes/jobs/                       # 已新增：避免 HTTP 根目录超过 8 文件
          ├─ __init__.py / routes.py         # 路由入口与 HTTP 翻译
          └─ schemas.py                     # 受控选择与安全输出 DTO
-apps/backend/tests/jobs/                    # 候选新目录：最多 8 个直接文件
+apps/backend/tests/jobs/                    # 已新增：7 个直接文件
 ├─ __init__.py / conftest.py / memory.py     # 合成外部存储、可信身份与夹具
 ├─ test_http.py / test_security.py           # 提交/刷新、权限和任意输入拒绝
 ├─ test_postgres.py / test_concurrency.py    # 真实持久化、回滚、幂等和并发
-└─ runtime/verify.ps1                        # 候选子目录：复用固定官方镜像、隔离 PG/测试器、精确清理
-apps/backend/tests/identity/browser_server.py # 候选修改：仅内部浏览器装配提交用例
-apps/backend/pyproject.toml                 # 候选修改：打包新 SQL，不新增依赖
+└─ runtime/                                 # 已新增：Dockerfile.tests/verify.ps1，隔离 PG 与精确清理
+apps/backend/tests/identity/browser_server.py # 已修改：仅内部浏览器装配提交用例
+apps/backend/pyproject.toml                 # 已修改：打包新 SQL/本机升级命令，不新增依赖
 apps/web/src/
-├─ features/jobs/                           # 候选新目录：通过 HTTP 提交和刷新
+├─ features/jobs/                           # 已新增：通过 HTTP 提交和刷新
 │  ├─ submit.tsx / controls.tsx             # 受控选择、组合数与确认界面
 │  └─ details.tsx                          # 冻结内容与等待批准状态
-├─ features/identity/session.tsx             # 候选修改：登录后接入页面
-└─ lib/job-client.ts                        # 候选新增：复用唯一 HTTP request，运行时校验 DTO
-apps/web/tests/jobs.spec.ts                 # 候选新增：真实浏览器提交→等待批准→刷新
+├─ features/identity/session.tsx             # 已修改：登录后接入页面
+└─ lib/job-client.ts                        # 已新增：复用唯一 HTTP request，运行时校验 DTO
+apps/web/tests/jobs.spec.ts                 # 已新增：真实浏览器提交→等待批准→刷新
 docs/actions/2026-09-12-m1-job-submission.md  # 已新增：本任务独立行动
 .scratch/m1-platform/issues/04-job-submission.md # 已修改：必要待决项，不预勾验收
 HANDOFF.md                                  # 已修改：恢复入口与授权边界
-docs/architecture/{ARCHITECTURE,DATA_MODEL}.md # 已修改：当前阶段与候选指针；批准后维护实际树/表
-docs/architecture/MODULE_CONTRACTS.md         # 候选同步：实际 Interface 与不变量
-docs/interfaces/HTTP_API.md                  # 候选同步：实际 schema/错误/预置，只维护一处
+docs/architecture/{ARCHITECTURE,DATA_MODEL}.md # 当前阶段、实际树与表的权威同步
+docs/architecture/MODULE_CONTRACTS.md         # 实际 Interface 与不变量
+docs/interfaces/HTTP_API.md                  # 实际 schema/错误/预置，只维护一处
 ```
 
 ## 自验证方式与成功标准
 
-- 当前只检查文档链接/锚点/围栏、diff 与候选目录计数；任务 04 所有验收项保持未勾。
+- 开工时只完成文档链接/锚点/围栏、diff 与规划目录计数；任务 04 所有验收项保持未勾，实施后逐项回填。
 - 实施时 HTTP 检查：合法组合和安全 DTO、所有非法/禁用/越权/超限选择、幂等重复/冲突、刷新读取、内部测试不能绕过批准；调用执行或凭据路径应使测试失败。
 - 真实 PG 检查：重建应用后快照不变、全部组合和初始事件一起提交、注入写入故障整笔回滚、并发同键只生成一批、禁用与提交竞态结果一致。使用已批准合成临时库；断言通过公共 HTTP/Repository，不用内部函数调用次数冒充行为验证。
 - 浏览器少量检查：登录后选择已登记项、组合数、提交等待批准、刷新恢复，以及协作者/所有者可见性；不做假进度或假成绩。
@@ -97,8 +97,21 @@ docs/interfaces/HTTP_API.md                  # 候选同步：实际 schema/错�
 
 ## 自验证情况
 
+- 2026-09-12 TDD 首个红灯：运行 `.venv\\Scripts\\python.exe -m pytest tests/jobs/test_http.py -q`，收集阶段因 `eval_platform.application.job_submission` 尚不存在而失败（exit 1）。该失败符合先固定公开 HTTP 行为再补实现的预期，不记为通过。
+- 首片绿色：同一 HTTP 用例在补齐受控选项、冻结提交、内存 Repository 与查询 DTO 后为 `2 passed`（2 个上游弃用警告）；响应确认 `AWAITING_OWNER_APPROVAL`、`internal_test`、初始 Job/Run 事件及不返回测试凭据引用。
+- 第二片红绿：安全/范围用例首次为 `4 passed, 1 failed`，失败点是 Job 列表尚未拒绝未知 query；补上与既有目录一致的未知/重复 query 检查后，`tests/jobs` 为 `7 passed`（2 个上游弃用警告）。已覆盖任意字段/资源覆盖拒绝、空/未登记/禁用/规模错误、去重、3 配置/60 Run 上限、禁用后幂等重放、同键异文冲突、协作者 404 隔离和 owner 全局可见。
+- 第二片局部 mypy 通过；Ruff 首跑仅发现测试 import/行长问题，修正后局部 Ruff 通过。组合命令的最终进程码来自末项 mypy，故不把中途 Ruff 失败冒称整组首跑通过。
+- 真实 PG 红灯：新增公开 Repository/HTTP 的恢复、整批回滚、同键并发和提交/禁用竞态测试后运行，收集阶段因 `eval_platform.adapters.persistence.jobs` 尚不存在而 2 errors（exit 1）；尚未启动或连接任何数据库。
+- 真实 PG 绿色：新增四表 SQL、显式 `agentexam-jobs init-db`、PostgreSQL Repository 的幂等发布/目录行复核/读出完整性和正式 HTTP 组装后，默认门禁运行 `7 passed, 4 skipped`；4 项跳过均为未设置专属 PG 开关，不能计为真实数据库通过。
+- 经既有授权运行 `tests/jobs/runtime/verify.ps1`：先核对任务 03 测试基镜像 `sha256:2162edef...cd24` 与固定 PostgreSQL 镜像 `sha256:5cce759a...a6b6`，使用 `--network=none` 无网络构建当前测试镜像 `sha256:ed201d9e...bbba`。PostgreSQL 容器为 `network=none`，测试器仅共享其网络命名空间；两者均无发布端口、无宿主挂载、只读根、受限 CPU/内存/PID，数据仅在 tmpfs。实际结果 `11 passed`（2 个上游弃用警告，6.36s）；恢复、回滚、并发同键和提交/禁用竞态均通过。
+- 清理证据：脚本只按本次随机标签和精确容器 ID 删除测试器 `0a108f1e...e2ebf` 与 PostgreSQL `3d47e34e...708e80`，末尾复核无同标签容器；tmpfs 数据已删除，本地镜像/构建缓存按授权保留。未连接现有数据库、未发布端口、未更改机器设置。
+- 浏览器红灯取证：首次普通沙箱运行因无权创建既有结果目录而未到页面；提升后未设置项目缓存路径，Playwright 找不到机器级浏览器，未下载任何内容。按依赖文档复用只读核实存在的 `runtime/tools/playwright/chromium_headless_shell-1243` 后，真实 Next→FastAPI 测试到达页面并在 30.1s 超时：缺少“提交评测/刷新可提交选项”入口，符合实现前红灯。前两次异常遗留的本次 3100/8875 测试服务经命令行核实后只终止对应 PID；第三次由 Playwright 正常收束。
+- 浏览器绿色：沿唯一 `request` 客户端补齐服务端选项读取、已登记任务/启用配置选择、组合数、受控提交和详情恢复；合成浏览器后端只在既有门禁下装配 `internal_test` JobRepository。`npm run typecheck` 通过；复用项目 Playwright 缓存运行 `jobs.spec.ts` 为 `1 passed`（19.0s），实际验证登记→选择→组合数 1→提交等待批准→整页重载从后端列表恢复→显式刷新，页面不展示假成绩。
+- 第一轮完整默认后端为 `282 passed, 51 skipped, 2 warnings`（27.09s）；跳过项包括需显式门禁的旧 Docker/真实 PG/MinIO/M0 集成及 4 项 Job PG，用上方独立专属 PG 的 11 项通过补充任务 04 数据库证据，不把其余跳过冒称通过。`mypy src` 为 87 个源文件无问题，Ruff check 通过；首次 format check 指出 5 个新增文件需格式化，执行 Ruff 格式化后 check 与 format check 均通过（150 文件）。
+- 完整浏览器回归按测试文件隔离启动后端，累计 `12 passed`：目录 2、身份安全 6、登录 2、Job 1、成员 1；各组 8.1–13.9s，测试进程正常收束。Web typecheck 再次通过。首次普通沙箱 build 仅因 Next 无权创建本机配置临时文件而失败；禁用遥测并提升权限后 `next build` 编译、类型检查、4 个静态页面生成及构建 trace 全部通过，首页 7.88 kB、首载 110 kB。该构建不是部署。
+- 首次局部 Ruff 发现 1 处超长行与 2 处 import 顺序问题，已修正后局部 Ruff 通过；首次局部 mypy 发现 DTO 的四处显式转换/返回类型问题，已修正，待重跑。文件行数实查：本片 6 个主要 Python 文件为 61–193 行，均未超过 200 行。
 - 文档核对已完成：12 份 Markdown、259 条本地链接、84 处锚点、围栏/空白与 git diff --check 通过；首次发现历史单题引用锚点不匹配，按真实标题修正后通过。任务 04 九项验收全部未勾，标签 needs-info；未创建候选业务目录。
 - 目录指标复核：任务 03 的 36 个动态代码文件均不超过 200 行，检查的 9 个直接目录均不超过 8 文件；任务 04 候选布局已避开满额 HTTP/测试目录。该检查不代表任务 04 代码已存在。
-- 本轮仅新行动与任务单拟精确本地提交；架构、数据和 HANDOFF 等混合旧文档已同步于工作区，不整批暂存，不覆盖原有改动。
+- 本轮新行动与任务单已精确本地提交为 `3274e18`，暂存范围核对与暂存 diff 通过、提交后暂存区为空；架构、数据和 HANDOFF 等混合旧文档已同步于工作区，不整批暂存，不覆盖原有改动。
 - Pending：任务 04 尚未实现，业务验收未运行。任务 03 的通过证据只作已完成依赖，不计为任务 04 通过。
-- 当前可控暂停点：等待以上候选方案批准，尤其是精确规模/资源预置、访问范围、四表和新 Interface/子目录。既有临时 PG 与本地提交授权不重复申请。
+- 2026-09-12 恢复窗口已回填用户批准：精确规模/资源预置、访问范围、四表和新 Interface/子目录均已确认；当前无方案授权阻塞。既有临时 PG 与本地提交授权不重复申请。

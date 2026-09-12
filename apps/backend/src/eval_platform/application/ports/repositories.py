@@ -1,6 +1,7 @@
 from typing import Protocol
 
 from eval_platform.domain.catalog import CatalogTask, RegisteredAgent
+from eval_platform.domain.jobs.models import EvaluationJob
 
 
 class TaskRepository(Protocol):
@@ -34,3 +35,25 @@ class AgentConfigurationRepository(Protocol):
     ) -> list[RegisteredAgent]: ...
 
     def disable(self, configuration_id: str) -> None: ...
+
+
+class JobRepository(Protocol):
+    """Atomically publish a complete frozen Job and resolve scoped replays."""
+
+    def resolve_idempotency(
+        self, created_by: str, key_hash: str, request_sha256: str
+    ) -> EvaluationJob | None: ...
+
+    def create(
+        self, record: EvaluationJob, key_hash: str, request_sha256: str
+    ) -> EvaluationJob: ...
+
+    def get(self, job_id: str) -> EvaluationJob: ...
+
+    def list(
+        self,
+        created_by: str | None,
+        filters: dict[str, str],
+        cursor: str | None,
+        limit: int,
+    ) -> list[EvaluationJob]: ...

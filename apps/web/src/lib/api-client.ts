@@ -14,21 +14,31 @@ const messages: Record<ApiErrorCode, string> = {
   CATALOG_CONFLICT: "固定身份的内容发生冲突，未覆盖原记录。",
   TASK_NOT_FOUND: "未找到该任务，请刷新目录。",
   AGENT_CONFIGURATION_NOT_FOUND: "未找到该配置，请刷新目录。",
+  AGENT_CONFIGURATION_DISABLED: "所选配置已禁用，请刷新后重新选择。",
+  IDEMPOTENCY_CONFLICT: "本次提交标识已用于不同选择，请重新提交。",
+  IDEMPOTENCY_KEY_INVALID: "提交标识无效，请重新提交。",
+  JOB_NOT_FOUND: "未找到该评测批次，或当前账号无权查看。",
+  EMPTY_JOB_SELECTION: "请至少选择一道任务和一个配置。",
+  BATCH_PRESET_EXCEEDED: "任务或配置数量不符合所选批次规模。",
+  LIMIT_PROFILE_NOT_ALLOWED: "所选资源限制不可用，请刷新选项。",
+  EVALUATION_TRACK_NOT_ENABLED: "所选评测赛道尚未开放。",
 };
 
 export class ApiError extends Error {
   constructor(readonly code: ApiErrorCode) { super(messages[code]); }
 }
 
-export async function request(path: string, body?: object): Promise<unknown> {
+export async function request(
+  path: string, body?: object, extraHeaders: Record<string, string> = {},
+): Promise<unknown> {
   let response: Response;
   try {
     response = await fetch(`/api/v1/${path}`, {
       method: body === undefined ? "GET" : "POST",
       credentials: "same-origin",
       cache: "no-store",
-      headers: body === undefined ? {} : {
-        "Content-Type": "application/json", "X-AgentExam-Request": "1",
+      headers: body === undefined ? extraHeaders : {
+        "Content-Type": "application/json", "X-AgentExam-Request": "1", ...extraHeaders,
       },
       body: body === undefined ? undefined : JSON.stringify(body),
     });

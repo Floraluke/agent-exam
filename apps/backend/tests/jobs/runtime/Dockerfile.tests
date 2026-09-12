@@ -1,0 +1,6 @@
+# Reuse the verified task-03 test runtime; replace only workspace source/tests.
+FROM agentexam-catalog-tests:20260912
+COPY --chown=65534:65534 pyproject.toml ./pyproject.toml
+COPY --chown=65534:65534 src ./src
+COPY --chown=65534:65534 tests ./tests
+USER 65534:65534

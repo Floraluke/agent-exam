@@ -7,6 +7,7 @@ import JoinPanel from "./join";
 import MembersPanel from "./members";
 import TasksPanel from "../catalog/tasks";
 import AgentsPanel from "../catalog/agents";
+import JobsPanel from "../jobs/submit";
 
 export default function SessionPanel() {
   const [actor, setActor] = useState<Actor | null>(null);
@@ -55,11 +56,12 @@ export default function SessionPanel() {
       <span className="eyebrow">应用身份已验证</span>
       <h2>已登录：{actor.username}</h2>
       <p>角色：{actor.role === "owner" ? "评测机所有者" : "协作者"}</p>
-      <p className="muted">账号入口已接通。评测提交、批准和报告将在后续任务中提供。</p>
+      <p className="muted">账号入口已接通；提交会先等待评测机所有者批准。</p>
       <button disabled={busy} onClick={signOut}>退出登录</button>
       {actor.role === "owner" && <MembersPanel />}
       <TasksPanel owner={actor.role === "owner"} />
       <AgentsPanel owner={actor.role === "owner"} />
+      <JobsPanel />
     </> : <>
       {joined && <p role="status">加入成功，请使用新账号登录。</p>}
       {joining ? <>

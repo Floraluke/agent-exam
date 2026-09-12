@@ -9,6 +9,7 @@ from eval_platform.adapters.persistence.identity import PostgresIdentityReposito
 from eval_platform.adapters.persistence.membership import PostgresMembershipRepository
 from eval_platform.application.agent_registry import AgentRegistry
 from eval_platform.application.identity import IdentityService
+from eval_platform.application.job_submission import JobSubmission
 from eval_platform.application.membership import MembershipService
 from eval_platform.application.task_catalog import TaskCatalog
 from eval_platform.delivery.catalog_presets import create_catalog
@@ -19,19 +20,23 @@ from eval_platform.delivery.http.errors import (
     dependency_error,
     error_response,
     framework_http_error,
+    job_error,
     membership_error,
     validation_error,
 )
 from eval_platform.delivery.http.routes.catalog import catalog_router
 from eval_platform.delivery.http.routes.identity import identity_router
+from eval_platform.delivery.http.routes.jobs import jobs_router
 from eval_platform.delivery.http.routes.membership import membership_router
 from eval_platform.delivery.http.security import LoginLimiter, trusted_write
+from eval_platform.delivery.jobs import create_jobs
 from eval_platform.domain.catalog import CatalogError
 from eval_platform.domain.identity import (
     AuthenticationRequired,
     IdentityConflict,
     IdentityUnavailable,
 )
+from eval_platform.domain.jobs.models import JobError
 from eval_platform.domain.membership import (
     InvitationUnavailable,
     MemberNotFound,
@@ -45,6 +50,7 @@ def create_app(
     membership: MembershipService | None = None,
     tasks: TaskCatalog | None = None,
     agents: AgentRegistry | None = None,
+    jobs: JobSubmission | None = None,
 ) -> FastAPI:
     app = FastAPI(title="AgentExam", version="0.1.0")
     limiters = {
@@ -53,6 +59,7 @@ def create_app(
     }
     app.add_exception_handler(AuthenticationRequired, authentication_error)
     app.add_exception_handler(CatalogError, catalog_error)
+    app.add_exception_handler(JobError, job_error)
     app.add_exception_handler(RequestValidationError, validation_error)
     app.add_exception_handler(IdentityUnavailable, dependency_error)
     app.add_exception_handler(HTTPException, framework_http_error)
@@ -90,6 +97,8 @@ def create_app(
         app.include_router(membership_router(service, membership, config))
     if tasks is not None:
         app.include_router(catalog_router(service, tasks, config, agents))
+    if jobs is not None:
+        app.include_router(jobs_router(service, jobs, config))
     return app
 
 
@@ -100,4 +109,5 @@ def create_runtime_app() -> FastAPI:
     identity = IdentityService(PostgresIdentityRepository(dsn), passwords)
     membership = MembershipService(PostgresMembershipRepository(dsn), passwords)
     tasks, agents = create_catalog(dsn)
-    return create_app(identity, config, membership, tasks, agents)
+    jobs = create_jobs(dsn, tasks, agents)
+    return create_app(identity, config, membership, tasks, agents, jobs)
