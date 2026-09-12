@@ -4,8 +4,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from eval_platform.domain.jobs.execution import JobReport, RunReport
-from eval_platform.domain.jobs.models import JobStatus, RunStatus
+from eval_platform.domain.jobs.execution import RunReport
+from eval_platform.domain.jobs.models import RunStatus
 
 ArtifactType = Literal[
     "agent_patch", "harness_report", "harness_summary", "harness_test_output"
@@ -119,53 +119,5 @@ class RunReportResponse(BaseModel):
                     }
                 )
                 for item in report.artifacts
-            ],
-        )
-
-
-class JobRunReportResponse(BaseModel):
-    run_id: str
-    status: RunStatus
-    resolved: bool | None
-    failure_code: str | None
-    report_path: str
-
-
-class JobReportResponse(BaseModel):
-    job_id: str
-    status: JobStatus
-    trial_count: int
-    completed_runs: int
-    failed_runs: int
-    pending_runs: int
-    development_limitation: str | None
-    runs: list[JobRunReportResponse]
-
-    @classmethod
-    def from_record(cls, report: JobReport) -> "JobReportResponse":
-        runs = report.job.runs
-        return cls(
-            job_id=report.job.job_id,
-            status=report.job.status,
-            trial_count=report.job.trial_count,
-            completed_runs=sum(run.status == "COMPLETED" for run in runs),
-            failed_runs=sum(run.status == "FAILED" for run in runs),
-            pending_runs=sum(
-                run.status not in {"COMPLETED", "FAILED", "CANCELED"} for run in runs
-            ),
-            development_limitation=(
-                "任务 07 接通前，多组合批次保持排队且不会被部分领取。"
-                if report.job.trial_count > 1
-                else None
-            ),
-            runs=[
-                JobRunReportResponse(
-                    run_id=run.run_id,
-                    status=run.status,
-                    resolved=run.resolved_summary,
-                    failure_code=run.failure_code,
-                    report_path=f"/api/v1/reports/runs/{run.run_id}",
-                )
-                for run in runs
             ],
         )

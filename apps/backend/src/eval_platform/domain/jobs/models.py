@@ -27,6 +27,7 @@ JobStatus = Literal[
     "EXECUTING",
     "FINALIZING",
     "COMPLETED",
+    "COMPLETED_WITH_ERRORS",
     "FAILED",
     "REJECTED",
 ]
@@ -101,6 +102,16 @@ class EvaluationRun:
     resolved_summary: bool | None = None
     started_at: datetime | None = None
     finished_at: datetime | None = None
+
+
+def run_order_key(run: EvaluationRun) -> tuple[str, str, str]:
+    """Match Harbor's deterministic task-then-Agent Cartesian order."""
+
+    return (
+        run.task.task_id,
+        run.agent.agent_configuration_id,
+        run.run_id,
+    )
 
 
 @dataclass(frozen=True, slots=True)

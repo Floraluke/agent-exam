@@ -56,11 +56,16 @@ repository = MemoryMembershipRepository()
 passwords = Argon2Passwords()
 service = IdentityService(repository, passwords, browser_clock)
 service.bootstrap_owner("owner", "synthetic browser password")
+task_source = FixedSource(task_bundle())
+task_source.bundles["example__repo-2"] = task_bundle("example__repo-2")
 tasks = TaskCatalog(
     MemoryTasks(),
     CatalogArtifacts(),
-    FixedSource(task_bundle()),
-    {"swe-gym-lite-mypy-15413": "example__repo-1"},
+    task_source,
+    {
+        "swe-gym-lite-mypy-15413": "example__repo-1",
+        "swe-gym-lite-example-2": "example__repo-2",
+    },
 )
 agents = AgentRegistry(
     MemoryAgents(),

@@ -5,10 +5,8 @@ from fastapi import APIRouter, Request
 from eval_platform.application.identity import IdentityService
 from eval_platform.application.reporting import JobReporting
 from eval_platform.delivery.http.config import HttpConfig
-from eval_platform.delivery.http.routes.jobs.report_schemas import (
-    JobReportResponse,
-    RunReportResponse,
-)
+from eval_platform.delivery.http.routes.jobs.batch_schemas import JobReportResponse
+from eval_platform.delivery.http.routes.jobs.report_schemas import RunReportResponse
 from eval_platform.delivery.http.schemas import error_responses
 
 

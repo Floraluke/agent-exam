@@ -11,8 +11,12 @@ from eval_platform.delivery.worker.main import WorkerShell
 from eval_platform.domain.catalog import ArtifactUnavailable
 from eval_platform.domain.identity import AuthenticatedActor
 from eval_platform.domain.jobs.execution import restore_agent, restore_public_task
-from eval_platform.domain.result import ExecutionTrialResult, TerminationReason
-from jobs.execution.support.fakes import Backend, Evaluator, MemoryArtifacts
+from jobs.execution.support.fakes import (
+    Backend,
+    Evaluator,
+    FailedBackend,
+    MemoryArtifacts,
+)
 from jobs.execution.support.fixtures import queued_job
 from jobs.execution.support.memory import ExecutableMemoryJobs
 
@@ -130,21 +134,6 @@ def test_invalid_patch_is_infrastructure_failure_not_a_score(patch, code):
     assert report.deterministic_result is None and evaluator.requests == []
 
 
-class FailedBackend:
-    def execute(self, request):
-        run_id = request.runs[0].run_id
-        return (
-            ExecutionTrialResult(
-                run_id,
-                "harbor-job-one",
-                "harbor-trial-one",
-                TerminationReason.AGENT_FAILED,
-                None,
-                None,
-            ),
-        )
-
-
 def test_agent_failure_is_distinct_from_a_normal_unresolved_result():
     now = datetime(2026, 9, 12, 8, 0, tzinfo=UTC)
     job, bundle = queued_job(now)
@@ -160,6 +149,9 @@ def test_agent_failure_is_distinct_from_a_normal_unresolved_result():
     )
     assert WorkerShell(repository, executor, lambda: now).run_once("worker-one")
     failed = repository.get_run_report(job.runs[0].run_id)
+    failed_job = repository.get(job.job_id)
+    assert failed_job.status == "FAILED"
+    assert failed_job.failure_code == "BATCH_FAILED"
     assert failed.run.failure_code == "EXECUTION_AGENT_FAILED"
     assert failed.deterministic_result is None
 

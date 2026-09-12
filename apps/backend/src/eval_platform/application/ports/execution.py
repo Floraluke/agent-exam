@@ -78,5 +78,17 @@ class ExecutionJobRequest:
 
 
 class ExecutionBackend(Protocol):
-    def execute(self, request: ExecutionJobRequest) -> tuple[ExecutionTrialResult, ...]:
+    def execute(
+        self,
+        request: ExecutionJobRequest,
+        progress: ExecutionProgressObserver | None = None,
+    ) -> tuple[ExecutionTrialResult, ...]:
         """Execute registered runs without deciding whether their patches pass."""
+
+
+class ExecutionProgressObserver(Protocol):
+    """Accept normalized Trial identities; it never trusts backend log text."""
+
+    def trial_started(self, run_id: str) -> None: ...
+
+    def trial_finished(self, run_id: str) -> None: ...

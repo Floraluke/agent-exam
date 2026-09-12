@@ -1,13 +1,23 @@
-"""Thread-safe executable JobRepository fake for task-06 tests."""
+"""Thread-safe executable JobRepository fake for execution tests."""
 
 import re
 from dataclasses import replace
-from datetime import timedelta
-from uuid import uuid4
 
-from eval_platform.domain.jobs.execution import ClaimedJob, JobLease, JobLeaseConflict
-from eval_platform.domain.jobs.models import StateEvent
+from eval_platform.domain.jobs.execution import ClaimedJob, JobLeaseConflict
+from eval_platform.domain.jobs.models import run_order_key
 from jobs.execution.support import memory_results
+from jobs.execution.support.memory_state import (
+    event,
+    expiry,
+    next_pending,
+    next_run,
+    replace_run,
+    touch,
+    transition,
+)
+from jobs.execution.support.memory_state import (
+    lease as make_lease,
+)
 from jobs.memory import MemoryJobs
 
 _ACTIVE = {"PREPARING", "EXECUTING", "FINALIZING"}
@@ -29,27 +39,21 @@ class ExecutableMemoryJobs(MemoryJobs):
                 (
                     record
                     for record in self.records.values()
-                    if record.status == "QUEUED" and record.trial_count == 1
+                    if record.status == "QUEUED"
                 ),
                 key=lambda item: (item.created_at, item.job_id),
             )
             if not candidates:
                 return None
             job = candidates[0]
-            run = replace(
-                job.runs[0],
-                status="PREPARING",
-                stage="preparing",
-                row_version=job.runs[0].row_version + 1,
-                started_at=now,
-                state_events=job.runs[0].state_events
-                + (_event(job.runs[0], "PREPARING", "WORKER_CLAIMED", now, worker_id),),
-            )
-            expires = _expiry(job, now)
+            first = min(job.runs, key=run_order_key)
+            first = transition(first, "PREPARING", "WORKER_CLAIMED", now, worker_id)
+            first = replace(first, stage="preparing", started_at=now)
+            expires = expiry(job, now)
             job = replace(
                 job,
                 status="PREPARING",
-                runs=(run,),
+                runs=replace_run(job.runs, first),
                 row_version=job.row_version + 1,
                 claimed_by=worker_id,
                 claimed_at=now,
@@ -57,73 +61,96 @@ class ExecutableMemoryJobs(MemoryJobs):
                 lease_expires_at=expires,
                 started_at=now,
                 state_events=job.state_events
-                + (_event(job, "PREPARING", "WORKER_CLAIMED", now, worker_id),),
+                + (event(job, "PREPARING", "WORKER_CLAIMED", now, worker_id),),
             )
             self.records[job.job_id] = job
-            return ClaimedJob(job, _lease(job, run))
+            return ClaimedJob(job, make_lease(job, first))
 
     def start_execution(self, lease, now):
         with self.lock:
-            job, run = self._current(lease, now, "PREPARING", "PREPARING")
-            expires = _expiry(job, now)
-            run = replace(
-                run,
-                status="RUNNING_AGENT",
-                stage="running_agent",
-                row_version=run.row_version + 1,
-                state_events=run.state_events
-                + (
-                    _event(
-                        run, "RUNNING_AGENT", "EXECUTION_STARTED", now, lease.worker_id
-                    ),
-                ),
-            )
+            job, anchor = self._current(lease, now, "PREPARING", "PREPARING")
             job = replace(
                 job,
                 status="EXECUTING",
-                runs=(run,),
                 row_version=job.row_version + 1,
                 heartbeat_at=now,
-                lease_expires_at=expires,
+                lease_expires_at=expiry(job, now),
                 state_events=job.state_events
-                + (
-                    _event(job, "EXECUTING", "EXECUTION_STARTED", now, lease.worker_id),
-                ),
+                + (event(job, "EXECUTING", "EXECUTION_STARTED", now, lease.worker_id),),
             )
             self.records[job.job_id] = job
-            return _lease(job, run)
+            return make_lease(job, anchor)
+
+    def start_run(self, lease, run_id, now):
+        with self.lock:
+            job, _anchor = self._current(lease, now, "EXECUTING", None)
+            run = next_pending(job)
+            if (
+                run is None
+                or run.run_id != run_id
+                or run.status not in {"PENDING", "PREPARING"}
+            ):
+                raise JobLeaseConflict
+            if run.status == "PENDING":
+                run = transition(
+                    run, "PREPARING", "TRIAL_PREPARING", now, lease.worker_id
+                )
+            run = transition(
+                run, "RUNNING_AGENT", "TRIAL_STARTED", now, lease.worker_id
+            )
+            run = replace(run, stage="running_agent", started_at=run.started_at or now)
+            job = touch(job, run, now)
+            self.records[job.job_id] = job
+            return make_lease(job, run)
+
+    def finish_run_execution(self, lease, run_id, now):
+        with self.lock:
+            job, run = self._current(lease, now, "EXECUTING", "RUNNING_AGENT")
+            if run.run_id != run_id or run.stage != "running_agent":
+                raise JobLeaseConflict
+            run = transition(
+                run, "RUNNING_AGENT", "TRIAL_FINISHED", now, lease.worker_id
+            )
+            run = replace(run, stage="collecting")
+            job = touch(job, run, now)
+            self.records[job.job_id] = job
+            return make_lease(job, run)
 
     def start_verifying(self, lease, trial, now):
         with self.lock:
-            job, run = self._current(lease, now, "EXECUTING", "RUNNING_AGENT")
-            if trial.run_id != run.run_id:
+            job, _anchor = self._current(lease, now, "EXECUTING", None)
+            run = next_run(job)
+            if (
+                run is None
+                or trial.run_id != run.run_id
+                or not trial.backend_job_ref
+                or not trial.backend_trial_ref
+                or run.status != "RUNNING_AGENT"
+                or run.stage != "collecting"
+            ):
                 raise JobLeaseConflict
-            expires = _expiry(job, now)
+            run = transition(run, "VERIFYING", "PATCH_READY", now, lease.worker_id)
             run = replace(
                 run,
-                status="VERIFYING",
                 stage="verifying",
-                row_version=run.row_version + 1,
                 backend_job_ref=trial.backend_job_ref,
                 backend_trial_ref=trial.backend_trial_ref,
-                state_events=run.state_events
-                + (_event(run, "VERIFYING", "PATCH_READY", now, lease.worker_id),),
             )
-            job = replace(
-                job,
-                runs=(run,),
-                row_version=job.row_version + 1,
-                heartbeat_at=now,
-                lease_expires_at=expires,
-            )
+            job = touch(job, run, now)
             self.records[job.job_id] = job
-            return _lease(job, run)
+            return make_lease(job, run)
 
     def complete(self, lease, completion):
         return memory_results.complete(self, lease, completion)
 
-    def fail(self, lease, code, summary, now):
-        return memory_results.fail(self, lease, code, summary, now)
+    def fail(self, lease, run_id, code, summary, now, trial=None):
+        return memory_results.fail(self, lease, run_id, code, summary, now, trial)
+
+    def start_finalizing(self, lease, now):
+        return memory_results.start_finalizing(self, lease, now)
+
+    def finish(self, lease, now, failure_code=None):
+        return memory_results.finish(self, lease, now, failure_code)
 
     def get_run_report(self, run_id):
         return memory_results.get_run_report(self, run_id)
@@ -133,7 +160,7 @@ class ExecutableMemoryJobs(MemoryJobs):
 
     def _current(self, lease, now, job_status, run_status):
         job = self.records[lease.job_id]
-        run = job.runs[0]
+        run = next(item for item in job.runs if item.run_id == lease.run_id)
         if (
             job.claimed_by != lease.worker_id
             or job.row_version != lease.job_version
@@ -145,33 +172,3 @@ class ExecutableMemoryJobs(MemoryJobs):
         ):
             raise JobLeaseConflict
         return job, run
-
-
-def _expiry(job, now):
-    limits = job.limit_snapshot
-    seconds = limits.agent_wall_timeout_sec + limits.evaluator_wall_timeout_sec + 300
-    return now + timedelta(seconds=seconds)
-
-
-def _lease(job, run):
-    assert job.claimed_by is not None and job.lease_expires_at is not None
-    return JobLease(
-        job.job_id,
-        run.run_id,
-        job.claimed_by,
-        job.row_version,
-        run.row_version,
-        job.lease_expires_at,
-    )
-
-
-def _event(record, target, reason, now, worker):
-    return StateEvent(
-        str(uuid4()),
-        len(record.state_events) + 1,
-        record.status,
-        target,
-        reason,
-        now,
-        worker_id=worker,
-    )

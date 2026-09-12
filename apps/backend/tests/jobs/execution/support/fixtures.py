@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import datetime
 from hashlib import sha256
 from uuid import uuid4
@@ -130,3 +131,38 @@ def queued_job(now: datetime):
         1,
     )
     return job, bundle
+
+
+def queued_batch(now: datetime, size: int = 3):
+    if size < 2:
+        raise ValueError("batch fixture needs at least two runs")
+    job, first_bundle = queued_job(now)
+    bundles = [first_bundle]
+    runs = [job.runs[0]]
+    for index in range(2, size + 1):
+        bundle = task_bundle(
+            instance_id=f"example__repo-{index}", repo=f"example/repo-{index}"
+        )
+        task = replace(
+            job.runs[0].task,
+            task_id=str(uuid4()),
+            instance_id=bundle.public.instance_id,
+            repo=bundle.public.repo,
+            raw_record_sha256=bundle.public.raw_record_sha256,
+            problem_sha256=sha256(bundle.public.problem_statement.encode()).hexdigest(),
+            artifact_id=str(uuid4()),
+            source_object_key=f"tasks/{bundle.public.instance_id}.json",
+            source_sha256=bundle.public.raw_record_sha256,
+        )
+        runs.append(
+            replace(
+                job.runs[0],
+                run_id=str(uuid4()),
+                task=task,
+                state_events=(
+                    StateEvent(str(uuid4()), 1, None, "PENDING", "JOB_SUBMITTED", now),
+                ),
+            )
+        )
+        bundles.append(bundle)
+    return replace(job, runs=tuple(runs)), tuple(bundles)

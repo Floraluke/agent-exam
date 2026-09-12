@@ -169,7 +169,8 @@ def test_adapter_stages_private_inputs_outside_the_job_config(
     )
     assert adapter.execute(request) == ()
     args = captured["args"]
-    assert args[-1] == tmp_path / "evidence/job/codex-input"
+    assert args[-2] == tmp_path / "evidence/job/codex-input"
+    assert args[-1] is None
     config = (tmp_path / "evidence/job/harbor-config.json").read_text()
     assert str(auth.resolve()) not in config and str(archive.resolve()) not in config
     assert str(auth.resolve()) not in repr(adapter)

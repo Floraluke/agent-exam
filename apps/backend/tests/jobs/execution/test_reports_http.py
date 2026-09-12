@@ -4,7 +4,7 @@ from identity.conftest import WRITE_HEADERS
 
 from eval_platform.application.execute_job import JobExecutor
 from eval_platform.delivery.worker.main import WorkerShell
-from jobs.execution.support.fakes import Backend, Evaluator
+from jobs.execution.support.fakes import Backend, Evaluator, FailingEvaluator
 from jobs.test_http import submission, submit
 from jobs.test_security import invite
 
@@ -77,6 +77,54 @@ def test_report_requires_identity_and_hides_unknown_run(jobs_api):
     assert jobs_api.login().status_code == 200
     response = jobs_api.client.get(f"/api/v1/reports/runs/{missing}")
     assert response.status_code == 404
+
+
+def test_batch_report_exposes_safe_identity_stage_and_partial_matrix(jobs_api):
+    jobs_api.login()
+    first, agent = jobs_api.register_catalogs()
+    second = jobs_api.register_task("verified-task-2")
+    body = submission(first["task_id"], agent["agent_configuration_id"])
+    body["task_ids"] = [first["task_id"], second["task_id"]]
+    created = submit(jobs_api, body, "batch-report-source-0001").json()
+    jobs_api.client.post(
+        f"/api/v1/jobs/{created['job_id']}/approve",
+        json={},
+        headers={**WRITE_HEADERS, "Idempotency-Key": "batch-report-approve-0001"},
+    )
+    frozen = jobs_api.repository.get(created["job_id"])
+    failed = min(run.run_id for run in frozen.runs)
+    artifacts = jobs_api.run_artifacts
+    now = datetime(2026, 9, 12, 13, 30, tzinfo=UTC)
+    executor = JobExecutor(
+        jobs_api.repository,
+        artifacts,
+        Backend(artifacts, b"diff --git a/a b/a\n"),
+        FailingEvaluator(artifacts, {failed}),
+        jobs_api.jobs.tasks.source,
+        lambda: now,
+    )
+    assert WorkerShell(jobs_api.repository, executor, lambda: now).run_once(
+        "batch-http-worker"
+    )
+
+    response = jobs_api.client.get(f"/api/v1/reports/jobs/{created['job_id']}")
+    assert response.status_code == 200
+    report = response.json()
+    assert report["status"] == "COMPLETED_WITH_ERRORS"
+    assert report["failure_code"] == "BATCH_PARTIAL_FAILURE"
+    assert report["completed_runs"] == report["failed_runs"] == 1
+    assert {run["outcome"] for run in report["runs"]} == {
+        "resolved",
+        "infrastructure_error",
+    }
+    assert {run["task_instance_id"] for run in report["runs"]} == {
+        "example__repo-1",
+        "example__repo-2",
+    }
+    assert all(
+        run["agent_display_name"] == "Synthetic Codex 1" for run in report["runs"]
+    )
+    assert all("log" not in run["stage_message"].lower() for run in report["runs"])
 
 
 def test_run_report_uses_the_same_owner_or_creator_scope(jobs_api):

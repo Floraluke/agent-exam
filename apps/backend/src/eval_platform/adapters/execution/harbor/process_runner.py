@@ -4,12 +4,13 @@ import json
 import os
 import signal
 import subprocess
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
 from eval_platform.adapters.execution.harbor.artifacts import RAW_ARTIFACT_MAX_BYTES
+from eval_platform.adapters.execution.harbor.lifecycle.process_wait import wait_bounded
 from eval_platform.adapters.execution.harbor.process_evidence import (
     CapturedLog,
     LogCaptureSession,
@@ -41,6 +42,7 @@ def run_bounded_process(
     evidence_root: Path,
     max_log_bytes: int = RAW_ARTIFACT_MAX_BYTES,
     redactions: tuple[bytes, ...] = (),
+    on_poll: Callable[[], None] | None = None,
 ) -> ProcessOutcome:
     if timeout_sec <= 0 or max_log_bytes < 0:
         raise ValueError("Process limits must be valid")
@@ -75,11 +77,14 @@ def run_bounded_process(
     warnings: list[str] = []
     timed_out = False
     try:
-        process.wait(timeout=timeout_sec)
-    except subprocess.TimeoutExpired:
-        timed_out = True
-        warnings.append("HARBOR_PROCESS_TIMEOUT")
-        warnings.extend(_terminate_process_tree(process))
+        timed_out = wait_bounded(process, timeout_sec, on_poll)
+        if timed_out:
+            warnings.append("HARBOR_PROCESS_TIMEOUT")
+            warnings.extend(_terminate_process_tree(process))
+    except Exception:
+        _terminate_process_tree(process)
+        capture.finish(timeout_sec=_LOG_CAPTURE_TIMEOUT_SEC)
+        raise
     stdout, stderr, incomplete_logs = capture.finish(
         timeout_sec=_LOG_CAPTURE_TIMEOUT_SEC
     )

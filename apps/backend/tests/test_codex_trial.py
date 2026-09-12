@@ -10,9 +10,9 @@ from pathlib import Path
 
 import pytest
 
-from eval_platform.adapters.execution.harbor.adapter import (
-    _cleanup_timed_out_projects,
+from eval_platform.adapters.execution.harbor.lifecycle.cleanup import (
     _docker_resource_ids,
+    cleanup_timed_out_projects,
 )
 from eval_platform.adapters.execution.harbor.config_mapper import (
     ARTIFACT_CONTRACT_VERSION,
@@ -165,4 +165,4 @@ def test_full_synthetic_codex_trial(tmp_path: Path, mode: str) -> None:
             assert mapped.patch_ref is not None, "Existing unsafe admission changed"
     finally:
         if list(job_dir.glob("*/config.json")):
-            assert _cleanup_timed_out_projects(job_dir) == ()
+            assert cleanup_timed_out_projects(job_dir) == ()

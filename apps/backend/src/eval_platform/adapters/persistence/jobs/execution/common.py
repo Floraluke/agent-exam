@@ -65,7 +65,7 @@ def event(
     )
 
 
-def expiry(snapshot: object, now: datetime) -> datetime:
+def expiry(snapshot: object, now: datetime, trial_count: int = 1) -> datetime:
     if not isinstance(snapshot, dict):
         raise JobLeaseConflict
     agent = snapshot.get("agent_wall_timeout_sec")
@@ -73,10 +73,10 @@ def expiry(snapshot: object, now: datetime) -> datetime:
     if (
         type(agent) is not int
         or type(evaluator) is not int
-        or min(agent, evaluator) <= 0
+        or min(agent, evaluator, trial_count) <= 0
     ):
         raise JobLeaseConflict
-    return now + timedelta(seconds=agent + evaluator + 300)
+    return now + timedelta(seconds=(agent + evaluator) * trial_count + 300)
 
 
 def validate_worker(value: str) -> None:

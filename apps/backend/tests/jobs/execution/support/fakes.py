@@ -1,5 +1,6 @@
 from hashlib import sha256
 
+from eval_platform.application.ports.evaluator import EvaluationError
 from eval_platform.domain.catalog import ArtifactUnavailable
 from eval_platform.domain.result import (
     ArtifactRef,
@@ -50,22 +51,29 @@ class Backend:
     def __init__(self, store, patch):
         self.store, self.patch, self.requests = store, patch, []
 
-    def execute(self, request):
+    def execute(self, request, progress=None):
         self.requests.append(request)
-        run_id = request.runs[0].run_id
-        patch = artifact(self.store, run_id, "agent_patch", self.patch, "text/x-diff")
-        return (
-            ExecutionTrialResult(
-                run_id,
+        results = []
+        for index, run in enumerate(request.runs, 1):
+            if progress is not None:
+                progress.trial_started(run.run_id)
+            patch = artifact(
+                self.store, run.run_id, "agent_patch", self.patch, "text/x-diff"
+            )
+            result = ExecutionTrialResult(
+                run.run_id,
                 "harbor-job-one",
-                "harbor-trial-one",
+                f"harbor-trial-{index}",
                 TerminationReason.COMPLETED,
                 patch,
                 None,
                 usage=UsageSummary(11, 2, 3, 0.01),
                 resource_summary=ResourceSummary(1.5, 0.5, 4096),
-            ),
-        )
+            )
+            if progress is not None:
+                progress.trial_finished(run.run_id)
+            results.append(result)
+        return tuple(results)
 
 
 class Evaluator:
@@ -102,3 +110,32 @@ class Evaluator:
             {"FAIL_TO_PASS": {"success": 1, "failure": 0}},
             125,
         )
+
+
+class FailingEvaluator(Evaluator):
+    def __init__(self, store, failed_runs):
+        super().__init__(store)
+        self.failed_runs = set(failed_runs)
+
+    def evaluate(self, request):
+        if request.run_id in self.failed_runs:
+            raise EvaluationError("HARNESS_FAILED", "synthetic evaluator failure")
+        return super().evaluate(request)
+
+
+class FailedBackend:
+    def execute(self, request, progress=None):
+        run_id = request.runs[0].run_id
+        if progress is not None:
+            progress.trial_started(run_id)
+        result = ExecutionTrialResult(
+            run_id,
+            "harbor-job-one",
+            "harbor-trial-one",
+            TerminationReason.AGENT_FAILED,
+            None,
+            None,
+        )
+        if progress is not None:
+            progress.trial_finished(run_id)
+        return (result,)

@@ -5,15 +5,27 @@ from typing import Any
 import psycopg
 from psycopg.types.json import Jsonb
 
+from eval_platform.adapters.persistence.jobs.execution.batch import (
+    _next_run,
+    _touch_job,
+)
 from eval_platform.adapters.persistence.jobs.execution.common import current, event
-from eval_platform.domain.jobs.execution import JobLease, RunArtifact, RunCompletion
+from eval_platform.domain.jobs.execution import (
+    JobLease,
+    JobLeaseConflict,
+    RunArtifact,
+    RunCompletion,
+)
 from eval_platform.domain.jobs.models import JobUnavailable
+from eval_platform.domain.result import ExecutionTrialResult
 
 Connection = psycopg.Connection[Any]
 
 
-def complete(connection: Connection, lease: JobLease, completion: RunCompletion) -> str:
-    current(connection, lease, completion.occurred_at, "EXECUTING", "VERIFYING")
+def complete(
+    connection: Connection, lease: JobLease, completion: RunCompletion
+) -> JobLease:
+    job = current(connection, lease, completion.occurred_at, "EXECUTING", "VERIFYING")
     result = completion.result
     identifiers = {item.artifact_id for item in completion.artifacts}
     required = {result.report_artifact_id, result.test_output_artifact_id} - {None}
@@ -44,11 +56,13 @@ def complete(connection: Connection, lease: JobLease, completion: RunCompletion)
             result.created_at,
         ),
     )
+    run_version = lease.run_version + 1
     connection.execute(
         "UPDATE evaluation_runs SET status='COMPLETED',stage='completed',"
-        "row_version=row_version+1,resolved_summary=%s,process_metrics=%s,"
-        "warnings=%s,finished_at=%s WHERE run_id=%s",
+        "row_version=%s,resolved_summary=%s,process_metrics=%s,warnings=%s,"
+        "finished_at=%s WHERE run_id=%s",
         (
+            run_version,
             result.resolved,
             Jsonb(asdict(completion.process_metrics)),
             Jsonb(list(completion.warnings)),
@@ -66,88 +80,69 @@ def complete(connection: Connection, lease: JobLease, completion: RunCompletion)
         lease.worker_id,
         completion.occurred_at,
     )
-    connection.execute(
-        "UPDATE evaluation_jobs SET status='FINALIZING',row_version=row_version+1,"
-        "heartbeat_at=%s WHERE job_id=%s",
-        (completion.occurred_at, lease.job_id),
-    )
-    event(
+    return _touch_job(
         connection,
-        "job",
-        lease.job_id,
-        "EXECUTING",
-        "FINALIZING",
-        "FINALIZATION_STARTED",
-        lease.worker_id,
+        lease,
+        job,
+        lease.run_id,
+        run_version,
         completion.occurred_at,
     )
-    connection.execute(
-        "UPDATE evaluation_jobs SET status='COMPLETED',row_version=row_version+1,"
-        "finished_at=%s WHERE job_id=%s",
-        (completion.occurred_at, lease.job_id),
-    )
-    event(
-        connection,
-        "job",
-        lease.job_id,
-        "FINALIZING",
-        "COMPLETED",
-        "JOB_COMPLETED",
-        lease.worker_id,
-        completion.occurred_at,
-    )
-    return str(lease.run_id)
 
 
 def fail(
     connection: Connection,
     lease: JobLease,
+    run_id: str,
     code: str,
     summary: str,
     now: datetime,
-) -> str:
-    row = current(connection, lease, now)
-    if row["status"] not in {"PREPARING", "EXECUTING"} or row["run_status"] not in {
-        "PREPARING",
-        "RUNNING_AGENT",
-        "VERIFYING",
-    }:
-        raise JobUnavailable
-    if not code or len(code) > 128 or not summary or len(summary) > 500:
-        raise JobUnavailable
+    trial: ExecutionTrialResult | None = None,
+) -> JobLease:
+    job = current(connection, lease, now, "EXECUTING")
+    run = _next_run(connection, lease.job_id)
+    if (
+        run is None
+        or str(run["run_id"]) != run_id
+        or run["status"] not in {"PENDING", "PREPARING", "RUNNING_AGENT", "VERIFYING"}
+        or not code
+        or len(code) > 128
+        or not summary
+        or len(summary) > 500
+        or (trial is not None and trial.run_id != run_id)
+    ):
+        raise JobLeaseConflict
+    backend_job_ref = trial.backend_job_ref if trial is not None else None
+    backend_trial_ref = trial.backend_trial_ref if trial is not None else None
+    run_version = run["row_version"] + 1
     connection.execute(
-        "UPDATE evaluation_runs SET status='FAILED',stage='failed',"
-        "row_version=row_version+1,failure_code=%s,failure_summary=%s,"
-        "finished_at=%s WHERE run_id=%s",
-        (code, summary, now, lease.run_id),
+        "UPDATE evaluation_runs SET status='FAILED',stage='failed',row_version=%s,"
+        "backend_job_ref=COALESCE(%s,backend_job_ref),"
+        "backend_trial_ref=COALESCE(%s,backend_trial_ref),failure_code=%s,"
+        "failure_summary=%s,started_at=COALESCE(started_at,%s),finished_at=%s "
+        "WHERE run_id=%s",
+        (
+            run_version,
+            backend_job_ref,
+            backend_trial_ref,
+            code,
+            summary,
+            now,
+            now,
+            run_id,
+        ),
     )
     event(
         connection,
         "run",
-        lease.run_id,
-        row["run_status"],
+        run_id,
+        run["status"],
         "FAILED",
         code,
         lease.worker_id,
         now,
     )
-    connection.execute(
-        "UPDATE evaluation_jobs SET status='FAILED',row_version=row_version+1,"
-        "failure_code=%s,failure_summary=%s,heartbeat_at=%s,finished_at=%s "
-        "WHERE job_id=%s",
-        (code, summary, now, now, lease.job_id),
-    )
-    event(
-        connection,
-        "job",
-        lease.job_id,
-        row["status"],
-        "FAILED",
-        code,
-        lease.worker_id,
-        now,
-    )
-    return str(lease.run_id)
+    return _touch_job(connection, lease, job, run_id, run_version, now)
 
 
 def _insert_artifact(connection: Connection, item: RunArtifact, now: datetime) -> None:

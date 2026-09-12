@@ -2,12 +2,11 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from datetime import UTC, datetime
 from threading import Barrier
-from uuid import uuid4
 
 import pytest
 
 from eval_platform.domain.jobs.execution import JobLeaseConflict
-from jobs.execution.support.fixtures import queued_job
+from jobs.execution.support.fixtures import queued_batch, queued_job
 from jobs.execution.support.memory import ExecutableMemoryJobs
 
 
@@ -29,15 +28,23 @@ def test_two_workers_claim_at_most_one_active_job():
     assert sum(item.status == "QUEUED" for item in repository.records.values()) == 1
 
 
-def test_claim_skips_unapproved_rejected_claimed_and_multi_run_jobs():
+def test_claims_approved_multi_run_and_skips_unapproved_or_rejected_jobs():
     now = datetime(2026, 9, 12, 9, 0, tzinfo=UTC)
     queued, _ = queued_job(now)
-    extra_run = replace(queued.runs[0], run_id=str(uuid4()))
-    multi = replace(queued, job_id=str(uuid4()), runs=(queued.runs[0], extra_run))
-    awaiting = replace(queued, job_id=str(uuid4()), status="AWAITING_OWNER_APPROVAL")
-    rejected = replace(queued, job_id=str(uuid4()), status="REJECTED")
+    multi, _ = queued_batch(now)
+    awaiting = replace(
+        queued,
+        job_id="00000000-0000-0000-0000-000000000001",
+        status="AWAITING_OWNER_APPROVAL",
+    )
+    rejected = replace(
+        queued, job_id="00000000-0000-0000-0000-000000000002", status="REJECTED"
+    )
     repository = ExecutableMemoryJobs(multi, awaiting, rejected)
-    assert repository.claim("worker-one", now) is None
+    claimed = repository.claim("worker-one", now)
+    assert claimed is not None and claimed.job.job_id == multi.job_id
+    assert claimed.job.trial_count == 3
+    assert sum(run.status == "PREPARING" for run in claimed.job.runs) == 1
 
     repository = ExecutableMemoryJobs(queued)
     assert repository.claim("worker-one", now) is not None

@@ -1,5 +1,8 @@
 import { request } from "./api-client";
-import type { JobDetail, JobOptions, JobSummary, Page, RunReport } from "./contracts";
+import type {
+  JobDetail, JobOptions, JobReport, JobSummary, Page, RunReport,
+} from "./contracts";
+import { parseJobReport } from "./batch-report-shapes";
 import {
   parseJobDetail,
   parseJobOptions,
@@ -40,4 +43,8 @@ export async function jobs(): Promise<Page<JobSummary>> {
 
 export async function runReport(id: string): Promise<RunReport> {
   return parseRunReport(await request("reports/runs/" + encodeURIComponent(id)));
+}
+
+export async function jobReport(id: string): Promise<JobReport> {
+  return parseJobReport(await request("reports/jobs/" + encodeURIComponent(id)));
 }

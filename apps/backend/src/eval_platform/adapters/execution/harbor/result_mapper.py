@@ -52,7 +52,7 @@ def map_job_results(
     for result_path in sorted(job_dir.glob("*/result.json")):
         try:
             trial_data = read_json(result_path)
-            binding = bindings.get(_trial_key(trial_data))
+            binding = bindings.get(trial_key(trial_data))
             if binding is None:
                 protocol_warnings.append("UNEXPECTED_HARBOR_TRIAL")
                 continue
@@ -94,7 +94,7 @@ def map_job_results(
     return tuple(results)
 
 
-def _trial_key(data: dict[str, Any]) -> tuple[str, str]:
+def trial_key(data: dict[str, Any]) -> tuple[str, str]:
     config = required_mapping(data, "config")
     task = required_mapping(config, "task")
     agent = required_mapping(config, "agent")

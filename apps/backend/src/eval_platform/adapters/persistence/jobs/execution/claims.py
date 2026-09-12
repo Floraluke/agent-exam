@@ -9,8 +9,7 @@ from eval_platform.adapters.persistence.jobs.execution.common import (
     expiry,
     validate_worker,
 )
-from eval_platform.domain.jobs.execution import JobLease, JobLeaseConflict
-from eval_platform.domain.result import ExecutionTrialResult
+from eval_platform.domain.jobs.execution import JobLease
 
 Connection = psycopg.Connection[Any]
 _CLAIM_LOCK = 9460606
@@ -25,32 +24,38 @@ def claim(connection: Connection, worker: str, now: datetime) -> JobLease | None
     ).fetchone()
     if active is not None:
         return None
-    row = connection.execute(
-        "SELECT j.job_id,j.row_version,j.limit_snapshot,r.run_id,"
-        "r.row_version AS run_version FROM evaluation_jobs j "
-        "JOIN evaluation_runs r ON r.job_id=j.job_id "
-        "WHERE j.status='QUEUED' AND j.trial_count=1 AND r.status='PENDING' "
-        "ORDER BY j.created_at,j.job_id FOR UPDATE OF j,r SKIP LOCKED LIMIT 1"
+    job = connection.execute(
+        "SELECT job_id,row_version,limit_snapshot,trial_count "
+        "FROM evaluation_jobs WHERE status='QUEUED' "
+        "ORDER BY created_at,job_id FOR UPDATE SKIP LOCKED LIMIT 1"
     ).fetchone()
-    if row is None:
+    if job is None:
         return None
-    expires = expiry(row["limit_snapshot"], now)
-    job_version, run_version = row["row_version"] + 1, row["run_version"] + 1
+    run = connection.execute(
+        "SELECT run_id,row_version FROM evaluation_runs WHERE job_id=%s "
+        "AND status='PENDING' ORDER BY task_id,agent_configuration_id,run_id "
+        "FOR UPDATE SKIP LOCKED LIMIT 1",
+        (job["job_id"],),
+    ).fetchone()
+    if run is None:
+        return None
+    expires = expiry(job["limit_snapshot"], now, job["trial_count"])
+    job_version, run_version = job["row_version"] + 1, run["row_version"] + 1
     connection.execute(
         "UPDATE evaluation_jobs SET status='PREPARING',row_version=%s,"
         "claimed_by=%s,claimed_at=%s,heartbeat_at=%s,lease_expires_at=%s,"
         "started_at=%s WHERE job_id=%s",
-        (job_version, worker, now, now, expires, now, row["job_id"]),
+        (job_version, worker, now, now, expires, now, job["job_id"]),
     )
     connection.execute(
         "UPDATE evaluation_runs SET status='PREPARING',stage='preparing',"
         "row_version=%s,started_at=%s WHERE run_id=%s",
-        (run_version, now, row["run_id"]),
+        (run_version, now, run["run_id"]),
     )
     event(
         connection,
         "job",
-        row["job_id"],
+        job["job_id"],
         "QUEUED",
         "PREPARING",
         "WORKER_CLAIMED",
@@ -60,7 +65,7 @@ def claim(connection: Connection, worker: str, now: datetime) -> JobLease | None
     event(
         connection,
         "run",
-        row["run_id"],
+        run["run_id"],
         "PENDING",
         "PREPARING",
         "WORKER_CLAIMED",
@@ -68,8 +73,8 @@ def claim(connection: Connection, worker: str, now: datetime) -> JobLease | None
         now,
     )
     return JobLease(
-        str(row["job_id"]),
-        str(row["run_id"]),
+        str(job["job_id"]),
+        str(run["run_id"]),
         worker,
         job_version,
         run_version,
@@ -79,17 +84,12 @@ def claim(connection: Connection, worker: str, now: datetime) -> JobLease | None
 
 def start_execution(connection: Connection, lease: JobLease, now: datetime) -> JobLease:
     job = current(connection, lease, now, "PREPARING", "PREPARING")
-    expires = expiry(job["limit_snapshot"], now)
-    job_version, run_version = lease.job_version + 1, lease.run_version + 1
+    expires = expiry(job["limit_snapshot"], now, job["trial_count"])
+    job_version = lease.job_version + 1
     connection.execute(
         "UPDATE evaluation_jobs SET status='EXECUTING',row_version=%s,"
         "heartbeat_at=%s,lease_expires_at=%s WHERE job_id=%s",
         (job_version, now, expires, lease.job_id),
-    )
-    connection.execute(
-        "UPDATE evaluation_runs SET status='RUNNING_AGENT',stage='running_agent',"
-        "row_version=%s WHERE run_id=%s",
-        (run_version, lease.run_id),
     )
     event(
         connection,
@@ -101,56 +101,11 @@ def start_execution(connection: Connection, lease: JobLease, now: datetime) -> J
         lease.worker_id,
         now,
     )
-    event(
-        connection,
-        "run",
-        lease.run_id,
-        "PREPARING",
-        "RUNNING_AGENT",
-        "EXECUTION_STARTED",
-        lease.worker_id,
-        now,
-    )
     return JobLease(
-        lease.job_id, lease.run_id, lease.worker_id, job_version, run_version, expires
-    )
-
-
-def start_verifying(
-    connection: Connection,
-    lease: JobLease,
-    trial: ExecutionTrialResult,
-    now: datetime,
-) -> JobLease:
-    job = current(connection, lease, now, "EXECUTING", "RUNNING_AGENT")
-    if (
-        trial.run_id != lease.run_id
-        or not trial.backend_job_ref
-        or not trial.backend_trial_ref
-    ):
-        raise JobLeaseConflict
-    expires = expiry(job["limit_snapshot"], now)
-    job_version, run_version = lease.job_version + 1, lease.run_version + 1
-    connection.execute(
-        "UPDATE evaluation_jobs SET row_version=%s,heartbeat_at=%s,"
-        "lease_expires_at=%s WHERE job_id=%s",
-        (job_version, now, expires, lease.job_id),
-    )
-    connection.execute(
-        "UPDATE evaluation_runs SET status='VERIFYING',stage='verifying',"
-        "row_version=%s,backend_job_ref=%s,backend_trial_ref=%s WHERE run_id=%s",
-        (run_version, trial.backend_job_ref, trial.backend_trial_ref, lease.run_id),
-    )
-    event(
-        connection,
-        "run",
+        lease.job_id,
         lease.run_id,
-        "RUNNING_AGENT",
-        "VERIFYING",
-        "PATCH_READY",
         lease.worker_id,
-        now,
-    )
-    return JobLease(
-        lease.job_id, lease.run_id, lease.worker_id, job_version, run_version, expires
+        job_version,
+        lease.run_version,
+        expires,
     )

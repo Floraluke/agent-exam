@@ -1,13 +1,21 @@
 from dataclasses import replace
-from uuid import uuid4
 
 from eval_platform.domain.jobs.execution import (
     JobReport,
     ProcessMetrics,
     RunReport,
 )
-from eval_platform.domain.jobs.models import JobNotFound, StateEvent
+from eval_platform.domain.jobs.models import JobNotFound
 from eval_platform.domain.result import ResourceSummary, UsageSummary
+from jobs.execution.support.memory_state import (
+    event,
+    expiry,
+    next_run,
+    touch,
+)
+from jobs.execution.support.memory_state import (
+    lease as make_lease,
+)
 
 
 def complete(repository, lease, completion):
@@ -25,7 +33,7 @@ def complete(repository, lease, completion):
             finished_at=completion.occurred_at,
             state_events=run.state_events
             + (
-                _event(
+                event(
                     run,
                     "COMPLETED",
                     "DETERMINISTIC_RESULT_STORED",
@@ -34,74 +42,120 @@ def complete(repository, lease, completion):
                 ),
             ),
         )
-        finalizing = _event(
-            job,
-            "FINALIZING",
-            "FINALIZATION_STARTED",
-            completion.occurred_at,
-            lease.worker_id,
-        )
-        completed = StateEvent(
-            str(uuid4()),
-            finalizing.sequence + 1,
-            "FINALIZING",
-            "COMPLETED",
-            "JOB_COMPLETED",
-            completion.occurred_at,
-            worker_id=lease.worker_id,
-        )
-        job = replace(
-            job,
-            status="COMPLETED",
-            runs=(run,),
-            row_version=job.row_version + 2,
-            heartbeat_at=completion.occurred_at,
-            finished_at=completion.occurred_at,
-            state_events=job.state_events + (finalizing, completed),
-        )
+        job = touch(job, run, completion.occurred_at)
         repository.records[job.job_id] = job
-        report = RunReport(
+        repository.reports[run.run_id] = RunReport(
             job.created_by,
             run,
             result,
             completion.process_metrics,
             completion.artifacts,
         )
-        repository.reports[run.run_id] = report
-        return report
+        return make_lease(job, run)
 
 
-def fail(repository, lease, code, summary, now):
+def fail(repository, lease, run_id, code, summary, now, trial=None):
     with repository.lock:
-        job, run = repository._current(lease, now, None, None)
+        job, _anchor = repository._current(lease, now, "EXECUTING", None)
+        run = next_run(job)
+        if (
+            run is None
+            or run.run_id != run_id
+            or run.status not in {"PENDING", "PREPARING", "RUNNING_AGENT", "VERIFYING"}
+            or not code
+            or not summary
+        ):
+            from eval_platform.domain.jobs.execution import JobLeaseConflict
+
+            raise JobLeaseConflict
+        if trial is not None and trial.run_id != run_id:
+            from eval_platform.domain.jobs.execution import JobLeaseConflict
+
+            raise JobLeaseConflict
         run = replace(
             run,
             status="FAILED",
             stage="failed",
             row_version=run.row_version + 1,
+            backend_job_ref=(trial.backend_job_ref if trial else run.backend_job_ref),
+            backend_trial_ref=(
+                trial.backend_trial_ref if trial else run.backend_trial_ref
+            ),
             failure_code=code,
             failure_summary=summary,
+            started_at=run.started_at or now,
             finished_at=now,
             state_events=run.state_events
-            + (_event(run, "FAILED", code, now, lease.worker_id),),
+            + (event(run, "FAILED", code, now, lease.worker_id),),
+        )
+        job = touch(job, run, now)
+        repository.records[job.job_id] = job
+        repository.reports[run.run_id] = RunReport(
+            job.created_by,
+            run,
+            None,
+            ProcessMetrics(UsageSummary(), ResourceSummary()),
+            (),
+        )
+        return make_lease(job, run)
+
+
+def start_finalizing(repository, lease, now):
+    with repository.lock:
+        job, anchor = repository._current(lease, now, "EXECUTING", None)
+        if next_run(job) is not None:
+            from eval_platform.domain.jobs.execution import JobLeaseConflict
+
+            raise JobLeaseConflict
+        job = replace(
+            job,
+            status="FINALIZING",
+            row_version=job.row_version + 1,
+            heartbeat_at=now,
+            lease_expires_at=expiry(job, now),
+            state_events=job.state_events
+            + (event(job, "FINALIZING", "FINALIZATION_STARTED", now, lease.worker_id),),
+        )
+        repository.records[job.job_id] = job
+        return make_lease(job, anchor)
+
+
+def finish(repository, lease, now, failure_code=None):
+    with repository.lock:
+        job, _anchor = repository._current(lease, now, "FINALIZING", None)
+        failed = sum(run.status != "COMPLETED" for run in job.runs)
+        completed = sum(run.status == "COMPLETED" for run in job.runs)
+        code = failure_code
+        if code is None and failed:
+            code = "BATCH_PARTIAL_FAILURE" if completed else "BATCH_FAILED"
+        target = (
+            "COMPLETED"
+            if code is None
+            else "COMPLETED_WITH_ERRORS"
+            if completed
+            else "FAILED"
         )
         job = replace(
             job,
-            status="FAILED",
-            runs=(run,),
+            status=target,
             row_version=job.row_version + 1,
             failure_code=code,
-            failure_summary=summary,
-            heartbeat_at=now,
+            failure_summary=(
+                "批次包含未形成可信结果的运行。" if code is not None else None
+            ),
             finished_at=now,
             state_events=job.state_events
-            + (_event(job, "FAILED", code, now, lease.worker_id),),
+            + (
+                event(
+                    job,
+                    target,
+                    code or "JOB_COMPLETED",
+                    now,
+                    lease.worker_id,
+                ),
+            ),
         )
         repository.records[job.job_id] = job
-        metrics = ProcessMetrics(UsageSummary(), ResourceSummary())
-        report = RunReport(job.created_by, run, None, metrics, ())
-        repository.reports[run.run_id] = report
-        return report
 
 
 def get_run_report(repository, run_id):
@@ -119,15 +173,3 @@ def get_job_report(repository, job_id):
         if run.run_id in repository.reports
     )
     return JobReport(job.created_by, job, reports)
-
-
-def _event(record, target, reason, now, worker):
-    return StateEvent(
-        str(uuid4()),
-        len(record.state_events) + 1,
-        record.status,
-        target,
-        reason,
-        now,
-        worker_id=worker,
-    )

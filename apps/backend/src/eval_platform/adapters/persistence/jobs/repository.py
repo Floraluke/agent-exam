@@ -4,7 +4,13 @@ from datetime import datetime
 
 from eval_platform.adapters.persistence.jobs import job_transaction
 from eval_platform.adapters.persistence.jobs.decisions import decide
-from eval_platform.adapters.persistence.jobs.execution import claims, reports, results
+from eval_platform.adapters.persistence.jobs.execution import (
+    batch,
+    claims,
+    finalization,
+    reports,
+    results,
+)
 from eval_platform.adapters.persistence.jobs.publication import publish
 from eval_platform.adapters.persistence.jobs.records import read_job
 from eval_platform.domain.jobs.decisions import OwnerDecision
@@ -85,23 +91,47 @@ class PostgresJobRepository:
         with job_transaction(self.dsn) as connection:
             return claims.start_execution(connection, lease, now)
 
+    def start_run(self, lease: JobLease, run_id: str, now: datetime) -> JobLease:
+        with job_transaction(self.dsn) as connection:
+            return batch.start_run(connection, lease, run_id, now)
+
+    def finish_run_execution(
+        self, lease: JobLease, run_id: str, now: datetime
+    ) -> JobLease:
+        with job_transaction(self.dsn) as connection:
+            return batch.finish_run_execution(connection, lease, run_id, now)
+
     def start_verifying(
         self, lease: JobLease, trial: ExecutionTrialResult, now: datetime
     ) -> JobLease:
         with job_transaction(self.dsn) as connection:
-            return claims.start_verifying(connection, lease, trial, now)
+            return batch.start_verifying(connection, lease, trial, now)
 
-    def complete(self, lease: JobLease, completion: RunCompletion) -> RunReport:
+    def complete(self, lease: JobLease, completion: RunCompletion) -> JobLease:
         with job_transaction(self.dsn) as connection:
-            run_id = results.complete(connection, lease, completion)
-            return reports.read_run_report(connection, run_id)
+            return results.complete(connection, lease, completion)
 
     def fail(
-        self, lease: JobLease, code: str, summary: str, now: datetime
-    ) -> RunReport:
+        self,
+        lease: JobLease,
+        run_id: str,
+        code: str,
+        summary: str,
+        now: datetime,
+        trial: ExecutionTrialResult | None = None,
+    ) -> JobLease:
         with job_transaction(self.dsn) as connection:
-            run_id = results.fail(connection, lease, code, summary, now)
-            return reports.read_run_report(connection, run_id)
+            return results.fail(connection, lease, run_id, code, summary, now, trial)
+
+    def start_finalizing(self, lease: JobLease, now: datetime) -> JobLease:
+        with job_transaction(self.dsn) as connection:
+            return finalization.start(connection, lease, now)
+
+    def finish(
+        self, lease: JobLease, now: datetime, failure_code: str | None = None
+    ) -> None:
+        with job_transaction(self.dsn) as connection:
+            finalization.finish(connection, lease, now, failure_code)
 
     def get_run_report(self, run_id: str) -> RunReport:
         with job_transaction(self.dsn) as connection:

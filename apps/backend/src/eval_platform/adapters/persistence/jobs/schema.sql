@@ -4,7 +4,7 @@ CREATE TABLE evaluation_jobs (
     created_at timestamptz NOT NULL,
     status text NOT NULL CHECK (status IN (
         'AWAITING_OWNER_APPROVAL', 'QUEUED', 'PREPARING', 'EXECUTING',
-        'FINALIZING', 'COMPLETED', 'FAILED', 'REJECTED'
+        'FINALIZING', 'COMPLETED', 'COMPLETED_WITH_ERRORS', 'FAILED', 'REJECTED'
     )),
     evaluation_track text NOT NULL CHECK (evaluation_track = 'closed_book'),
     result_scope text NOT NULL CHECK (result_scope IN ('official', 'internal_test')),
@@ -39,7 +39,8 @@ CREATE TABLE evaluation_jobs (
     CHECK ((status = 'AWAITING_OWNER_APPROVAL' AND owner_decided_by IS NULL) OR (status <> 'AWAITING_OWNER_APPROVAL' AND owner_decided_by IS NOT NULL)),
     CHECK (num_nonnulls(claimed_by, claimed_at, heartbeat_at, lease_expires_at, started_at) IN (0, 5)),
     CHECK ((status IN ('AWAITING_OWNER_APPROVAL', 'QUEUED', 'REJECTED') AND claimed_by IS NULL) OR (status NOT IN ('AWAITING_OWNER_APPROVAL', 'QUEUED', 'REJECTED') AND claimed_by IS NOT NULL)),
-    CHECK ((status = 'FAILED') = (failure_code IS NOT NULL AND failure_summary IS NOT NULL)),
+    CHECK ((status IN ('FAILED', 'COMPLETED_WITH_ERRORS')) =
+           (failure_code IS NOT NULL AND failure_summary IS NOT NULL)),
     UNIQUE (created_by, idempotency_key_hash)
 );
 

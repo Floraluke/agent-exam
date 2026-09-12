@@ -8,13 +8,14 @@ export default function JobDetails({ job }: { job: JobDetail }) {
     EXECUTING: "Agent 正在执行",
     FINALIZING: "正在核验并保存结果",
     COMPLETED: "执行完成",
+    COMPLETED_WITH_ERRORS: "执行完成，但部分组合出错",
     FAILED: "运行失败",
     REJECTED: "已拒绝",
   }[job.status];
   return <article aria-label="评测批次详情">
     <h3>{title}</h3>
     <p>冻结运行数：{job.trial_count}</p>
-    {job.trial_count > 1 && <p>开发期限制：任务 07 接通前，多组合批次不会被部分领取。</p>}
+    {job.trial_count > 1 && <p>同一 Harbor Job 按顺序执行每个冻结组合，并发固定为 1。</p>}
     <p>批次：{job.batch_preset} · 赛道：闭卷</p>
     <p>结果范围：{job.result_scope === "official" ? "正式" : "内部测试"}</p>
     <p>限制：{job.limit_profile_id}；Agent {job.limit_snapshot.agent_wall_timeout_sec} 秒 /

@@ -3,8 +3,8 @@ from typing import Any
 
 import psycopg
 
+from eval_platform.adapters.persistence.jobs.state_validation import stored_job_valid
 from eval_platform.domain.agent import AgentConfiguration
-from eval_platform.domain.jobs.execution import initial_events_valid, pending_run_valid
 from eval_platform.domain.jobs.models import (
     AgentSnapshot,
     EvaluationJob,
@@ -134,7 +134,7 @@ def read_job(connection: psycopg.Connection[Any], job_id: str) -> EvaluationJob 
         )
     except (KeyError, TypeError, ValueError):
         raise JobUnavailable from None
-    if record.trial_count != row["trial_count"] or not _valid_state(record):
+    if record.trial_count != row["trial_count"] or not stored_job_valid(record):
         raise JobUnavailable
     return record
 
@@ -161,32 +161,4 @@ def _run(row: dict[str, Any], grouped: dict[str, list[StateEvent]]) -> Evaluatio
         resolved_summary=row["resolved_summary"],
         started_at=row["started_at"],
         finished_at=row["finished_at"],
-    )
-
-
-def _valid_state(record: EvaluationJob) -> bool:
-    if not initial_events_valid(record.state_events):
-        return False
-    decided = (
-        record.owner_decided_by is not None and record.owner_decided_at is not None
-    )
-    if record.status == "AWAITING_OWNER_APPROVAL":
-        return not decided and all(pending_run_valid(run) for run in record.runs)
-    if not decided or record.state_events[-1].to_status != record.status:
-        return False
-    if record.status == "QUEUED":
-        return len(record.state_events) == 2 and all(
-            pending_run_valid(run) for run in record.runs
-        )
-    if record.status == "REJECTED":
-        return all(run.status == "CANCELED" for run in record.runs)
-    if (
-        not record.claimed_by
-        or record.lease_expires_at is None
-        or len(record.runs) != 1
-    ):
-        return False
-    run = record.runs[0]
-    return initial_events_valid(run.state_events) and (
-        run.state_events[-1].to_status == run.status
     )

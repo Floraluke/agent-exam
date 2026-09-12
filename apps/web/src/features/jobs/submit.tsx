@@ -4,12 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import { ApiError } from "../../lib/api-client";
 import { agents as loadAgents, tasks as loadTasks } from "../../lib/catalog-client";
 import type {
-  CatalogAgent, CatalogTask, JobDetail, JobOptions, RunReport,
+  CatalogAgent, CatalogTask, JobDetail, JobOptions, JobReport, RunReport,
 } from "../../lib/contracts";
 import {
-  decideJob, jobDetail, jobOptions, jobs, runReport, submitJob,
+  decideJob, jobDetail, jobOptions, jobReport, jobs, runReport, submitJob,
 } from "../../lib/job-client";
 import OwnerApprovalPanel from "./approval";
+import BatchReportView from "./batch-report";
 import JobControls from "./controls";
 import JobDetails from "./details";
 import RunReportView from "./report";
@@ -24,6 +25,7 @@ export default function JobsPanel({ owner }: { owner: boolean }) {
   const [limit, setLimit] = useState("default-single-host-v1");
   const [current, setCurrent] = useState<JobDetail | null>(null);
   const [report, setReport] = useState<RunReport | null>(null);
+  const [batchReport, setBatchReport] = useState<JobReport | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const decisionAttempt = useRef<{
@@ -56,6 +58,7 @@ export default function JobsPanel({ owner }: { owner: boolean }) {
       const restoredJob = requestedJob ?? jobPage.items[0]?.job_id;
       if (restoredJob) setCurrent(await jobDetail(restoredJob));
       setReport(null);
+      setBatchReport(null);
     } catch (value) { explain(value); }
     finally { setBusy(false); }
   }
@@ -81,20 +84,34 @@ export default function JobsPanel({ owner }: { owner: boolean }) {
       window.history.replaceState(null, "", url);
       setCurrent(await jobDetail(created.job_id));
       setReport(null);
+      setBatchReport(null);
     } catch (value) { explain(value); }
     finally { setBusy(false); }
   }
   async function refresh() {
     if (!current) return;
     setBusy(true); setError("");
-    try { setCurrent(await jobDetail(current.job_id)); setReport(null); }
+    try {
+      setCurrent(await jobDetail(current.job_id));
+      if (batchReport) setBatchReport(await jobReport(current.job_id));
+      setReport(null);
+    }
     catch (value) { explain(value); }
     finally { setBusy(false); }
   }
-  async function openReport() {
-    if (!current || current.run_ids.length !== 1) return;
+  async function openReport(runId?: string) {
+    if (!current) return;
+    const id = runId ?? (current.run_ids.length === 1 ? current.run_ids[0] : null);
+    if (!id) return;
     setBusy(true); setError("");
-    try { setReport(await runReport(current.run_ids[0])); }
+    try { setReport(await runReport(id)); }
+    catch (value) { explain(value); }
+    finally { setBusy(false); }
+  }
+  async function openBatchReport() {
+    if (!current) return;
+    setBusy(true); setError("");
+    try { setBatchReport(await jobReport(current.job_id)); setReport(null); }
     catch (value) { explain(value); }
     finally { setBusy(false); }
   }
@@ -141,9 +158,12 @@ export default function JobsPanel({ owner }: { owner: boolean }) {
       {owner && current.status === "AWAITING_OWNER_APPROVAL" &&
         <OwnerApprovalPanel busy={busy} decide={decide} />}
       <button disabled={busy} onClick={refresh}>刷新当前批次</button>
-      {["COMPLETED", "FAILED"].includes(current.status) &&
+      <button disabled={busy} onClick={openBatchReport}>查看批次进度</button>
+      {["COMPLETED", "COMPLETED_WITH_ERRORS", "FAILED"].includes(current.status) &&
         current.run_ids.length === 1 &&
-        <button disabled={busy} onClick={openReport}>查看单题运行报告</button>}
+        <button disabled={busy} onClick={() => openReport()}>查看单题运行报告</button>}
+      {batchReport && <BatchReportView report={batchReport}
+        openRun={(runId) => void openReport(runId)} />}
       {report && <RunReportView report={report} />}
     </>}
   </section>;

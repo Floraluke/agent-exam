@@ -56,7 +56,7 @@ export type JobOptions = {
 };
 export const JOB_STATUSES = [
   "AWAITING_OWNER_APPROVAL", "QUEUED", "PREPARING", "EXECUTING",
-  "FINALIZING", "COMPLETED", "FAILED", "REJECTED",
+  "FINALIZING", "COMPLETED", "COMPLETED_WITH_ERRORS", "FAILED", "REJECTED",
 ] as const;
 export type JobStatus = typeof JOB_STATUSES[number];
 export const RUN_STATUSES = [
@@ -130,4 +130,21 @@ export type RunReport = {
     sha256: string; size_bytes: number; content_type: string;
     redaction_status: RedactionStatus; warnings: string[];
   }>;
+};
+
+export const BATCH_OUTCOMES = [
+  "resolved", "unresolved", "infrastructure_error", "incomplete",
+] as const;
+export type BatchOutcome = typeof BATCH_OUTCOMES[number];
+export type JobRunReport = {
+  run_id: string; status: RunStatus; stage: string | null; stage_message: string;
+  task_instance_id: string; agent_configuration_id: string;
+  agent_display_name: string; outcome: BatchOutcome; resolved: boolean | null;
+  failure_code: string | null; report_path: string;
+};
+export type JobReport = {
+  job_id: string; status: JobStatus; stage_message: string;
+  failure_code: string | null; trial_count: number; completed_runs: number;
+  failed_runs: number; pending_runs: number; resolved_runs: number;
+  unresolved_runs: number; runs: JobRunReport[];
 };

@@ -74,15 +74,36 @@ class JobRepository(Protocol):
 
     def start_execution(self, lease: JobLease, now: datetime) -> JobLease: ...
 
+    def start_run(self, lease: JobLease, run_id: str, now: datetime) -> JobLease: ...
+
+    def finish_run_execution(
+        self, lease: JobLease, run_id: str, now: datetime
+    ) -> JobLease: ...
+
     def start_verifying(
         self, lease: JobLease, trial: ExecutionTrialResult, now: datetime
     ) -> JobLease: ...
 
-    def complete(self, lease: JobLease, completion: RunCompletion) -> RunReport: ...
+    def complete(self, lease: JobLease, completion: RunCompletion) -> JobLease: ...
 
     def fail(
-        self, lease: JobLease, code: str, summary: str, now: datetime
-    ) -> RunReport: ...
+        self,
+        lease: JobLease,
+        run_id: str,
+        code: str,
+        summary: str,
+        now: datetime,
+        trial: ExecutionTrialResult | None = None,
+    ) -> JobLease: ...
+
+    def start_finalizing(self, lease: JobLease, now: datetime) -> JobLease: ...
+
+    def finish(
+        self,
+        lease: JobLease,
+        now: datetime,
+        failure_code: str | None = None,
+    ) -> None: ...
 
     def get_run_report(self, run_id: str) -> RunReport: ...
 
