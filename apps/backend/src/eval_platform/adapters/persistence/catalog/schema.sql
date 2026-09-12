@@ -17,14 +17,33 @@ CREATE TABLE evaluation_tasks (
 
 CREATE TABLE artifact_records (
     artifact_id uuid PRIMARY KEY,
-    task_id uuid NOT NULL REFERENCES evaluation_tasks(task_id),
-    artifact_type text NOT NULL CHECK (artifact_type = 'task_source_snapshot'),
+    task_id uuid REFERENCES evaluation_tasks(task_id),
+    run_id uuid,
+    artifact_type text NOT NULL CHECK (artifact_type IN (
+        'task_source_snapshot', 'agent_patch', 'harness_report',
+        'harness_summary', 'harness_test_output'
+    )),
     object_key text NOT NULL UNIQUE CHECK (length(object_key) > 0),
     sha256 char(64) NOT NULL CHECK (sha256 ~ '^[0-9a-f]{64}$'),
     size_bytes bigint NOT NULL CHECK (size_bytes >= 0 AND size_bytes <= 52428800),
-    content_type text NOT NULL CHECK (content_type = 'application/json'),
+    content_type text NOT NULL CHECK (
+        content_type IN ('application/json', 'text/plain', 'text/x-diff')
+    ),
     retention_class text NOT NULL CHECK (retention_class = 'long_term'),
+    redaction_status text NOT NULL DEFAULT 'not_required'
+        CHECK (redaction_status IN ('not_required', 'redacted')),
+    truncated boolean NOT NULL DEFAULT false CHECK (NOT truncated),
     created_at timestamptz NOT NULL,
+    CHECK (num_nonnulls(task_id, run_id) = 1),
+    CHECK (
+        (task_id IS NOT NULL AND artifact_type = 'task_source_snapshot' AND
+            content_type = 'application/json' AND object_key LIKE 'tasks/%')
+        OR
+        (run_id IS NOT NULL AND artifact_type <> 'task_source_snapshot' AND
+            object_key LIKE 'runs/%')
+    ),
+    CHECK (artifact_type <> 'agent_patch' OR
+        (content_type = 'text/x-diff' AND size_bytes <= 1048576)),
     UNIQUE (task_id, artifact_id, sha256)
 );
 

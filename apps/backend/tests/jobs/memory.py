@@ -103,6 +103,7 @@ class MemoryJobs:
             decided = replace(
                 record,
                 status=decision.target_status,
+                row_version=record.row_version + 1,
                 runs=runs,
                 state_events=record.state_events + (event,),
                 owner_decided_by=decision.actor_user_id,

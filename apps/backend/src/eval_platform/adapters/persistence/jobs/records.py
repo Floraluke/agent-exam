@@ -1,11 +1,10 @@
-"""Restore frozen Job records and fail closed on malformed stored snapshots."""
-
 from hashlib import sha256
 from typing import Any
 
 import psycopg
 
 from eval_platform.domain.agent import AgentConfiguration
+from eval_platform.domain.jobs.execution import initial_events_valid, pending_run_valid
 from eval_platform.domain.jobs.models import (
     AgentSnapshot,
     EvaluationJob,
@@ -20,16 +19,17 @@ from eval_platform.domain.jobs.models import (
 
 
 def _event(row: dict[str, Any]) -> StateEvent:
-    actor = row.get("actor_user_id")
+    actor, worker = row.get("actor_user_id"), row.get("worker_id")
     return StateEvent(
-        str(row["event_id"]),
-        row["sequence"],
-        row["from_status"],
-        row["to_status"],
-        row["reason_code"],
-        row["occurred_at"],
-        None if actor is None else str(actor),
-        row.get("note"),
+        event_id=str(row["event_id"]),
+        sequence=row["sequence"],
+        from_status=row["from_status"],
+        to_status=row["to_status"],
+        reason_code=row["reason_code"],
+        occurred_at=row["occurred_at"],
+        actor_user_id=None if actor is None else str(actor),
+        note=row.get("note"),
+        worker_id=worker,
     )
 
 
@@ -81,55 +81,56 @@ def read_job(connection: psycopg.Connection[Any], job_id: str) -> EvaluationJob 
     run_rows = connection.execute(
         "SELECT * FROM evaluation_runs WHERE job_id=%s ORDER BY run_id", (job_id,)
     ).fetchall()
-    job_event_rows = connection.execute(
+    job_events = connection.execute(
         "SELECT * FROM job_state_events WHERE job_id=%s ORDER BY sequence", (job_id,)
     ).fetchall()
-    run_event_rows = connection.execute(
+    run_events = connection.execute(
         "SELECT e.* FROM run_state_events e JOIN evaluation_runs r "
         "ON r.run_id=e.run_id WHERE r.job_id=%s ORDER BY e.run_id,e.sequence",
         (job_id,),
     ).fetchall()
     grouped: dict[str, list[StateEvent]] = {}
-    for item in run_event_rows:
+    for item in run_events:
         grouped.setdefault(str(item["run_id"]), []).append(_event(item))
     try:
-        runs = tuple(
-            EvaluationRun(
-                str(item["run_id"]),
-                str(item["job_id"]),
-                _task(item["task_snapshot"]),
-                _agent(item["agent_snapshot"]),
-                item["status"],
-                item["backend_kind"],
-                item["backend_revision"],
-                item["execution_contract_version"],
-                item["created_at"],
-                tuple(grouped.get(str(item["run_id"]), [])),
-            )
-            for item in run_rows
-        )
+        runs = tuple(_run(item, grouped) for item in run_rows)
         record = EvaluationJob(
-            str(row["job_id"]),
-            str(row["created_by"]),
-            row["created_at"],
-            row["status"],
-            row["evaluation_track"],
-            row["result_scope"],
-            row["batch_preset"],
-            row["limit_profile_id"],
-            LimitSnapshot(**row["limit_snapshot"]),
-            row["network_policy_id"],
-            NetworkPolicySnapshot(**row["network_policy_snapshot"]),
-            row["tool_profile_id"],
-            ToolProfileSnapshot(**row["tool_profile_snapshot"]),
-            row["harbor_revision"],
-            row["swe_gym_revision"],
-            row["swe_bench_fork_revision"],
-            runs,
-            tuple(_event(item) for item in job_event_rows),
-            None if row["owner_decided_by"] is None else str(row["owner_decided_by"]),
-            row["owner_decided_at"],
-            row["owner_decision_reason"],
+            job_id=str(row["job_id"]),
+            created_by=str(row["created_by"]),
+            created_at=row["created_at"],
+            status=row["status"],
+            evaluation_track=row["evaluation_track"],
+            result_scope=row["result_scope"],
+            batch_preset=row["batch_preset"],
+            limit_profile_id=row["limit_profile_id"],
+            limit_snapshot=LimitSnapshot(**row["limit_snapshot"]),
+            network_policy_id=row["network_policy_id"],
+            network_policy_snapshot=NetworkPolicySnapshot(
+                **row["network_policy_snapshot"]
+            ),
+            tool_profile_id=row["tool_profile_id"],
+            tool_profile_snapshot=ToolProfileSnapshot(**row["tool_profile_snapshot"]),
+            harbor_revision=row["harbor_revision"],
+            swe_gym_revision=row["swe_gym_revision"],
+            swe_bench_fork_revision=row["swe_bench_fork_revision"],
+            runs=runs,
+            state_events=tuple(_event(item) for item in job_events),
+            owner_decided_by=(
+                None
+                if row["owner_decided_by"] is None
+                else str(row["owner_decided_by"])
+            ),
+            owner_decided_at=row["owner_decided_at"],
+            owner_decision_reason=row["owner_decision_reason"],
+            row_version=row["row_version"],
+            claimed_by=row["claimed_by"],
+            claimed_at=row["claimed_at"],
+            heartbeat_at=row["heartbeat_at"],
+            lease_expires_at=row["lease_expires_at"],
+            failure_code=row["failure_code"],
+            failure_summary=row["failure_summary"],
+            started_at=row["started_at"],
+            finished_at=row["finished_at"],
         )
     except (KeyError, TypeError, ValueError):
         raise JobUnavailable from None
@@ -138,37 +139,54 @@ def read_job(connection: psycopg.Connection[Any], job_id: str) -> EvaluationJob 
     return record
 
 
+def _run(row: dict[str, Any], grouped: dict[str, list[StateEvent]]) -> EvaluationRun:
+    run_id = str(row["run_id"])
+    return EvaluationRun(
+        run_id=run_id,
+        job_id=str(row["job_id"]),
+        task=_task(row["task_snapshot"]),
+        agent=_agent(row["agent_snapshot"]),
+        status=row["status"],
+        backend_kind=row["backend_kind"],
+        backend_revision=row["backend_revision"],
+        execution_contract_version=row["execution_contract_version"],
+        created_at=row["created_at"],
+        state_events=tuple(grouped.get(run_id, [])),
+        row_version=row["row_version"],
+        stage=row["stage"],
+        backend_job_ref=row["backend_job_ref"],
+        backend_trial_ref=row["backend_trial_ref"],
+        failure_code=row["failure_code"],
+        failure_summary=row["failure_summary"],
+        resolved_summary=row["resolved_summary"],
+        started_at=row["started_at"],
+        finished_at=row["finished_at"],
+    )
+
+
 def _valid_state(record: EvaluationJob) -> bool:
-    if not record.state_events or record.state_events[0].reason_code != "JOB_SUBMITTED":
+    if not initial_events_valid(record.state_events):
         return False
     decided = (
         record.owner_decided_by is not None and record.owner_decided_at is not None
     )
     if record.status == "AWAITING_OWNER_APPROVAL":
-        return (
-            not decided
-            and record.owner_decision_reason is None
-            and len(record.state_events) == 1
-            and all(
-                run.status == "PENDING"
-                and len(run.state_events) == 1
-                and run.state_events[0].reason_code == "JOB_SUBMITTED"
-                for run in record.runs
-            )
-        )
-    if not decided or len(record.state_events) != 2:
+        return not decided and all(pending_run_valid(run) for run in record.runs)
+    if not decided or record.state_events[-1].to_status != record.status:
         return False
-    latest = record.state_events[-1]
     if record.status == "QUEUED":
-        return latest.reason_code == "OWNER_APPROVED" and all(
-            run.status == "PENDING" and len(run.state_events) == 1
-            for run in record.runs
+        return len(record.state_events) == 2 and all(
+            pending_run_valid(run) for run in record.runs
         )
     if record.status == "REJECTED":
-        return latest.reason_code == "OWNER_REJECTED" and all(
-            run.status == "CANCELED"
-            and len(run.state_events) == 2
-            and run.state_events[-1].reason_code == "JOB_REJECTED"
-            for run in record.runs
-        )
-    return False
+        return all(run.status == "CANCELED" for run in record.runs)
+    if (
+        not record.claimed_by
+        or record.lease_expires_at is None
+        or len(record.runs) != 1
+    ):
+        return False
+    run = record.runs[0]
+    return initial_events_valid(run.state_events) and (
+        run.state_events[-1].to_status == run.status
+    )

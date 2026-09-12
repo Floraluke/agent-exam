@@ -1,8 +1,17 @@
+from datetime import datetime
 from typing import Protocol
 
 from eval_platform.domain.catalog import CatalogTask, RegisteredAgent
 from eval_platform.domain.jobs.decisions import OwnerDecision
+from eval_platform.domain.jobs.execution import (
+    ClaimedJob,
+    JobLease,
+    JobReport,
+    RunCompletion,
+    RunReport,
+)
 from eval_platform.domain.jobs.models import EvaluationJob
+from eval_platform.domain.result import ExecutionTrialResult
 
 
 class TaskRepository(Protocol):
@@ -60,3 +69,21 @@ class JobRepository(Protocol):
     ) -> list[EvaluationJob]: ...
 
     def decide(self, decision: OwnerDecision) -> EvaluationJob: ...
+
+    def claim(self, worker_id: str, now: datetime) -> ClaimedJob | None: ...
+
+    def start_execution(self, lease: JobLease, now: datetime) -> JobLease: ...
+
+    def start_verifying(
+        self, lease: JobLease, trial: ExecutionTrialResult, now: datetime
+    ) -> JobLease: ...
+
+    def complete(self, lease: JobLease, completion: RunCompletion) -> RunReport: ...
+
+    def fail(
+        self, lease: JobLease, code: str, summary: str, now: datetime
+    ) -> RunReport: ...
+
+    def get_run_report(self, run_id: str) -> RunReport: ...
+
+    def get_job_report(self, job_id: str) -> JobReport: ...

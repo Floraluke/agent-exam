@@ -1,16 +1,27 @@
 """PostgreSQL JobRepository Adapter."""
 
+from datetime import datetime
+
 from eval_platform.adapters.persistence.jobs import job_transaction
 from eval_platform.adapters.persistence.jobs.decisions import decide
+from eval_platform.adapters.persistence.jobs.execution import claims, reports, results
 from eval_platform.adapters.persistence.jobs.publication import publish
 from eval_platform.adapters.persistence.jobs.records import read_job
 from eval_platform.domain.jobs.decisions import OwnerDecision
+from eval_platform.domain.jobs.execution import (
+    ClaimedJob,
+    JobLease,
+    JobReport,
+    RunCompletion,
+    RunReport,
+)
 from eval_platform.domain.jobs.models import (
     EvaluationJob,
     JobIdempotencyConflict,
     JobNotFound,
     JobUnavailable,
 )
+from eval_platform.domain.result import ExecutionTrialResult
 
 
 class PostgresJobRepository:
@@ -59,6 +70,46 @@ class PostgresJobRepository:
         if record is None:
             raise JobUnavailable
         return record
+
+    def claim(self, worker_id: str, now: datetime) -> ClaimedJob | None:
+        with job_transaction(self.dsn) as connection:
+            lease = claims.claim(connection, worker_id, now)
+            if lease is None:
+                return None
+            record = read_job(connection, lease.job_id)
+        if record is None:
+            raise JobUnavailable
+        return ClaimedJob(record, lease)
+
+    def start_execution(self, lease: JobLease, now: datetime) -> JobLease:
+        with job_transaction(self.dsn) as connection:
+            return claims.start_execution(connection, lease, now)
+
+    def start_verifying(
+        self, lease: JobLease, trial: ExecutionTrialResult, now: datetime
+    ) -> JobLease:
+        with job_transaction(self.dsn) as connection:
+            return claims.start_verifying(connection, lease, trial, now)
+
+    def complete(self, lease: JobLease, completion: RunCompletion) -> RunReport:
+        with job_transaction(self.dsn) as connection:
+            run_id = results.complete(connection, lease, completion)
+            return reports.read_run_report(connection, run_id)
+
+    def fail(
+        self, lease: JobLease, code: str, summary: str, now: datetime
+    ) -> RunReport:
+        with job_transaction(self.dsn) as connection:
+            run_id = results.fail(connection, lease, code, summary, now)
+            return reports.read_run_report(connection, run_id)
+
+    def get_run_report(self, run_id: str) -> RunReport:
+        with job_transaction(self.dsn) as connection:
+            return reports.read_run_report(connection, run_id)
+
+    def get_job_report(self, job_id: str) -> JobReport:
+        with job_transaction(self.dsn) as connection:
+            return reports.read_job_report(connection, job_id)
 
     def list(
         self,

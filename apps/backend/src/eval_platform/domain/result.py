@@ -99,3 +99,38 @@ class DeterministicResult:
     patch_applied: bool
     report_ref: ArtifactRef
     log_refs: tuple[ArtifactRef, ...] = ()
+    tests_status_summary: dict[str, object] | None = None
+    duration_ms: int | None = None
+
+
+class PatchValidationError(ValueError):
+    def __init__(self, code: str) -> None:
+        super().__init__(code)
+        self.code = code
+
+
+def validate_patch_content(
+    reference: ArtifactRef,
+    content: bytes,
+    warning_bytes: int,
+    maximum_bytes: int,
+) -> tuple[str, ...]:
+    if reference.artifact_type != "agent_patch":
+        raise PatchValidationError("PATCH_IDENTITY_INVALID")
+    if len(content) != reference.size_bytes:
+        raise PatchValidationError("PATCH_SIZE_MISMATCH")
+    from hashlib import sha256
+
+    if sha256(content).hexdigest() != reference.sha256:
+        raise PatchValidationError("PATCH_HASH_MISMATCH")
+    if len(content) > maximum_bytes:
+        raise PatchValidationError("PATCH_TOO_LARGE")
+    try:
+        text = content.decode("utf-8")
+    except UnicodeDecodeError:
+        raise PatchValidationError("BINARY_PATCH_NOT_ALLOWED") from None
+    if "\x00" in text or "GIT binary patch" in text or "Binary files " in text:
+        raise PatchValidationError("BINARY_PATCH_NOT_ALLOWED")
+    if content and not text.startswith("diff --git "):
+        raise PatchValidationError("PATCH_FORMAT_INVALID")
+    return ("PATCH_SIZE_WARNING",) if len(content) > warning_bytes else ()

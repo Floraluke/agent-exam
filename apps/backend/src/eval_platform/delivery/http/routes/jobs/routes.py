@@ -19,7 +19,7 @@ from eval_platform.delivery.http.routes.jobs.schemas import (
 )
 from eval_platform.delivery.http.schemas import error_responses
 from eval_platform.domain.identity import AuthenticatedActor
-from eval_platform.domain.jobs.models import JobInputError
+from eval_platform.domain.jobs.models import JobInputError, JobStatus
 
 IdempotencyKey = Annotated[
     str,
@@ -69,7 +69,7 @@ def jobs_router(
         request: Request,
         cursor: UUID | None = None,
         limit: int = Query(20, ge=1, le=100),
-        status: Literal["AWAITING_OWNER_APPROVAL", "QUEUED", "REJECTED"] | None = None,
+        status: JobStatus | None = None,
         created_by: UUID | None = None,
         evaluation_track: Literal["closed_book"] | None = None,
         result_scope: Literal["official", "internal_test"] | None = None,

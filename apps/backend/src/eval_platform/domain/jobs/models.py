@@ -2,13 +2,43 @@
 
 from dataclasses import dataclass
 from datetime import datetime
-from hashlib import sha256
 from typing import Literal
 
-from eval_platform.domain.catalog import CatalogTask, RegisteredAgent
+from eval_platform.domain.jobs.snapshots import (
+    AgentSnapshot as AgentSnapshot,
+)
+from eval_platform.domain.jobs.snapshots import (
+    LimitSnapshot as LimitSnapshot,
+)
+from eval_platform.domain.jobs.snapshots import (
+    NetworkPolicySnapshot as NetworkPolicySnapshot,
+)
+from eval_platform.domain.jobs.snapshots import (
+    TaskSnapshot as TaskSnapshot,
+)
+from eval_platform.domain.jobs.snapshots import (
+    ToolProfileSnapshot as ToolProfileSnapshot,
+)
 
-JobStatus = Literal["AWAITING_OWNER_APPROVAL", "QUEUED", "REJECTED"]
-RunStatus = Literal["PENDING", "CANCELED"]
+JobStatus = Literal[
+    "AWAITING_OWNER_APPROVAL",
+    "QUEUED",
+    "PREPARING",
+    "EXECUTING",
+    "FINALIZING",
+    "COMPLETED",
+    "FAILED",
+    "REJECTED",
+]
+RunStatus = Literal[
+    "PENDING",
+    "PREPARING",
+    "RUNNING_AGENT",
+    "VERIFYING",
+    "COMPLETED",
+    "FAILED",
+    "CANCELED",
+]
 ResultScope = Literal["official", "internal_test"]
 
 
@@ -38,106 +68,6 @@ class JobUnavailable(JobError):
 
 
 @dataclass(frozen=True, slots=True)
-class LimitSnapshot:
-    agent_wall_timeout_sec: int
-    agent_cpus: int
-    agent_memory_mb: int
-    agent_storage_mb: int
-    evaluator_wall_timeout_sec: int
-    evaluator_cpus: int
-    evaluator_memory_mb: int
-    pids_limit: int
-    patch_warning_bytes: int
-    patch_max_bytes: int
-    raw_artifact_max_bytes: int
-    raw_run_max_bytes: int
-    concurrency: int
-    max_retries: int
-
-
-@dataclass(frozen=True, slots=True)
-class NetworkPolicySnapshot:
-    mode: str
-    web_search: str
-    arbitrary_hosts: bool
-
-
-@dataclass(frozen=True, slots=True)
-class ToolProfileSnapshot:
-    agent_type: str
-    web_search: str
-    arbitrary_commands: bool
-
-
-@dataclass(frozen=True, slots=True)
-class TaskSnapshot:
-    task_id: str
-    instance_id: str
-    dataset_id: str
-    dataset_revision: str
-    split: str
-    repo: str
-    base_commit: str
-    problem_statement: str
-    environment_image: str
-    raw_record_sha256: str
-    problem_sha256: str
-    artifact_id: str
-    source_object_key: str
-    source_sha256: str
-
-    @classmethod
-    def from_record(cls, record: CatalogTask) -> "TaskSnapshot":
-        task, source = record.task, record.source
-        return cls(
-            record.task_id,
-            task.instance_id,
-            task.dataset_id,
-            task.dataset_revision,
-            task.split,
-            task.repo,
-            task.base_commit,
-            task.problem_statement,
-            task.environment_image,
-            task.raw_record_sha256,
-            sha256(task.problem_statement.encode()).hexdigest(),
-            record.artifact_id,
-            source.object_key,
-            source.sha256,
-        )
-
-
-@dataclass(frozen=True, slots=True)
-class AgentSnapshot:
-    agent_configuration_id: str
-    display_name: str
-    agent_type: str
-    agent_version: str
-    model_provider: str
-    model: str
-    authentication_type: str
-    credential_profile_id: str
-    reasoning_effort: str
-    configuration_fingerprint: str
-
-    @classmethod
-    def from_record(cls, record: RegisteredAgent) -> "AgentSnapshot":
-        configuration = record.configuration
-        return cls(
-            configuration.configuration_id,
-            record.display_name,
-            configuration.agent_name,
-            configuration.agent_version,
-            configuration.model_provider,
-            configuration.model_name,
-            configuration.authentication_type,
-            configuration.credential_configuration_id,
-            str(configuration.critical_config["reasoning_effort"]),
-            configuration.fingerprint,
-        )
-
-
-@dataclass(frozen=True, slots=True)
 class StateEvent:
     event_id: str
     sequence: int
@@ -147,6 +77,7 @@ class StateEvent:
     occurred_at: datetime
     actor_user_id: str | None = None
     note: str | None = None
+    worker_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -161,6 +92,15 @@ class EvaluationRun:
     execution_contract_version: str
     created_at: datetime
     state_events: tuple[StateEvent, ...]
+    row_version: int = 0
+    stage: str | None = None
+    backend_job_ref: str | None = None
+    backend_trial_ref: str | None = None
+    failure_code: str | None = None
+    failure_summary: str | None = None
+    resolved_summary: bool | None = None
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -186,6 +126,15 @@ class EvaluationJob:
     owner_decided_by: str | None = None
     owner_decided_at: datetime | None = None
     owner_decision_reason: str | None = None
+    row_version: int = 0
+    claimed_by: str | None = None
+    claimed_at: datetime | None = None
+    heartbeat_at: datetime | None = None
+    lease_expires_at: datetime | None = None
+    failure_code: str | None = None
+    failure_summary: str | None = None
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
 
     @property
     def trial_count(self) -> int:

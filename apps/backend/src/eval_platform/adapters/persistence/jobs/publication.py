@@ -85,7 +85,9 @@ def publish(
         )
         event = run.state_events[0]
         connection.execute(
-            "INSERT INTO run_state_events VALUES (%s,%s,%s,%s,%s,%s,%s)",
+            "INSERT INTO run_state_events "
+            "(event_id,run_id,sequence,from_status,to_status,reason_code,occurred_at) "
+            "VALUES (%s,%s,%s,%s,%s,%s,%s)",
             (
                 event.event_id,
                 run.run_id,

@@ -7,7 +7,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from eval_platform.domain.jobs.models import EvaluationJob
+from eval_platform.domain.jobs.models import EvaluationJob, JobStatus, RunStatus
 from eval_platform.domain.jobs.policy import SubmissionPolicy
 
 
@@ -58,7 +58,7 @@ class RunResponse(BaseModel):
     run_id: str
     task_id: str
     agent_configuration_id: str
-    status: Literal["PENDING", "CANCELED"]
+    status: RunStatus
     backend_kind: str
     backend_revision: str
     execution_contract_version: str
@@ -67,7 +67,7 @@ class RunResponse(BaseModel):
 
 class JobSummary(BaseModel):
     job_id: str
-    status: Literal["AWAITING_OWNER_APPROVAL", "QUEUED", "REJECTED"]
+    status: JobStatus
     evaluation_track: Literal["closed_book"]
     result_scope: Literal["official", "internal_test"]
     batch_preset: str
