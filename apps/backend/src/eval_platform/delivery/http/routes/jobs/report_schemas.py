@@ -1,0 +1,144 @@
+from dataclasses import asdict
+from datetime import datetime
+from typing import Literal
+
+from pydantic import BaseModel, Field
+
+from eval_platform.domain.jobs.execution import JobReport, RunReport
+
+
+class RunIdentityResponse(BaseModel):
+    run_id: str
+    job_id: str
+    status: str
+    stage: str | None
+    task_instance_id: str
+    agent_configuration_id: str
+    backend_job_ref: str | None
+    backend_trial_ref: str | None
+    failure_code: str | None
+    failure_summary: str | None
+    started_at: datetime | None
+    finished_at: datetime | None
+
+
+class DeterministicResultResponse(BaseModel):
+    patch_exists: bool
+    patch_successfully_applied: bool
+    resolved: bool
+    tests_status_summary: dict[str, object]
+    harness_revision: str
+    duration_ms: int | None
+
+
+class ArtifactLinkResponse(BaseModel):
+    artifact_id: str
+    artifact_type: str
+    sha256: str
+    size_bytes: int
+    content_type: str
+    redaction_status: str
+    warnings: list[str]
+
+
+class RunReportResponse(BaseModel):
+    run: RunIdentityResponse
+    deterministic_result: DeterministicResultResponse | None
+    process_metrics: dict[str, object]
+    judge_analyses: list[object] = Field(default_factory=list)
+    human_review: None = None
+    quality_tiebreak: None = None
+    review_status: Literal["NOT_REQUIRED"] = "NOT_REQUIRED"
+    artifact_links: list[ArtifactLinkResponse]
+
+    @classmethod
+    def from_record(cls, report: RunReport) -> "RunReportResponse":
+        run = report.run
+        result = report.deterministic_result
+        return cls(
+            run=RunIdentityResponse(
+                run_id=run.run_id,
+                job_id=run.job_id,
+                status=run.status,
+                stage=run.stage,
+                task_instance_id=run.task.instance_id,
+                agent_configuration_id=run.agent.agent_configuration_id,
+                backend_job_ref=run.backend_job_ref,
+                backend_trial_ref=run.backend_trial_ref,
+                failure_code=run.failure_code,
+                failure_summary=run.failure_summary,
+                started_at=run.started_at,
+                finished_at=run.finished_at,
+            ),
+            deterministic_result=(
+                None
+                if result is None
+                else DeterministicResultResponse(
+                    **{
+                        key: getattr(result, key)
+                        for key in DeterministicResultResponse.model_fields
+                    }
+                )
+            ),
+            process_metrics=asdict(report.process_metrics),
+            artifact_links=[
+                ArtifactLinkResponse(
+                    artifact_id=item.artifact_id,
+                    artifact_type=item.reference.artifact_type,
+                    sha256=item.reference.sha256,
+                    size_bytes=item.reference.size_bytes,
+                    content_type=item.reference.content_type,
+                    redaction_status=item.redaction_status,
+                    warnings=list(item.reference.warnings),
+                )
+                for item in report.artifacts
+            ],
+        )
+
+
+class JobRunReportResponse(BaseModel):
+    run_id: str
+    status: str
+    resolved: bool | None
+    failure_code: str | None
+    report_path: str
+
+
+class JobReportResponse(BaseModel):
+    job_id: str
+    status: str
+    trial_count: int
+    completed_runs: int
+    failed_runs: int
+    pending_runs: int
+    development_limitation: str | None
+    runs: list[JobRunReportResponse]
+
+    @classmethod
+    def from_record(cls, report: JobReport) -> "JobReportResponse":
+        runs = report.job.runs
+        return cls(
+            job_id=report.job.job_id,
+            status=report.job.status,
+            trial_count=report.job.trial_count,
+            completed_runs=sum(run.status == "COMPLETED" for run in runs),
+            failed_runs=sum(run.status == "FAILED" for run in runs),
+            pending_runs=sum(
+                run.status not in {"COMPLETED", "FAILED", "CANCELED"} for run in runs
+            ),
+            development_limitation=(
+                "任务 07 接通前，多组合批次保持排队且不会被部分领取。"
+                if report.job.trial_count > 1
+                else None
+            ),
+            runs=[
+                JobRunReportResponse(
+                    run_id=run.run_id,
+                    status=run.status,
+                    resolved=run.resolved_summary,
+                    failure_code=run.failure_code,
+                    report_path=f"/api/v1/reports/runs/{run.run_id}",
+                )
+                for run in runs
+            ],
+        )

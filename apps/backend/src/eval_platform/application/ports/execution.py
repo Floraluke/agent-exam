@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from eval_platform.domain.agent import AgentConfiguration
+from eval_platform.domain.jobs.models import EvaluationJob, EvaluationRun
 from eval_platform.domain.result import ExecutionTrialResult
 from eval_platform.domain.task import EvaluationTask
 
@@ -51,6 +52,29 @@ class ExecutionJobRequest:
         run_ids = [run.run_id for run in self.runs]
         if len(run_ids) != len(set(run_ids)):
             raise ValueError("run_id values must be unique within a job")
+
+    @classmethod
+    def single_run(
+        cls,
+        job: EvaluationJob,
+        run: EvaluationRun,
+        task: EvaluationTask,
+        agent: AgentConfiguration,
+    ) -> ExecutionJobRequest:
+        limits = job.limit_snapshot
+        return cls(
+            job.job_id,
+            (ExecutionRunRequest(run.run_id, task, agent),),
+            RunLimits(
+                limits.agent_wall_timeout_sec,
+                limits.agent_cpus,
+                limits.agent_memory_mb,
+                limits.agent_storage_mb,
+            ),
+            run.backend_revision,
+            "artifact-v1",
+            job.evaluation_track,
+        )
 
 
 class ExecutionBackend(Protocol):

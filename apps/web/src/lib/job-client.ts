@@ -1,11 +1,12 @@
 import { request } from "./api-client";
-import type { JobDetail, JobOptions, JobSummary, Page } from "./contracts";
+import type { JobDetail, JobOptions, JobSummary, Page, RunReport } from "./contracts";
 import {
   parseJobDetail,
   parseJobOptions,
   parseJobPage,
   parseJobSummary,
 } from "./job-shapes";
+import { parseRunReport } from "./report-shapes";
 
 export async function jobOptions(): Promise<JobOptions> {
   return parseJobOptions(await request("job-options"));
@@ -35,4 +36,8 @@ export async function decideJob(
 
 export async function jobs(): Promise<Page<JobSummary>> {
   return parseJobPage(await request("jobs?limit=20"));
+}
+
+export async function runReport(id: string): Promise<RunReport> {
+  return parseRunReport(await request("reports/runs/" + encodeURIComponent(id)));
 }

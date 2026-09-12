@@ -9,7 +9,7 @@ from eval_platform.adapters.persistence.identity import PostgresIdentityReposito
 from eval_platform.adapters.persistence.membership import PostgresMembershipRepository
 from eval_platform.application.agent_registry import AgentRegistry
 from eval_platform.application.identity import IdentityService
-from eval_platform.application.job_submission import JobSubmission
+from eval_platform.application.job_submission import JobReporting, JobSubmission
 from eval_platform.application.membership import MembershipService
 from eval_platform.application.owner_approval import OwnerApproval
 from eval_platform.application.task_catalog import TaskCatalog
@@ -28,6 +28,7 @@ from eval_platform.delivery.http.errors import (
 from eval_platform.delivery.http.routes.catalog import catalog_router
 from eval_platform.delivery.http.routes.identity import identity_router
 from eval_platform.delivery.http.routes.jobs import jobs_router
+from eval_platform.delivery.http.routes.jobs.report_routes import report_router
 from eval_platform.delivery.http.routes.membership import membership_router
 from eval_platform.delivery.http.security import LoginLimiter, trusted_write
 from eval_platform.delivery.jobs import create_jobs
@@ -53,6 +54,7 @@ def create_app(
     agents: AgentRegistry | None = None,
     jobs: JobSubmission | None = None,
     approvals: OwnerApproval | None = None,
+    reporting: JobReporting | None = None,
 ) -> FastAPI:
     app = FastAPI(title="AgentExam", version="0.1.0")
     limiters = {
@@ -101,6 +103,8 @@ def create_app(
         app.include_router(catalog_router(service, tasks, config, agents))
     if jobs is not None:
         app.include_router(jobs_router(service, jobs, config, approvals))
+    if reporting is not None:
+        app.include_router(report_router(service, reporting, config))
     return app
 
 
@@ -112,4 +116,7 @@ def create_runtime_app() -> FastAPI:
     membership = MembershipService(PostgresMembershipRepository(dsn), passwords)
     tasks, agents = create_catalog(dsn)
     jobs, approvals = create_jobs(dsn, tasks, agents)
-    return create_app(identity, config, membership, tasks, agents, jobs, approvals)
+    reporting = JobReporting(jobs.repository)
+    return create_app(
+        identity, config, membership, tasks, agents, jobs, approvals, reporting
+    )

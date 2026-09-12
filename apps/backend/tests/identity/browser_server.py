@@ -3,22 +3,35 @@
 import os
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from threading import Thread
+from time import sleep
 
 from catalog.conftest import task_bundle
-from catalog.memory import FixedSource, MemoryAgents, MemoryArtifacts, MemoryTasks
-from jobs.memory import MemoryJobs
+from catalog.memory import (
+    FixedSource,
+    MemoryAgents,
+    MemoryTasks,
+)
+from catalog.memory import (
+    MemoryArtifacts as CatalogArtifacts,
+)
+from jobs.execution.support.fakes import Backend, Evaluator
+from jobs.execution.support.fakes import MemoryArtifacts as RunArtifacts
+from jobs.execution.support.memory import ExecutableMemoryJobs
 from membership.memory import MemoryMembershipRepository
 
 from eval_platform.adapters.identity.passwords import Argon2Passwords
 from eval_platform.application.agent_registry import AgentRegistry
+from eval_platform.application.execute_job import JobExecutor
 from eval_platform.application.identity import IdentityService
-from eval_platform.application.job_submission import JobSubmission
+from eval_platform.application.job_submission import JobReporting, JobSubmission
 from eval_platform.application.membership import MembershipService
 from eval_platform.application.owner_approval import OwnerApproval
 from eval_platform.application.task_catalog import TaskCatalog
 from eval_platform.delivery.http.app import create_app
 from eval_platform.delivery.http.config import HttpConfig
 from eval_platform.delivery.job_presets import submission_policy
+from eval_platform.delivery.worker.main import WorkerShell
 from eval_platform.domain.agent import AgentConfiguration
 
 if os.environ.get("AGENTEXAM_IDENTITY_BROWSER_TEST") != "1":
@@ -44,7 +57,7 @@ service = IdentityService(repository, passwords, browser_clock)
 service.bootstrap_owner("owner", "synthetic browser password")
 tasks = TaskCatalog(
     MemoryTasks(),
-    MemoryArtifacts(),
+    CatalogArtifacts(),
     FixedSource(task_bundle()),
     {"swe-gym-lite-mypy-15413": "example__repo-1"},
 )
@@ -66,12 +79,25 @@ agents = AgentRegistry(
         )
     },
 )
-job_repository = MemoryJobs()
+job_repository = ExecutableMemoryJobs()
 jobs = JobSubmission(
     tasks,
     agents,
     job_repository,
     submission_policy("internal_test"),
+    browser_clock,
+)
+run_artifacts = RunArtifacts()
+worker = WorkerShell(
+    job_repository,
+    JobExecutor(
+        job_repository,
+        run_artifacts,
+        Backend(run_artifacts, b"diff --git a/a.py b/a.py\n--- a/a.py\n+++ b/a.py\n"),
+        Evaluator(run_artifacts),
+        tasks.source,
+        browser_clock,
+    ),
     browser_clock,
 )
 app = create_app(
@@ -82,4 +108,14 @@ app = create_app(
     agents,
     jobs,
     OwnerApproval(job_repository, browser_clock),
+    JobReporting(job_repository),
 )
+
+
+def run_synthetic_worker() -> None:
+    while True:
+        if not worker.run_once("internal-browser-worker"):
+            sleep(0.05)
+
+
+Thread(target=run_synthetic_worker, daemon=True).start()

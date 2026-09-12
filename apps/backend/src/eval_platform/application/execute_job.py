@@ -12,12 +12,9 @@ from eval_platform.application.ports.evaluator import (
 from eval_platform.application.ports.execution import (
     ExecutionBackend,
     ExecutionJobRequest,
-    ExecutionRunRequest,
-    RunLimits,
 )
 from eval_platform.application.ports.repositories import JobRepository
 from eval_platform.application.ports.task_source import TaskSource
-from eval_platform.domain.agent import AgentConfiguration
 from eval_platform.domain.catalog import ArtifactUnavailable
 from eval_platform.domain.jobs.execution import (
     ClaimedJob,
@@ -29,7 +26,7 @@ from eval_platform.domain.jobs.execution import (
     restore_agent,
     restore_public_task,
 )
-from eval_platform.domain.jobs.models import EvaluationJob, EvaluationRun, JobError
+from eval_platform.domain.jobs.models import JobError
 from eval_platform.domain.result import (
     ArtifactRef,
     DeterministicResult,
@@ -40,7 +37,6 @@ from eval_platform.domain.result import (
     UsageSummary,
     validate_patch_content,
 )
-from eval_platform.domain.task import EvaluationTask
 
 
 class JobExecutor:
@@ -72,7 +68,8 @@ class JobExecutor:
                 raise ValueError("Frozen task does not match the evaluator source")
             agent = restore_agent(run)
             lease = self.repository.start_execution(lease, self.clock())
-            trials = self.backend.execute(self._request(job, run, public_task, agent))
+            request = ExecutionJobRequest.single_run(job, run, public_task, agent)
+            trials = self.backend.execute(request)
             if len(trials) != 1 or trials[0].run_id != run.run_id:
                 return self._fail(lease, "BACKEND_RESULT_IDENTITY_INVALID")
             trial = trials[0]
@@ -92,10 +89,12 @@ class JobExecutor:
             patch_ref = replace(
                 trial.patch_ref,
                 warnings=tuple(
-                    dict.fromkeys((*trial.patch_ref.warnings, *patch_warnings))
+                    dict.fromkeys(
+                        (*trial.warnings, *trial.patch_ref.warnings, *patch_warnings)
+                    )
                 ),
             )
-            trial = replace(trial, patch_ref=patch_ref)
+            trial = replace(trial, patch_ref=patch_ref, warnings=patch_ref.warnings)
             lease = self.repository.start_verifying(lease, trial, self.clock())
             result = self.evaluator.evaluate(
                 EvaluationRequest(
@@ -105,7 +104,12 @@ class JobExecutor:
             completion = self._completion(job.swe_bench_fork_revision, trial, result)
             self.repository.complete(lease, completion)
             return True
-        except (ArtifactUnavailable, EvaluationError, PatchValidationError) as error:
+        except (
+            ArtifactUnavailable,
+            EvaluationError,
+            PatchValidationError,
+            JobError,
+        ) as error:
             code = getattr(error, "code", "EVIDENCE_UNAVAILABLE")
             return self._fail(lease, str(code))
         except (KeyError, OSError, RuntimeError, TypeError, ValueError):
@@ -176,25 +180,3 @@ class JobExecutor:
         except JobError:
             pass
         return False
-
-    @staticmethod
-    def _request(
-        job: EvaluationJob,
-        run: EvaluationRun,
-        task: EvaluationTask,
-        agent: AgentConfiguration,
-    ) -> ExecutionJobRequest:
-        limits = job.limit_snapshot
-        return ExecutionJobRequest(
-            job.job_id,
-            (ExecutionRunRequest(run.run_id, task, agent),),
-            RunLimits(
-                limits.agent_wall_timeout_sec,
-                limits.agent_cpus,
-                limits.agent_memory_mb,
-                limits.agent_storage_mb,
-            ),
-            run.backend_revision,
-            "artifact-v1",
-            job.evaluation_track,
-        )

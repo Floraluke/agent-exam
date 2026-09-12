@@ -7,8 +7,8 @@ from uuid import uuid4
 import pytest
 
 from eval_platform.domain.jobs.execution import JobLeaseConflict
-from jobs.execution.fixtures import queued_job
-from jobs.execution.memory import ExecutableMemoryJobs
+from jobs.execution.support.fixtures import queued_job
+from jobs.execution.support.memory import ExecutableMemoryJobs
 
 
 def test_two_workers_claim_at_most_one_active_job():

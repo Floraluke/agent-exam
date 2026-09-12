@@ -2,12 +2,11 @@ from dataclasses import replace
 from uuid import uuid4
 
 from eval_platform.domain.jobs.execution import (
-    JobLeaseConflict,
     JobReport,
     ProcessMetrics,
     RunReport,
 )
-from eval_platform.domain.jobs.models import StateEvent
+from eval_platform.domain.jobs.models import JobNotFound, StateEvent
 from eval_platform.domain.result import ResourceSummary, UsageSummary
 
 
@@ -109,7 +108,7 @@ def get_run_report(repository, run_id):
     try:
         return repository.reports[run_id]
     except KeyError:
-        raise JobLeaseConflict from None
+        raise JobNotFound from None
 
 
 def get_job_report(repository, job_id):

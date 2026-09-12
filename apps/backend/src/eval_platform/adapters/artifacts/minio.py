@@ -1,6 +1,7 @@
 from base64 import b64encode
 from hashlib import md5, sha256
 from typing import Any
+from uuid import UUID
 
 from botocore.exceptions import (  # type: ignore[import-untyped]
     BotoCoreError,
@@ -89,13 +90,42 @@ class MinioArtifactStore:
 
     @staticmethod
     def _validate(reference: ArtifactRef) -> None:
+        task_snapshot = (
+            reference.artifact_type == "task_source_snapshot"
+            and reference.content_type == "application/json"
+            and reference.object_key.startswith("tasks/")
+        )
+        run_types = {
+            "agent_patch": ("text/x-diff", 1024 * 1024),
+            "harness_report": ("application/json", _MAX_SNAPSHOT),
+            "harness_summary": ("application/json", _MAX_SNAPSHOT),
+            "harness_test_output": ("text/plain", _MAX_SNAPSHOT),
+        }
+        run_artifact = _valid_run_reference(reference, run_types)
         if (
-            reference.artifact_type != "task_source_snapshot"
-            or reference.content_type != "application/json"
+            (not task_snapshot and not run_artifact)
             or reference.retention_class != "long_term"
             or reference.deleted_at is not None
             or reference.truncated
             or not 0 <= reference.size_bytes <= _MAX_SNAPSHOT
-            or not reference.object_key.startswith("tasks/")
         ):
             raise ArtifactUnavailable
+
+
+def _valid_run_reference(
+    reference: ArtifactRef, types: dict[str, tuple[str, int]]
+) -> bool:
+    contract = types.get(reference.artifact_type)
+    parts = reference.object_key.split("/")
+    if contract is None or len(parts) != 4:
+        return False
+    try:
+        run_id = str(UUID(parts[1]))
+    except ValueError:
+        return False
+    content_type, maximum = contract
+    return (
+        parts == ["runs", run_id, reference.artifact_type, reference.sha256]
+        and reference.content_type == content_type
+        and reference.size_bytes <= maximum
+    )

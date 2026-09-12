@@ -42,7 +42,10 @@ function nullableText(value: Record<string, unknown>, key: string): string | nul
 export function parseJobSummary(value: unknown): JobSummary {
   const item = object(value);
   if (
-    !["AWAITING_OWNER_APPROVAL", "QUEUED", "REJECTED"].includes(String(item.status)) ||
+    ![
+      "AWAITING_OWNER_APPROVAL", "QUEUED", "PREPARING", "EXECUTING",
+      "FINALIZING", "COMPLETED", "FAILED", "REJECTED",
+    ].includes(String(item.status)) ||
     item.evaluation_track !== "closed_book" ||
     !["official", "internal_test"].includes(String(item.result_scope)) ||
     !Array.isArray(item.run_ids) ||

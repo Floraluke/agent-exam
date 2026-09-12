@@ -54,8 +54,14 @@ export type JobOptions = {
   limit_profiles: LimitProfile[]; maximum_agent_configurations: number;
   maximum_runs: number;
 };
+export type JobStatus =
+  | "AWAITING_OWNER_APPROVAL" | "QUEUED" | "PREPARING" | "EXECUTING"
+  | "FINALIZING" | "COMPLETED" | "FAILED" | "REJECTED";
+export type RunStatus =
+  | "PENDING" | "PREPARING" | "RUNNING_AGENT" | "VERIFYING"
+  | "COMPLETED" | "FAILED" | "CANCELED";
 export type JobSummary = {
-  job_id: string; status: "AWAITING_OWNER_APPROVAL" | "QUEUED" | "REJECTED";
+  job_id: string; status: JobStatus;
   evaluation_track: "closed_book"; result_scope: "official" | "internal_test";
   batch_preset: string; limit_profile_id: string; trial_count: number;
   run_ids: string[]; estimated_finish_at: null; created_at: string;
@@ -81,4 +87,35 @@ export type JobDetail = JobSummary & {
     agent_type: string; web_search: string; arbitrary_commands: boolean;
   };
   harbor_revision: string; swe_gym_revision: string; swe_bench_fork_revision: string;
+};
+
+export type RunReport = {
+  run: {
+    run_id: string; job_id: string; status: RunStatus; stage: string | null;
+    task_instance_id: string; agent_configuration_id: string;
+    backend_job_ref: string | null; backend_trial_ref: string | null;
+    failure_code: string | null; failure_summary: string | null;
+    started_at: string | null; finished_at: string | null;
+  };
+  deterministic_result: null | {
+    patch_exists: boolean; patch_successfully_applied: boolean; resolved: boolean;
+    tests_status_summary: Record<string, unknown>; harness_revision: string;
+    duration_ms: number | null;
+  };
+  process_metrics: {
+    usage: {
+      n_input_tokens: number | null; n_cache_tokens: number | null;
+      n_output_tokens: number | null; cost_usd: number | null;
+    };
+    resources: {
+      wall_time_sec: number | null; cpu_time_sec: number | null;
+      peak_memory_bytes: number | null;
+    };
+  };
+  judge_analyses: unknown[]; human_review: null; quality_tiebreak: null;
+  review_status: "NOT_REQUIRED";
+  artifact_links: Array<{
+    artifact_id: string; artifact_type: string; sha256: string; size_bytes: number;
+    content_type: string; redaction_status: string; warnings: string[];
+  }>;
 };

@@ -1,8 +1,8 @@
-# Dedicated synthetic PG acceptance. No published ports, mounts or global settings.
+# Dedicated synthetic PG + MinIO acceptance. No published ports, mounts or global settings.
 $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $false
 $scope = 'jobs-' + [guid]::NewGuid().ToString('N')
-$names = @("$scope-postgres", "$scope-tests")
+$names = @("$scope-minio", "$scope-postgres", "$scope-tests")
 $saved = @{}
 $testExit = 1
 
@@ -33,6 +33,11 @@ function Check-Isolation {
     Write-Output "$($item.Name): network=$Network; no published ports or host mounts"
 }
 try {
+    $minioImage = @(Invoke-Docker -Arguments @('image', 'inspect',
+        'agentexam-minio-test:7aac2a2c-go1.26.8', '--format', '{{.Id}}'))[0]
+    if ($minioImage -ne 'sha256:922042a62be66dc71bd1b23de25c7c232a6084033f3bcc2337ab49611cc3aba8') {
+        throw 'Unverified MinIO build identity'
+    }
     $base = @(Invoke-Docker -Arguments @('image', 'inspect',
         'agentexam-catalog-tests:20260912', '--format', '{{.Id}}'))[0]
     if ($base -ne 'sha256:2162edefcc51562f3a2ad3c405699f4e4b107efae8b6a92b7c38fc7e6e69cd24') {
@@ -46,14 +51,21 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Local jobs test image build failed' }
     $driverImage = @(Invoke-Docker -Arguments @('image', 'inspect',
         'agentexam-jobs-tests:20260912', '--format', '{{.Id}}'))[0]
-    Write-Output "Test driver: $driverImage; PostgreSQL: $postgres"
+    Write-Output "Test driver: $driverImage; PostgreSQL: $postgres; MinIO: $minioImage"
     $password = [Convert]::ToHexString(
         [Security.Cryptography.RandomNumberGenerator]::GetBytes(24))
+    $access = 'ae_test_' + [guid]::NewGuid().ToString('N')
     $environment = @{
+        MINIO_ROOT_USER = $access
+        MINIO_ROOT_PASSWORD = $password
         POSTGRES_USER = 'agentexam_identity_test'
         POSTGRES_DB = 'agentexam_identity_test'
         POSTGRES_PASSWORD = $password
         AGENTEXAM_TEST_DATABASE_URL = "host=127.0.0.1 port=55432 dbname=agentexam_identity_test user=agentexam_identity_test password=$password"
+        AGENTEXAM_MINIO_ENDPOINT = 'http://127.0.0.1:9000'
+        AGENTEXAM_MINIO_BUCKET = 'agentexam-synthetic-test'
+        AGENTEXAM_MINIO_ACCESS_KEY = $access
+        AGENTEXAM_MINIO_SECRET_KEY = $password
     }
     foreach ($key in $environment.Keys) {
         $saved[$key] = [Environment]::GetEnvironmentVariable($key, 'Process')
@@ -63,14 +75,23 @@ try {
         '--memory=512m', '--cpus=1', '--pids-limit=128',
         '--env=HTTP_PROXY=', '--env=HTTPS_PROXY=', '--env=ALL_PROXY=',
         '--env=http_proxy=', '--env=https_proxy=', '--env=all_proxy=')
-    $pg = New-TestContainer $names[0] ($limits + @('--network=none', '--user=70:70',
+    $minio = New-TestContainer $names[0] ($limits + @('--network=none',
+        '--tmpfs=/data:rw,nosuid,noexec,size=256m,uid=65534,gid=65534',
+        '--tmpfs=/tmp:rw,nosuid,noexec,size=64m,uid=65534,gid=65534',
+        '--env=MINIO_ROOT_USER', '--env=MINIO_ROOT_PASSWORD', '--env=MINIO_BROWSER=off',
+        $minioImage, 'server', '/data', '--address', '127.0.0.1:9000',
+        '--console-address', '127.0.0.1:9001'))
+    Check-Isolation $minio 'none'
+    Invoke-Docker -Arguments @('start', $minio)
+    $network = "container:$minio"
+    $pg = New-TestContainer $names[1] ($limits + @("--network=$network", '--user=70:70',
         '--tmpfs=/var/lib/postgresql/data:rw,nosuid,noexec,size=256m,uid=70,gid=70',
         '--tmpfs=/var/run/postgresql:rw,nosuid,noexec,size=16m,uid=70,gid=70',
         '--tmpfs=/tmp:rw,nosuid,noexec,size=32m,uid=70,gid=70',
         '--env=POSTGRES_USER', '--env=POSTGRES_DB', '--env=POSTGRES_PASSWORD',
         $postgres, 'postgres', '-p', '55432', '-c', 'listen_addresses=127.0.0.1',
         '-c', 'max_connections=20'))
-    Check-Isolation $pg 'none'
+    Check-Isolation $pg $network
     Invoke-Docker -Arguments @('start', $pg)
     $ready = $false
     for ($attempt = 0; $attempt -lt 30; $attempt++) {
@@ -79,12 +100,15 @@ try {
         Start-Sleep -Milliseconds 500
     }
     if (-not $ready) { throw 'Dedicated PostgreSQL did not become ready' }
-    $network = "container:$pg"
     $driverArgs = $limits + @("--network=$network",
         '--tmpfs=/tmp:rw,nosuid,size=256m,uid=65534,gid=65534',
         '--env=AGENTEXAM_RUN_IDENTITY_POSTGRES=1',
-        '--env=AGENTEXAM_TEST_DATABASE_URL', $driverImage, 'tests/jobs')
-    $driver = New-TestContainer $names[1] $driverArgs
+        '--env=AGENTEXAM_RUN_JOB_MINIO=1')
+    foreach ($key in $environment.Keys | Where-Object { $_ -like 'AGENTEXAM_*' }) {
+        $driverArgs += "--env=$key"
+    }
+    $driverArgs += @($driverImage, 'tests/jobs')
+    $driver = New-TestContainer $names[2] $driverArgs
     Check-Isolation $driver $network
     & docker start --attach $driver
     $testExit = $LASTEXITCODE
@@ -93,7 +117,7 @@ try {
     if ($actualExit -ne '0') { $testExit = 1 }
 }
 finally {
-    foreach ($name in @($names[1], $names[0])) {
+    foreach ($name in @($names[2], $names[1], $names[0])) {
         $raw = @(& docker inspect $name 2>$null)
         if ($LASTEXITCODE -eq 0) {
             $item = (($raw -join [Environment]::NewLine) | ConvertFrom-Json)[0]
@@ -110,6 +134,6 @@ finally {
     $remaining = @(Invoke-Docker -Arguments @('ps', '-aq', '--filter',
         "label=agentexam.jobs-test=$scope"))[0]
     if ($remaining) { throw 'Dedicated containers remain after cleanup' }
-    Write-Output 'Dedicated containers and tmpfs database removed; images/build caches retained.'
+    Write-Output 'Dedicated containers and tmpfs test data removed; images/build caches retained.'
 }
 if ($testExit -ne 0) { throw 'Job acceptance did not pass; inspect test output.' }

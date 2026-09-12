@@ -7,7 +7,7 @@ from uuid import uuid4
 
 from eval_platform.domain.jobs.execution import ClaimedJob, JobLease, JobLeaseConflict
 from eval_platform.domain.jobs.models import StateEvent
-from jobs.execution import memory_results
+from jobs.execution.support import memory_results
 from jobs.memory import MemoryJobs
 
 _ACTIVE = {"PREPARING", "EXECUTING", "FINALIZING"}

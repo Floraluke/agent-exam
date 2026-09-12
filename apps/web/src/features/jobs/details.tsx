@@ -4,11 +4,17 @@ export default function JobDetails({ job }: { job: JobDetail }) {
   const title = {
     AWAITING_OWNER_APPROVAL: "等待所有者批准",
     QUEUED: "已批准，等待执行",
+    PREPARING: "正在准备运行",
+    EXECUTING: "Agent 正在执行",
+    FINALIZING: "正在核验并保存结果",
+    COMPLETED: "执行完成",
+    FAILED: "运行失败",
     REJECTED: "已拒绝",
   }[job.status];
   return <article aria-label="评测批次详情">
     <h3>{title}</h3>
     <p>冻结运行数：{job.trial_count}</p>
+    {job.trial_count > 1 && <p>开发期限制：任务 07 接通前，多组合批次不会被部分领取。</p>}
     <p>批次：{job.batch_preset} · 赛道：闭卷</p>
     <p>结果范围：{job.result_scope === "official" ? "正式" : "内部测试"}</p>
     <p>限制：{job.limit_profile_id}；Agent {job.limit_snapshot.agent_wall_timeout_sec} 秒 /
