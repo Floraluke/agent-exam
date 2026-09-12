@@ -94,7 +94,11 @@ def _metrics(value: object) -> ProcessMetrics:
 
 def _artifact(row: dict[str, Any], warnings: object) -> RunArtifact:
     items = warnings if isinstance(warnings, list) else []
-    patch_warnings = tuple(item for item in items if item == "PATCH_SIZE_WARNING")
+    patch_warnings = (
+        tuple(item for item in items if item == "PATCH_SIZE_WARNING")
+        if row["artifact_type"] == "agent_patch"
+        else ()
+    )
     reference = ArtifactRef(
         row["object_key"],
         row["artifact_type"],

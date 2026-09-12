@@ -21,6 +21,7 @@ from eval_platform.application.agent_registry import AgentRegistry
 from eval_platform.application.identity import IdentityService
 from eval_platform.application.job_submission import JobSubmission
 from eval_platform.application.owner_approval import OwnerApproval
+from eval_platform.application.reporting import JobReporting
 from eval_platform.application.task_catalog import TaskCatalog
 from eval_platform.delivery.http.app import create_app
 from eval_platform.delivery.http.config import HttpConfig
@@ -37,7 +38,7 @@ pytestmark = pytest.mark.integration
 
 
 @contextmanager
-def postgres_api(sandbox, *, initialize=True):
+def postgres_api(sandbox, *, initialize=True, report_store=None):
     if initialize:
         init_catalog(sandbox.dsn)
         init_jobs(sandbox.dsn)
@@ -80,6 +81,9 @@ def postgres_api(sandbox, *, initialize=True):
         agents=agents,
         jobs=jobs,
         approvals=approvals,
+        reporting=(
+            JobReporting(repository, report_store) if report_store is not None else None
+        ),
     )
     with TestClient(app, base_url=ORIGIN, raise_server_exceptions=False) as client:
         yield client, jobs, repository, owner

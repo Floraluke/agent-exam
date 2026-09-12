@@ -3,8 +3,14 @@ from datetime import UTC, datetime
 
 import pytest
 
+from eval_platform.adapters.execution.harbor.config_mapper import build_job_plan
 from eval_platform.application.execute_job import JobExecutor
+from eval_platform.application.ports.execution import ExecutionJobRequest
+from eval_platform.application.reporting import JobReporting
 from eval_platform.delivery.worker.main import WorkerShell
+from eval_platform.domain.catalog import ArtifactUnavailable
+from eval_platform.domain.identity import AuthenticatedActor
+from eval_platform.domain.jobs.execution import restore_agent, restore_public_task
 from eval_platform.domain.result import ExecutionTrialResult, TerminationReason
 from jobs.execution.support.fakes import Backend, Evaluator, MemoryArtifacts
 from jobs.execution.support.fixtures import queued_job
@@ -84,8 +90,28 @@ def test_empty_and_warn_size_patches_are_preserved(patch, exists, warnings):
         if item.reference.artifact_type == "agent_patch"
     )
     assert worked and report.deterministic_result.patch_exists is exists
+    if not exists:
+        assert report.deterministic_result.patch_successfully_applied is False
+        assert report.deterministic_result.resolved is False
     assert patch_artifact.reference.size_bytes == len(patch)
     assert patch_artifact.reference.warnings == warnings
+
+
+def test_frozen_run_contract_builds_the_existing_harbor_job_plan(tmp_path):
+    job, _bundle = queued_job(datetime(2026, 9, 12, 8, 0, tzinfo=UTC))
+    run = job.runs[0]
+    request = ExecutionJobRequest.single_run(
+        job, run, restore_public_task(run), restore_agent(run)
+    )
+
+    plan = build_job_plan(
+        request,
+        jobs_dir=tmp_path / "jobs",
+        task_dirs={run.task.instance_id: tmp_path / "task"},
+    )
+
+    assert request.artifact_contract_version == run.execution_contract_version
+    assert plan.run_ids == (run.run_id,)
 
 
 @pytest.mark.parametrize(
@@ -148,3 +174,26 @@ def test_agent_failure_is_distinct_from_a_normal_unresolved_result():
     assert worked and unresolved.run.status == "COMPLETED"
     assert unresolved.deterministic_result is not None
     assert unresolved.deterministic_result.resolved is False
+
+
+def test_reporting_fails_closed_when_durable_evidence_is_missing():
+    now = datetime(2026, 9, 12, 8, 0, tzinfo=UTC)
+    job, bundle = queued_job(now)
+    repository, artifacts = ExecutableMemoryJobs(job), MemoryArtifacts()
+    source = type("Source", (), {"load": lambda self, instance_id: bundle})()
+    executor = JobExecutor(
+        repository,
+        artifacts,
+        Backend(artifacts, b"diff --git a/a b/a\n"),
+        Evaluator(artifacts),
+        source,
+        lambda: now,
+    )
+    assert WorkerShell(repository, executor, lambda: now).run_once("worker-one")
+    report = repository.get_run_report(job.runs[0].run_id)
+    artifacts.content.pop(report.artifacts[0].reference.object_key)
+
+    reporting = JobReporting(repository, artifacts)
+    actor = AuthenticatedActor(job.created_by, "creator", "collaborator")
+    with pytest.raises(ArtifactUnavailable):
+        reporting.run(actor, job.runs[0].run_id)

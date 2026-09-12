@@ -17,14 +17,16 @@ from membership.memory import MemoryMembershipRepository
 from eval_platform.adapters.identity.passwords import Argon2Passwords
 from eval_platform.application.agent_registry import AgentRegistry
 from eval_platform.application.identity import IdentityService
-from eval_platform.application.job_submission import JobReporting, JobSubmission
+from eval_platform.application.job_submission import JobSubmission
 from eval_platform.application.membership import MembershipService
 from eval_platform.application.owner_approval import OwnerApproval
+from eval_platform.application.reporting import JobReporting
 from eval_platform.application.task_catalog import TaskCatalog
 from eval_platform.delivery.http.app import create_app
 from eval_platform.delivery.http.config import HttpConfig
 from eval_platform.delivery.job_presets import submission_policy
 from eval_platform.domain.agent import AgentConfiguration
+from jobs.execution.support.fakes import MemoryArtifacts as RunArtifacts
 from jobs.execution.support.memory import ExecutableMemoryJobs
 
 
@@ -34,6 +36,7 @@ class JobAPI:
     clock: Clock
     repository: ExecutableMemoryJobs
     jobs: JobSubmission
+    run_artifacts: RunArtifacts
 
     def login(self, username="owner", password=PASSWORD):
         return self.client.post(
@@ -103,6 +106,7 @@ def job_api(result_scope="internal_test"):
     )
     membership = MembershipService(identities, passwords, clock)
     job_repository = ExecutableMemoryJobs()
+    run_artifacts = RunArtifacts()
     jobs = JobSubmission(
         tasks,
         agents,
@@ -118,10 +122,10 @@ def job_api(result_scope="internal_test"):
         agents,
         jobs,
         OwnerApproval(job_repository, clock),
-        JobReporting(job_repository),
+        JobReporting(job_repository, run_artifacts),
     )
     with TestClient(app, base_url=ORIGIN, raise_server_exceptions=False) as client:
-        yield JobAPI(client, clock, job_repository, jobs)
+        yield JobAPI(client, clock, job_repository, jobs, run_artifacts)
 
 
 @pytest.fixture

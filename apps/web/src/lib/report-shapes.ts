@@ -1,4 +1,5 @@
 import { ApiError } from "./api-client";
+import { ARTIFACT_TYPES, REDACTION_STATUSES, RUN_STATUSES } from "./contracts";
 import type { RunReport, RunStatus } from "./contracts";
 
 function record(value: unknown): Record<string, unknown> {
@@ -41,11 +42,7 @@ function natural(value: Record<string, unknown>, key: string): number {
 
 function runIdentity(value: unknown): RunReport["run"] {
   const item = record(value);
-  const statuses: RunStatus[] = [
-    "PENDING", "PREPARING", "RUNNING_AGENT", "VERIFYING",
-    "COMPLETED", "FAILED", "CANCELED",
-  ];
-  if (!statuses.includes(String(item.status) as RunStatus)) {
+  if (!RUN_STATUSES.includes(String(item.status) as RunStatus)) {
     throw new ApiError("UNAVAILABLE");
   }
   return {
@@ -97,14 +94,22 @@ function artifact(value: unknown): RunReport["artifact_links"][number] {
   const item = record(value);
   if (!Array.isArray(item.warnings) ||
       item.warnings.some((warning) => typeof warning !== "string") ||
-      !/^[0-9a-f]{64}$/.test(String(item.sha256))) {
+      !/^[0-9a-f]{64}$/.test(String(item.sha256)) ||
+      !ARTIFACT_TYPES.includes(
+        String(item.artifact_type) as typeof ARTIFACT_TYPES[number]
+      ) ||
+      !REDACTION_STATUSES.includes(
+        String(item.redaction_status) as typeof REDACTION_STATUSES[number]
+      )) {
     throw new ApiError("UNAVAILABLE");
   }
   return {
     artifact_id: text(item, "artifact_id"),
-    artifact_type: text(item, "artifact_type"), sha256: text(item, "sha256"),
+    artifact_type: item.artifact_type as typeof ARTIFACT_TYPES[number],
+    sha256: text(item, "sha256"),
     size_bytes: natural(item, "size_bytes"), content_type: text(item, "content_type"),
-    redaction_status: text(item, "redaction_status"), warnings: item.warnings,
+    redaction_status: item.redaction_status as typeof REDACTION_STATUSES[number],
+    warnings: item.warnings,
   };
 }
 

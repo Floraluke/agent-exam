@@ -5,12 +5,17 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from eval_platform.domain.jobs.execution import JobReport, RunReport
+from eval_platform.domain.jobs.models import JobStatus, RunStatus
+
+ArtifactType = Literal[
+    "agent_patch", "harness_report", "harness_summary", "harness_test_output"
+]
 
 
 class RunIdentityResponse(BaseModel):
     run_id: str
     job_id: str
-    status: str
+    status: RunStatus
     stage: str | None
     task_instance_id: str
     agent_configuration_id: str
@@ -31,20 +36,38 @@ class DeterministicResultResponse(BaseModel):
     duration_ms: int | None
 
 
+class UsageResponse(BaseModel):
+    n_input_tokens: int | None
+    n_cache_tokens: int | None
+    n_output_tokens: int | None
+    cost_usd: float | None
+
+
+class ResourceResponse(BaseModel):
+    wall_time_sec: float | None
+    cpu_time_sec: float | None
+    peak_memory_bytes: int | None
+
+
+class ProcessMetricsResponse(BaseModel):
+    usage: UsageResponse
+    resources: ResourceResponse
+
+
 class ArtifactLinkResponse(BaseModel):
     artifact_id: str
-    artifact_type: str
+    artifact_type: ArtifactType
     sha256: str
     size_bytes: int
     content_type: str
-    redaction_status: str
+    redaction_status: Literal["not_required", "redacted"]
     warnings: list[str]
 
 
 class RunReportResponse(BaseModel):
     run: RunIdentityResponse
     deterministic_result: DeterministicResultResponse | None
-    process_metrics: dict[str, object]
+    process_metrics: ProcessMetricsResponse
     judge_analyses: list[object] = Field(default_factory=list)
     human_review: None = None
     quality_tiebreak: None = None
@@ -80,16 +103,20 @@ class RunReportResponse(BaseModel):
                     }
                 )
             ),
-            process_metrics=asdict(report.process_metrics),
+            process_metrics=ProcessMetricsResponse.model_validate(
+                asdict(report.process_metrics)
+            ),
             artifact_links=[
-                ArtifactLinkResponse(
-                    artifact_id=item.artifact_id,
-                    artifact_type=item.reference.artifact_type,
-                    sha256=item.reference.sha256,
-                    size_bytes=item.reference.size_bytes,
-                    content_type=item.reference.content_type,
-                    redaction_status=item.redaction_status,
-                    warnings=list(item.reference.warnings),
+                ArtifactLinkResponse.model_validate(
+                    {
+                        "artifact_id": item.artifact_id,
+                        "artifact_type": item.reference.artifact_type,
+                        "sha256": item.reference.sha256,
+                        "size_bytes": item.reference.size_bytes,
+                        "content_type": item.reference.content_type,
+                        "redaction_status": item.redaction_status,
+                        "warnings": list(item.reference.warnings),
+                    }
                 )
                 for item in report.artifacts
             ],
@@ -98,7 +125,7 @@ class RunReportResponse(BaseModel):
 
 class JobRunReportResponse(BaseModel):
     run_id: str
-    status: str
+    status: RunStatus
     resolved: bool | None
     failure_code: str | None
     report_path: str
@@ -106,7 +133,7 @@ class JobRunReportResponse(BaseModel):
 
 class JobReportResponse(BaseModel):
     job_id: str
-    status: str
+    status: JobStatus
     trial_count: int
     completed_runs: int
     failed_runs: int

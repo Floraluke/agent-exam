@@ -4,7 +4,7 @@ from identity.conftest import WRITE_HEADERS
 
 from eval_platform.application.execute_job import JobExecutor
 from eval_platform.delivery.worker.main import WorkerShell
-from jobs.execution.support.fakes import Backend, Evaluator, MemoryArtifacts
+from jobs.execution.support.fakes import Backend, Evaluator
 from jobs.test_http import submission, submit
 from jobs.test_security import invite
 
@@ -23,7 +23,7 @@ def test_http_submission_approval_worker_and_layered_reports(jobs_api):
         headers={**WRITE_HEADERS, "Idempotency-Key": "report-http-approve-0001"},
     )
     assert approved.status_code == 200
-    artifacts = MemoryArtifacts()
+    artifacts = jobs_api.run_artifacts
     backend = Backend(artifacts, b"diff --git a/a.py b/a.py\n--- a/a.py\n+++ b/a.py\n")
     evaluator = Evaluator(artifacts)
     now = datetime(2026, 9, 12, 12, 0, tzinfo=UTC)
@@ -56,6 +56,18 @@ def test_http_submission_approval_worker_and_layered_reports(jobs_api):
         "harness_test_output",
     }
     assert all("object_key" not in item for item in body["artifact_links"])
+    report_schema = jobs_api.client.get("/openapi.json").json()["components"][
+        "schemas"
+    ]["RunReportResponse"]
+    assert report_schema["properties"]["process_metrics"]["$ref"].endswith(
+        "ProcessMetricsResponse"
+    )
+    assert "object_key" not in jobs_api.client.get("/openapi.json").text
+    missing_key = next(iter(artifacts.content))
+    artifacts.content.pop(missing_key)
+    unavailable = jobs_api.client.get(f"/api/v1/reports/runs/{run_id}")
+    assert unavailable.status_code == 503
+    assert unavailable.json()["error"]["code"] == "DEPENDENCY_UNAVAILABLE"
 
 
 def test_report_requires_identity_and_hides_unknown_run(jobs_api):
@@ -85,7 +97,7 @@ def test_run_report_uses_the_same_owner_or_creator_scope(jobs_api):
         headers={**WRITE_HEADERS, "Idempotency-Key": "report-scope-approve-0001"},
     )
     assert approved.status_code == 200
-    artifacts = MemoryArtifacts()
+    artifacts = jobs_api.run_artifacts
     now = datetime(2026, 9, 12, 13, 0, tzinfo=UTC)
     executor = JobExecutor(
         jobs_api.repository,

@@ -3,7 +3,8 @@ from dataclasses import replace
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from eval_platform.application.ports.artifacts import ArtifactStore
+from eval_platform.application.execution.evidence import EvidencePublication
+from eval_platform.application.ports.artifacts import ArtifactReader, ArtifactStore
 from eval_platform.application.ports.evaluator import (
     EvaluationError,
     EvaluationRequest,
@@ -48,6 +49,7 @@ class JobExecutor:
         evaluator: PatchEvaluator,
         tasks: TaskSource,
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
+        source_artifacts: ArtifactReader | None = None,
     ) -> None:
         self.repository = repository
         self.artifacts = artifacts
@@ -55,6 +57,7 @@ class JobExecutor:
         self.evaluator = evaluator
         self.tasks = tasks
         self.clock = clock
+        self.evidence = EvidencePublication(source_artifacts or artifacts, artifacts)
 
     def execute(self, claimed: ClaimedJob) -> bool:
         lease, job = claimed.lease, claimed.job
@@ -79,21 +82,22 @@ class JobExecutor:
                 )
             if trial.patch_ref is None:
                 return self._fail(lease, "PATCH_MISSING")
-            patch = self.artifacts.read_verified(trial.patch_ref)
+            patch_ref, patch = self.evidence.prepare_patch(run.run_id, trial.patch_ref)
             patch_warnings = validate_patch_content(
-                trial.patch_ref,
+                patch_ref,
                 patch,
                 job.limit_snapshot.patch_warning_bytes,
                 job.limit_snapshot.patch_max_bytes,
             )
             patch_ref = replace(
-                trial.patch_ref,
+                patch_ref,
                 warnings=tuple(
                     dict.fromkeys(
-                        (*trial.warnings, *trial.patch_ref.warnings, *patch_warnings)
+                        (*trial.warnings, *patch_ref.warnings, *patch_warnings)
                     )
                 ),
             )
+            self.evidence.persist(patch_ref, patch)
             trial = replace(trial, patch_ref=patch_ref, warnings=patch_ref.warnings)
             lease = self.repository.start_verifying(lease, trial, self.clock())
             result = self.evaluator.evaluate(
@@ -126,7 +130,17 @@ class JobExecutor:
         patch_ref = trial.patch_ref
         if patch_ref is None:
             raise ValueError("Patch reference disappeared")
-        references = (patch_ref, result.report_ref, *result.log_refs)
+        patch_exists = patch_ref.size_bytes > 0
+        if result.patch_applied != patch_exists or (
+            result.resolved and not result.patch_applied
+        ):
+            raise ValueError("Evaluator result contradicts the patch evidence")
+        references = (
+            patch_ref,
+            *self.evidence.publish_evaluation(
+                trial.run_id, result.report_ref, result.log_refs
+            ),
+        )
         verified = tuple(self._artifact(trial.run_id, item) for item in references)
         report = next(
             item
@@ -143,7 +157,7 @@ class JobExecutor:
         now = self.clock()
         stored = StoredDeterministicResult(
             trial.run_id,
-            patch_ref.size_bytes > 0,
+            patch_exists,
             result.patch_applied,
             result.resolved,
             result.tests_status_summary,

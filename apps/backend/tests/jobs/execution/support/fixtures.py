@@ -4,6 +4,7 @@ from uuid import uuid4
 
 from catalog.conftest import task_bundle
 
+from eval_platform.adapters.execution.harbor.config_mapper import HARBOR_REVISION
 from eval_platform.domain.agent import AgentConfiguration
 from eval_platform.domain.jobs.models import (
     AgentSnapshot,
@@ -65,8 +66,8 @@ def queued_job(now: datetime):
         agent,
         "PENDING",
         "mock",
-        "a" * 40,
-        "v1",
+        HARBOR_REVISION,
+        "agentexam.m0.v1",
         now,
         (StateEvent(str(uuid4()), 1, None, "PENDING", "JOB_SUBMITTED", now),),
     )

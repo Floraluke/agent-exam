@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Request
 
 from eval_platform.application.identity import IdentityService
-from eval_platform.application.job_submission import JobReporting
+from eval_platform.application.reporting import JobReporting
 from eval_platform.delivery.http.config import HttpConfig
 from eval_platform.delivery.http.routes.jobs.report_schemas import (
     JobReportResponse,

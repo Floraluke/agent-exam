@@ -11,7 +11,7 @@ from eval_platform.application.owner_approval import OwnerApproval
 from eval_platform.delivery.worker.main import WorkerShell
 from eval_platform.domain.jobs.execution import JobLeaseConflict
 from jobs.execution.support.fakes import Backend, Evaluator, MemoryArtifacts
-from jobs.test_postgres import postgres_api
+from jobs.test_postgres import login, postgres_api
 
 pytestmark = pytest.mark.integration
 
@@ -49,7 +49,6 @@ def test_postgres_claim_is_exclusive_versioned_and_restart_safe(postgres_sandbox
         assert restored.claimed_by == claimed[0].lease.worker_id
         assert restored.lease_expires_at == claimed[0].lease.lease_expires_at
         assert repository.claim("worker-three", now) is None
-
         invalid = replace(claimed[0].lease, worker_id="wrong-worker")
         with pytest.raises(JobLeaseConflict):
             repository.start_execution(invalid, now)
@@ -99,6 +98,11 @@ def test_postgres_result_transaction_restores_complete_report(postgres_sandbox):
         )
         assert patch_artifact.reference.size_bytes == len(patch)
         assert patch_artifact.reference.warnings == ("PATCH_SIZE_WARNING",)
+        assert all(
+            item.reference.warnings == ()
+            for item in report.artifacts
+            if item is not patch_artifact
+        )
 
 
 def test_real_pg_minio_database_failure_never_publishes_partial_result(
@@ -150,3 +154,47 @@ def test_real_pg_minio_database_failure_never_publishes_partial_result(
         assert stored.status == "FAILED"
         assert report.deterministic_result is None and report.artifacts == ()
         assert len(objects) == 3
+
+
+def test_real_pg_minio_http_report_fails_closed_after_object_loss(
+    postgres_sandbox, job_minio_sandbox
+):
+    store, service, bucket = job_minio_sandbox
+    with postgres_api(postgres_sandbox, report_store=store) as (
+        client,
+        jobs,
+        repository,
+        owner,
+    ):
+        task = jobs.tasks.register(owner, "verified-task")
+        agent = jobs.agents.register(owner, "verified-codex")
+        created = jobs.submit(
+            owner,
+            [task.task_id],
+            [agent.configuration.configuration_id],
+            "closed_book",
+            "demo",
+            "default-single-host-v1",
+            "postgres-minio-report-source-0001",
+        )
+        OwnerApproval(repository).decide(
+            owner, created.job_id, "approve", None, "postgres-minio-report-approve-0001"
+        )
+        now = datetime(2026, 9, 12, 13, 0, tzinfo=UTC)
+        executor = JobExecutor(
+            repository,
+            store,
+            Backend(store, b"diff --git a/a b/a\n"),
+            Evaluator(store),
+            jobs.tasks.source,
+            lambda: now,
+        )
+        assert WorkerShell(repository, executor, lambda: now).run_once("worker-report")
+        assert login(client).status_code == 200
+        path = f"/api/v1/reports/runs/{created.runs[0].run_id}"
+        assert client.get(path).status_code == 200
+        reference = repository.get_run_report(created.runs[0].run_id).artifacts[0]
+        service.delete_object(Bucket=bucket, Key=reference.reference.object_key)
+        unavailable = client.get(path)
+        assert unavailable.status_code == 503
+        assert unavailable.json()["error"]["code"] == "DEPENDENCY_UNAVAILABLE"

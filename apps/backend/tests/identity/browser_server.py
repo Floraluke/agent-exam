@@ -24,9 +24,10 @@ from eval_platform.adapters.identity.passwords import Argon2Passwords
 from eval_platform.application.agent_registry import AgentRegistry
 from eval_platform.application.execute_job import JobExecutor
 from eval_platform.application.identity import IdentityService
-from eval_platform.application.job_submission import JobReporting, JobSubmission
+from eval_platform.application.job_submission import JobSubmission
 from eval_platform.application.membership import MembershipService
 from eval_platform.application.owner_approval import OwnerApproval
+from eval_platform.application.reporting import JobReporting
 from eval_platform.application.task_catalog import TaskCatalog
 from eval_platform.delivery.http.app import create_app
 from eval_platform.delivery.http.config import HttpConfig
@@ -108,7 +109,7 @@ app = create_app(
     agents,
     jobs,
     OwnerApproval(job_repository, browser_clock),
-    JobReporting(job_repository),
+    JobReporting(job_repository, run_artifacts),
 )
 
 

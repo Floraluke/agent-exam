@@ -9,9 +9,10 @@ from eval_platform.adapters.persistence.identity import PostgresIdentityReposito
 from eval_platform.adapters.persistence.membership import PostgresMembershipRepository
 from eval_platform.application.agent_registry import AgentRegistry
 from eval_platform.application.identity import IdentityService
-from eval_platform.application.job_submission import JobReporting, JobSubmission
+from eval_platform.application.job_submission import JobSubmission
 from eval_platform.application.membership import MembershipService
 from eval_platform.application.owner_approval import OwnerApproval
+from eval_platform.application.reporting import JobReporting
 from eval_platform.application.task_catalog import TaskCatalog
 from eval_platform.delivery.catalog_presets import create_catalog
 from eval_platform.delivery.http.config import HttpConfig, database_url
@@ -116,7 +117,7 @@ def create_runtime_app() -> FastAPI:
     membership = MembershipService(PostgresMembershipRepository(dsn), passwords)
     tasks, agents = create_catalog(dsn)
     jobs, approvals = create_jobs(dsn, tasks, agents)
-    reporting = JobReporting(jobs.repository)
+    reporting = JobReporting(jobs.repository, tasks.artifacts)
     return create_app(
         identity, config, membership, tasks, agents, jobs, approvals, reporting
     )

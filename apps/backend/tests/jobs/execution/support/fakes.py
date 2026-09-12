@@ -1,5 +1,6 @@
 from hashlib import sha256
 
+from eval_platform.domain.catalog import ArtifactUnavailable
 from eval_platform.domain.result import (
     ArtifactRef,
     DeterministicResult,
@@ -22,7 +23,10 @@ class MemoryArtifacts:
             raise AssertionError("immutable object overwritten")
 
     def read_verified(self, reference):
-        content = self.content[reference.object_key]
+        try:
+            content = self.content[reference.object_key]
+        except KeyError:
+            raise ArtifactUnavailable from None
         assert len(content) == reference.size_bytes
         assert sha256(content).hexdigest() == reference.sha256
         return content
@@ -70,26 +74,31 @@ class Evaluator:
 
     def evaluate(self, request):
         self.requests.append(request)
+        patch_exists = bool(request.model_patch)
         report = artifact(
             self.store,
             request.run_id,
-            "harness_report",
-            b'{"resolved":true}',
+            "harness_report" if patch_exists else "harness_summary",
+            b'{"resolved":true}' if patch_exists else b'{"resolved":false}',
             "application/json",
         )
-        output = artifact(
-            self.store,
-            request.run_id,
-            "harness_test_output",
-            b"1 passed\n",
-            "text/plain",
-        )
+        outputs = ()
+        if patch_exists:
+            outputs = (
+                artifact(
+                    self.store,
+                    request.run_id,
+                    "harness_test_output",
+                    b"1 passed\n",
+                    "text/plain",
+                ),
+            )
         return DeterministicResult(
             request.run_id,
-            True,
-            True,
+            patch_exists,
+            patch_exists,
             report,
-            (output,),
+            outputs,
             {"FAIL_TO_PASS": {"success": 1, "failure": 0}},
             125,
         )

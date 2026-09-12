@@ -2,7 +2,7 @@
 
 ## 状态与情况说明
 
-- 状态：In Progress。固定开工基准为 `4944ce6`；任务 05 已完成，任务 06 的 11 项验收尚未实现。
+- 状态：Complete。固定开工/评审基准为 `4944ce6`；任务 06 的 11 项验收全部完成，Standards 与 Spec 修复后复评均无 findings。M1/MVP 尚未完成，下一项为任务 07。
 - 对应[任务 06](../../.scratch/m1-platform/issues/06-single-run-report.md)与 M1 规格故事 23、24、26–28、35–38、41、47、51。当前切片只执行一个已批准、且恰好含一个 Run 的 Job；多组合批次在任务 07 前保持排队并明确显示开发期限制。
 - 本任务深化已规划的 Job Orchestrator、Worker Shell、Job/Run Repository、Artifact Store、Reporting，以及既有 Execution Backend / Patch Evaluator ports；`deterministic_results` 是权威数据模型已规划且本任务首次需要的结果表，`artifact_records` 在既有表内扩展 Run 所有者和受控证据类型，不建立平行执行或存储系统。
 - Worker 领取使用 PostgreSQL 短事务、事务级 advisory lock 和 `FOR UPDATE SKIP LOCKED`：同机全局最多一个活跃重型 Job。领取后以 Worker 身份、未过期租约和行版本推进状态；租约长度取冻结 Agent 墙钟上限、Evaluator 墙钟上限与 300 秒收尾余量之和，阶段边界续租，不在外部执行期间持有数据库锁。任务 10 才实现中断恢复，过期租约本任务不自动重排或重跑。
@@ -20,35 +20,40 @@
 
 ## 需要修改的文件树
 
-以下是实施前规划；执行中按实际变化更新。新增路径均属于权威架构已规划的 Module/表/页面职责。动态源码保持每文件不超过 200 行、每层目录不超过 8 个直接文件；若接近指标先拆入已有职责子目录。
+以下为当前实际文件树；没有不存在的 `features/runs` 目录。新增路径均属于权威架构已规划的 Module/表/页面职责。动态源码保持每文件不超过 200 行、每层目录不超过 8 个直接文件。
 
 ```text
 apps/backend/src/eval_platform/
 ├─ domain/
-│  ├─ jobs/models.py                    # 扩展可持久化 Job/Run 生命周期摘要
-│  └─ jobs/execution.py                 # 新增：租约、Run 结果、制品索引和报告值
+│  ├─ jobs/{models,factory,snapshots}.py # Job/Run 生命周期、冻结工厂与快照恢复
+│  ├─ jobs/execution.py                  # 租约、Run 结果、制品索引和报告值
+│  └─ result.py                          # 执行、确定性结果与 patch 校验值
 ├─ application/
-│  ├─ execute_job.py                    # 新增：深 Module；单 Run 执行、判卷、证据和收束
+│  ├─ execute_job.py                    # 深 Module；单 Run 执行、判卷、证据和收束
+│  ├─ execution/evidence.py             # 旧本地 Adapter 引用到长期证据的规范化发布
+│  ├─ reporting/service.py              # 授权后复核证据正文并组合只读报告
+│  ├─ job_submission.py                 # 仅保留冻结提交/查询，不混入 Reporting
 │  └─ ports/{repositories,artifacts}.py # 深化既有领取/推进/报告与受控证据契约
 ├─ adapters/
 │  ├─ persistence/jobs/
-│  │  ├─ schema.sql                     # 扩展既有四表并新增规划内 deterministic_results
-│  │  ├─ execution/                     # 新增：为遵守每层 8 文件指标归拢 Worker 持久化细节
+│  │  ├─ execution/                     # 为遵守每层 8 文件指标归拢 Worker 持久化细节
 │  │  │  ├─ claims.py / common.py       # 原子领取、租约/版本检查和事件追加
 │  │  │  └─ results.py / reports.py     # 原子结果发布与只读报告恢复
-│  │  ├─ repository.py                  # 接通扩展的同一 Repository port
-│  │  └─ records.py                     # 恢复和校验执行期/终态 Job/Run
-│  └─ artifacts/minio.py                # 扩展受控 Run 证据，不改变任务快照规则
+│  │  ├─ {repository,records,publication}.py # 接通同一 port、恢复记录与发布快照
+│  │  └─ schema.sql                     # 领取/结果字段、事件和规划内结果表
+│  └─ artifacts/{local,minio}.py         # 受限本地来源读取与长期对象完整性存储
 ├─ delivery/
-│  ├─ worker/main.py                    # 新增：单机并发 1 Worker Shell
-│  └─ http/{app.py,routes/...}          # 注入 Reporting；Job/Run 报告端点和安全 DTO
+│  ├─ worker/main.py                    # 单机并发 1 Worker Shell
+│  └─ http/routes/jobs/{report_routes,report_schemas}.py # 受保护报告端点/DTO
 apps/backend/tests/
-├─ jobs/execution/...                   # 新增子目录以保持 jobs 层 8 文件；单 Run、双 Worker与存储测试
-└─ identity/browser_server.py           # 仅浏览器门禁下装配 internal_test Worker/报告
+├─ jobs/execution/{test_claims,test_orchestrator}.py # 领取与单 Run 编排
+├─ jobs/execution/{test_postgres_execution,test_storage}.py # 真实 PG/MinIO 分层验收
+├─ jobs/execution/{test_reports_http,test_evidence_publication}.py # HTTP 与旧 Adapter 桥
+├─ jobs/execution/support/              # 仅 internal_test 的后端、判卷、仓库替身
+└─ identity/browser_server.py           # 浏览器门禁下装配 internal_test Worker/报告
 apps/web/src/
-├─ features/jobs/...                    # Job 到 Run 报告入口及开发期限制
-├─ features/runs/...                    # 新增：最小可信 Run 报告视图
-└─ lib/{contracts,job-client,...}.ts     # 报告契约、请求与失败关闭解析
+├─ features/jobs/{details,report}.tsx   # Job 到 Run 入口与最小可信报告
+└─ lib/{contracts,job-client,job-shapes,report-shapes}.ts # 契约、请求和失败关闭解析
 apps/web/tests/jobs.spec.ts              # 浏览器提交→批准→合成执行→报告接线
 docs/actions/2026-09-12-m1-single-run-report.md # 本行动唯一执行记录
 .scratch/m1-platform/issues/06-single-run-report.md # 标签、验收和真实证据
@@ -84,3 +89,14 @@ docs/interfaces/HTTP_API.md              # 报告形状、空值、安全与错�
 - Web 报告新增完整执行状态、失败关闭解析、单 Run 入口、确定性摘要/过程指标及受保护证据索引；页面只显示证据元数据，不显示对象键、私密轨迹或凭据引用。typecheck 通过；首次 build 因 Next.js 用户级配置缓存写入被沙箱拒绝，提升后仍遇到跨文件系统 rename，最终仅在进程内设置 `NEXT_TELEMETRY_DISABLED=1` 后生产 build 通过（编译 1.368 秒），没有修改机器配置。
 - 浏览器第一次普通沙箱在写 `.last-run.json` 前失败；提升后服务能启动，但 Playwright 默认缓存缺少 Chromium 1243，3 项均在创建浏览器前失败。查明项目已有精确缓存 `runtime/tools/playwright/{chromium,chromium_headless_shell}-1243` 后，仅为测试进程设置 `PLAYWRIGHT_BROWSERS_PATH`，`jobs.spec.ts` 最终 `3 passed`（14.1 秒）：覆盖 owner 提交/批准/内部 Worker/报告、过期页面冲突刷新、协作者不可决定与拒绝、畸形契约失败关闭。测试结束后 3100/8875 无监听，测试时钟文件不存在；未下载浏览器、未启动真实模型或 Harbor。
 - 第二提交点前重跑专属 PG+MinIO 为 `42 passed / 2 warnings`（16.95 秒），其中新增断言确认超过 256 KiB 的 patch 字节数与 `PATCH_SIZE_WARNING` 可由全新 PostgreSQL Repository 恢复。测试镜像 `sha256:22da7a9...902ac`；MinIO `fd5d47e...04281`、PG `caa956a...f0404`、测试器 `7f21629...f30a4` 已按精确 ID 删除，tmpfs 数据删除，未留下容器。
+- 第二实现提交为 `2b64ef3`（`feat: expose protected single-run reports`），显式暂存 31 个任务 06 HTTP/报告/存储/Web/测试文件；旧混合文档、缓存和 framework/runtime 未进入提交，未推送。
+- 收尾后端全量为 `303 passed / 60 skipped / 2 warnings`（30.33 秒）。60 项均是默认关闭的 PostgreSQL、MinIO、Docker、Fork、Harbor 或 Codex 门禁；任务 06 的 PG+MinIO 已由上方专属 42 项覆盖，其余不冒称本轮通过。Web 全量浏览器按文件隔离新后端，共 14 项通过：catalog 2、identity-security 6、identity 2、jobs 3、membership 1；结束后 3100/8875 无监听、测试时钟不存在。typecheck、生产 build、Ruff format/check 和 mypy 均通过。
+- 规模/结构检查：从固定基准到现场的 Python/TypeScript/JavaScript 动态文件均不超过 200 行；application/domain/jobs/HTTP jobs/persistence jobs/persistence execution/测试 execution/测试 support/Web jobs/Web lib 的直接文件数依次为 8/7/6/6/5/7/5/5/7，均不超过 8；`git diff --check` 与本行动涉及文档围栏配对通过。
+- 双轴评审期间主执行者自查发现 PostgreSQL 报告恢复把 Run 级 `PATCH_SIZE_WARNING` 误挂到所有 Harness 制品；应只属于 patch。已在 `reports.py` 限定 `agent_patch` 并给真实 PG 用例增加非 patch 无警告断言。另把公开 HTTP `process_metrics` 从宽泛字典收紧为 Pydantic DTO，并将 Run/Job 状态、受控制品类型和脱敏状态收紧为枚举；OpenAPI 测试确认不含 `object_key`。这些修复的针对性验证与评审结论待下方继续记录。
+- 固定基准 Spec 初评发现四个真实断点：冻结执行契约被错误硬编码、既有 Harbor/Fork 本地引用无法进入 MinIO、对象正文丢失后报告仍冒充完整、空补丁替身可返回矛盾成功。已改为使用 Run 冻结版本；新增受限本地 `ArtifactReader` 与 `EvidencePublication`，只把 patch/报告/测试输出规范化为长期对象；`JobReporting` 在授权后复核全部结果证据；确定性结果新增 patch/应用/解决不变量，空补丁为三项 false。针对性合成验证为 `13 passed / 2 warnings`，HTTP 缺失对象返回 `503 DEPENDENCY_UNAVAILABLE`。
+- Standards 初评指出非法 `in-progress` 标签、行动树过期、Submission/Reporting 职责混合及 Web 状态列表重复。任务标签已恢复为合法 `ready-for-agent`；Reporting 移至独立应用子目录；Job/Run/制品/脱敏状态改为 `contracts.ts` 单一定义；本节改为实际文件树。另一次误用 Windows PowerShell 5 运行验收脚本，在创建容器前因 finally 查询未创建对象被宿主当成终止错误；镜像构建成功且标签核对无残留，随后改用 PowerShell 7 重跑同一脚本。
+- 修复后的专属真实 PostgreSQL+MinIO+HTTP 验收为 `46 passed / 2 warnings`（17.21 秒），测试镜像 `sha256:1bea9b4...1c0377`。新增路径先从真实 PG 恢复 `COMPLETED` 报告并成功读取三项 MinIO 证据，再删除一个精确对象，报告立即变为 `503`，不再返回完整结果。MinIO `3baab094...c0d161`、PostgreSQL `15edd5a7...d72d02`、测试器 `aeac6a9e...c2cbe` 均无发布端口或宿主挂载，已精确删除，tmpfs 数据清理，镜像/缓存保留。复评与最终全量回归见下三项，均已完成。
+- 评审修复后的默认后端全量为 `306 passed / 61 skipped / 2 warnings`（33.97 秒）；新增的第 61 项跳过是必须由专属 PG+MinIO 门禁开启的真实报告失败关闭用例，该用例已包含在上方 46 项通过中，其余门禁仍不冒称通过。Web `typecheck` 和生产 `build` 通过（编译 1.176 秒）。浏览器全套第一次在普通沙箱清理 Playwright 自身 `.last-run.json` 时因 `EPERM` 退出，未形成业务失败；沿既有授权提升重跑后 catalog 2、identity-security 6、identity 2、jobs 3、membership 1，共 14 项全部通过。结束后 3100/8875 无监听、测试时钟不存在、`agentexam.jobs-test` 标签无容器残留。
+- 最终静态检查过程中，首次 `ruff format --check` 准确指出刚加强的 Reporting 条件式尚需格式化；同组 Ruff 规则检查、mypy（109 个源文件）和 13 项针对性测试均通过。执行 Ruff 格式化后再次 `format --check` 为 186 个文件全部符合。该格式变化不改变行为；双轴复评正在读取当前现场。
+- 固定基准 Spec 初评的 4 项 P1 全部修复，targeted 复评无 findings；评审确认冻结版本实际进入既有 Harbor mapper、本地 Harbor/Fork 引用安全归档、真实对象丢失后报告失败关闭、空 patch 三项 false，且 Judge/Review 未被实现或调用。Standards 初评的非法标签、行动树、职责混合、重复状态常量及 201 行测试文件全部修复；最后一项把测试文件严格压缩为 200 行，Ruff 与 13 项定向测试复验通过，targeted 复评无 findings。
+- 任务 06 完成结论：11 项验收全部有实现与证据；所有成功、失败与跳过均按实际记录。当前没有任务 06 遗留阻塞；真实 Codex/Harbor 并未在本任务重跑，长期服务、远程部署和 Judge/Review 仍在授权边界外。下一任务只按任务 07 规格深化批量进度与收束。

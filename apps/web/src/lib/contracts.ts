@@ -54,12 +54,22 @@ export type JobOptions = {
   limit_profiles: LimitProfile[]; maximum_agent_configurations: number;
   maximum_runs: number;
 };
-export type JobStatus =
-  | "AWAITING_OWNER_APPROVAL" | "QUEUED" | "PREPARING" | "EXECUTING"
-  | "FINALIZING" | "COMPLETED" | "FAILED" | "REJECTED";
-export type RunStatus =
-  | "PENDING" | "PREPARING" | "RUNNING_AGENT" | "VERIFYING"
-  | "COMPLETED" | "FAILED" | "CANCELED";
+export const JOB_STATUSES = [
+  "AWAITING_OWNER_APPROVAL", "QUEUED", "PREPARING", "EXECUTING",
+  "FINALIZING", "COMPLETED", "FAILED", "REJECTED",
+] as const;
+export type JobStatus = typeof JOB_STATUSES[number];
+export const RUN_STATUSES = [
+  "PENDING", "PREPARING", "RUNNING_AGENT", "VERIFYING",
+  "COMPLETED", "FAILED", "CANCELED",
+] as const;
+export type RunStatus = typeof RUN_STATUSES[number];
+export const ARTIFACT_TYPES = [
+  "agent_patch", "harness_report", "harness_summary", "harness_test_output",
+] as const;
+export type ArtifactType = typeof ARTIFACT_TYPES[number];
+export const REDACTION_STATUSES = ["not_required", "redacted"] as const;
+export type RedactionStatus = typeof REDACTION_STATUSES[number];
 export type JobSummary = {
   job_id: string; status: JobStatus;
   evaluation_track: "closed_book"; result_scope: "official" | "internal_test";
@@ -115,7 +125,9 @@ export type RunReport = {
   judge_analyses: unknown[]; human_review: null; quality_tiebreak: null;
   review_status: "NOT_REQUIRED";
   artifact_links: Array<{
-    artifact_id: string; artifact_type: string; sha256: string; size_bytes: number;
-    content_type: string; redaction_status: string; warnings: string[];
+    artifact_id: string;
+    artifact_type: ArtifactType;
+    sha256: string; size_bytes: number; content_type: string;
+    redaction_status: RedactionStatus; warnings: string[];
   }>;
 };

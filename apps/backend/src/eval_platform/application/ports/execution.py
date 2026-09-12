@@ -72,7 +72,7 @@ class ExecutionJobRequest:
                 limits.agent_storage_mb,
             ),
             run.backend_revision,
-            "artifact-v1",
+            run.execution_contract_version,
             job.evaluation_track,
         )
 

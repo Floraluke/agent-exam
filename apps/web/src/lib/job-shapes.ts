@@ -1,4 +1,5 @@
 import { ApiError } from "./api-client";
+import { JOB_STATUSES } from "./contracts";
 import type {
   BatchPreset,
   JobDetail,
@@ -42,10 +43,7 @@ function nullableText(value: Record<string, unknown>, key: string): string | nul
 export function parseJobSummary(value: unknown): JobSummary {
   const item = object(value);
   if (
-    ![
-      "AWAITING_OWNER_APPROVAL", "QUEUED", "PREPARING", "EXECUTING",
-      "FINALIZING", "COMPLETED", "FAILED", "REJECTED",
-    ].includes(String(item.status)) ||
+    !JOB_STATUSES.includes(String(item.status) as typeof JOB_STATUSES[number]) ||
     item.evaluation_track !== "closed_book" ||
     !["official", "internal_test"].includes(String(item.result_scope)) ||
     !Array.isArray(item.run_ids) ||
