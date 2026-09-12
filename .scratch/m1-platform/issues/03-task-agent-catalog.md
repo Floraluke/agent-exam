@@ -4,7 +4,7 @@
 
 **Blocked by:** 01 所有者登录与本机恢复
 
-**Status:** ready-for-agent
+**Status:** needs-info
 
 **Spec stories:** 6, 7, 8, 9, 10, 11, 51
 
@@ -20,3 +20,5 @@
 ## Comments
 
 2026-09-11：任务已发布，尚未实施。目录登记和浏览不运行 Agent，不创建正式评测成绩。
+
+2026-09-12 开工核对：任务 02 已完成分层验收，建立[本任务独立行动](../../../docs/actions/2026-09-12-m1-task-agent-catalog.md)。已查明原 MinIO 社区仓库归档/停止维护，事实由[依赖总表第 2.3 节](../../../docs/dependencies/DEPENDENCIES.md#23-任务-03-对象存储依赖复核)维护。needs-info 表示等待这一新的存储选型方向，而非重新询问整个 M1 开发或 PostgreSQL 授权；不改写当前验收为别的产品，也不默许旧二进制或自动采用 AIStor。新接口/表/目录仍须在实施前按规则确认，全部验收项尚未完成，业务代码未改。
