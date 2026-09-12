@@ -22,8 +22,14 @@ test("run report opens safe trajectory and downloadable patch", async ({ page })
   const evidence = jobs.getByRole("region", { name: "安全证据" });
   await expect(evidence).toContainText("最终补丁");
   await expect(evidence).toContainText("测试摘要");
+  await page.route("**/api/v1/runs/*/trajectory?*", async (route) => {
+    const url = new URL(route.request().url()); url.searchParams.set("limit", "1");
+    await route.continue({ url: url.toString() });
+  });
   await evidence.getByRole("button", { name: "查看安全轨迹" }).click();
   await expect(evidence).toContainText("调用工具 Read");
+  await evidence.getByRole("button", { name: "加载更多轨迹" }).click();
+  await expect(evidence).toContainText("正文未公开");
   await expect(evidence).not.toContainText("private synthetic message");
   const pending = page.waitForEvent("download");
   await evidence.getByRole("link", { name: "下载最终补丁" }).click();

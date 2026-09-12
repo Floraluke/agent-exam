@@ -1,5 +1,6 @@
 """Normalize trusted adapter outputs into durable, public-safe run evidence."""
 
+import json
 from datetime import UTC, datetime
 from hashlib import sha256
 
@@ -10,7 +11,7 @@ from eval_platform.application.execution.public_evidence import (
 )
 from eval_platform.application.ports.artifacts import ArtifactReader, ArtifactStore
 from eval_platform.domain.catalog import ArtifactUnavailable
-from eval_platform.domain.result import ArtifactRef
+from eval_platform.domain.result import ArtifactRef, DeterministicResult
 
 
 class EvidencePublication:
@@ -36,20 +37,37 @@ class EvidencePublication:
     def publish_evaluation(
         self,
         run_id: str,
-        report: ArtifactRef,
-        logs: tuple[ArtifactRef, ...],
+        result: DeterministicResult,
     ) -> tuple[ArtifactRef, ...]:
+        report, logs = result.report_ref, result.log_refs
         if report.artifact_type not in {"harness_report", "harness_summary"}:
             raise ValueError("Evaluator report evidence has an unsupported type")
+        self.source.read_verified(report)
+        summary = normalize_test_summary(result.tests_status_summary or {})
+        report_body = json.dumps(
+            {
+                "patch_successfully_applied": result.patch_applied,
+                "resolved": result.resolved,
+                "tests_status_summary": json.loads(summary),
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
         published = [
-            self._publish(run_id, report.artifact_type, "application/json", report)
+            self._publish_derived(
+                run_id, report.artifact_type, "application/json", report_body
+            )
         ]
         outputs = [item for item in logs if self._is_test_output(item)]
         if len(outputs) > 1:
             raise ValueError("Evaluator returned multiple test outputs")
         if outputs:
+            self.source.read_verified(outputs[0])
+            output = b"Deterministic test counts are stored in tests_status_summary.\n"
             published.append(
-                self._publish(run_id, "harness_test_output", "text/plain", outputs[0])
+                self._publish_derived(
+                    run_id, "harness_test_output", "text/plain", output
+                )
             )
         return tuple(published)
 

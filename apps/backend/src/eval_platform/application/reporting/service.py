@@ -129,6 +129,12 @@ class JobReporting:
         ):
             raise ArtifactUnavailable
         for item in report.artifacts:
+            prefix = f"runs/{report.run.run_id}/{item.reference.artifact_type}/"
+            if (
+                item.run_id != report.run.run_id
+                or not item.reference.object_key.startswith(prefix)
+            ):
+                raise ArtifactUnavailable
             self.artifact_reader.read_verified(item.reference)
 
     @staticmethod

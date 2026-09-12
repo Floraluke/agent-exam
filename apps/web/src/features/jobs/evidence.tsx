@@ -24,9 +24,14 @@ export default function EvidenceView({
   const [trajectory, setTrajectory] = useState<TrajectoryPage | null>(null);
   const [error, setError] = useState("");
 
-  async function loadTrajectory() {
+  async function loadTrajectory(after = 0) {
     setError("");
-    try { setTrajectory(await runTrajectory(runId)); }
+    try {
+      const page = await runTrajectory(runId, after);
+      setTrajectory((current) => after === 0 || current === null ? page : {
+        ...page, items: [...current.items, ...page.items],
+      });
+    }
     catch (value) {
       setError(value instanceof ApiError ? value.message : "安全轨迹暂不可用。");
     }
@@ -42,11 +47,14 @@ export default function EvidenceView({
         download={filenames[item.artifact_type]}>下载{names[item.artifact_type]}</a>}
     </li>)}</ul>
     {artifacts.some((item) => item.artifact_type === "public_trajectory") &&
+      trajectory === null &&
       <button onClick={() => void loadTrajectory()}>查看安全轨迹</button>}
     {error && <p role="alert">{error}</p>}
     {trajectory && <ol>{trajectory.items.map((event) => <li key={event.sequence}>
       {event.sequence}. {event.summary}
     </li>)}</ol>}
+    {trajectory && !trajectory.complete && <button onClick={() =>
+      void loadTrajectory(trajectory.next_after_sequence)}>加载更多轨迹</button>}
     <p className="muted">轨迹只含可观察事件；消息正文、工具参数和私密思维链不公开。</p>
   </section>;
 }

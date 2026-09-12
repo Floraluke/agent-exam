@@ -65,7 +65,19 @@ def map_evaluation(
         if summary["empty_patch_ids"]:
             if request.model_patch != b"":
                 raise ValueError("Nonempty prediction classified as empty")
-            return DeterministicResult(run_id, False, False, summary_ref, refs[1:])
+            counts: dict[str, object] = {
+                "FAIL_TO_PASS": {
+                    "success": 0,
+                    "failure": len(request.task.fail_to_pass),
+                },
+                "PASS_TO_PASS": {
+                    "success": len(request.task.pass_to_pass),
+                    "failure": 0,
+                },
+            }
+            return DeterministicResult(
+                run_id, False, False, summary_ref, refs[1:], counts
+            )
         if not request.model_patch:
             raise ValueError("Empty prediction classified as nonempty")
         if summary["error_ids"]:
@@ -87,7 +99,7 @@ def map_evaluation(
             raise ValueError(
                 "Report does not establish successful test-patch application"
             )
-        _check_tests(result, request)
+        counts = _check_tests(result, request)
         expected_ids = (
             summary["resolved_ids"] if result["resolved"] else summary["unresolved_ids"]
         )
@@ -99,7 +111,9 @@ def map_evaluation(
             raise ValueError("Harness prediction differs from submitted patch")
         if not (logs / "test_output.txt").is_file():
             raise ValueError("Test output is missing")
-        return DeterministicResult(run_id, result["resolved"], True, report_ref, refs)
+        return DeterministicResult(
+            run_id, result["resolved"], True, report_ref, refs, counts
+        )
     except (KeyError, TypeError, ValueError) as error:
         raise EvaluationError("HARNESS_REPORT_INVALID", str(error), refs) from error
 
@@ -154,11 +168,14 @@ def _check_summary(summary: dict[str, Any], instance: str) -> None:
         raise ValueError("Fork reported a container cleanup failure")
 
 
-def _check_tests(result: dict[str, Any], request: EvaluationRequest) -> None:
+def _check_tests(
+    result: dict[str, Any], request: EvaluationRequest
+) -> dict[str, object]:
     tests = result.get("tests_status")
     if not isinstance(tests, dict):
         raise ValueError("Detailed test classification is missing")
     all_passed = True
+    counts: dict[str, object] = {}
     for name, expected in (
         ("FAIL_TO_PASS", request.task.fail_to_pass),
         ("PASS_TO_PASS", request.task.pass_to_pass),
@@ -175,5 +192,7 @@ def _check_tests(result: dict[str, Any], request: EvaluationRequest) -> None:
         if len(entries) != len(set(entries)) or set(entries) != set(expected):
             raise ValueError("Test classification does not cover the frozen task")
         all_passed = all_passed and not failure
+        counts[name] = {"success": len(success), "failure": len(failure)}
     if result["resolved"] != all_passed:
         raise ValueError("Resolved flag contradicts test classifications")
+    return counts

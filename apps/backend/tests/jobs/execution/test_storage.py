@@ -53,8 +53,22 @@ class FakeS3:
 
 class ShortReadS3(FakeS3):
     def get_object(self, **values):
-        response = super().get_object(**values)
-        response["ContentLength"] += 1
+        content = self.objects[values["Key"]]
+        return {
+            "Body": StreamingBody(BytesIO(content[:-1]), len(content)),
+            "ContentLength": len(content),
+        }
+
+
+class TruncatedRealS3:
+    def __init__(self, client):
+        self.client = client
+
+    def get_object(self, **values):
+        response = self.client.get_object(**values)
+        content = response["Body"].read()
+        response["Body"].close()
+        response["Body"] = StreamingBody(BytesIO(content[:-1]), len(content))
         return response
 
 
@@ -96,6 +110,8 @@ def test_real_minio_run_evidence_is_immutable_and_missing_is_not_empty(
     store.put_immutable(reference, content)
     store.put_immutable(reference, content)
     assert store.read_verified(reference) == content
+    with pytest.raises(ArtifactUnavailable):
+        MinioArtifactStore(TruncatedRealS3(service), bucket).read_verified(reference)
     service.delete_object(Bucket=bucket, Key=reference.object_key)
     with pytest.raises(ArtifactUnavailable):
         store.read_verified(reference)

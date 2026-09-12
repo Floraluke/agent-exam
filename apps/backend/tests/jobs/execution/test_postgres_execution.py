@@ -138,13 +138,15 @@ def test_real_pg_minio_database_failure_never_publishes_partial_result(
                 "FOR EACH ROW EXECUTE FUNCTION fail_result()"
             )
         now = datetime(2026, 9, 12, 12, 0, tzinfo=UTC)
+        source = MemoryArtifacts()
         executor = JobExecutor(
             repository,
             store,
-            Backend(store, b"diff --git a/a b/a\n"),
-            Evaluator(store),
+            Backend(source, b"diff --git a/a b/a\n"),
+            Evaluator(source),
             jobs.tasks.source,
             lambda: now,
+            source,
         )
         assert WorkerShell(repository, executor, lambda: now).run_once("worker-failure")
 
@@ -158,6 +160,7 @@ def test_real_pg_minio_database_failure_never_publishes_partial_result(
             "harness_report",
             "harness_test_output",
             "public_test_summary",
+            "public_trajectory",
         ]
 
 
@@ -186,13 +189,15 @@ def test_real_pg_minio_http_report_fails_closed_after_object_loss(
             owner, created.job_id, "approve", None, "postgres-minio-report-approve-0001"
         )
         now = datetime(2026, 9, 12, 13, 0, tzinfo=UTC)
+        source = MemoryArtifacts()
         executor = JobExecutor(
             repository,
             store,
-            Backend(store, b"diff --git a/a b/a\n"),
-            Evaluator(store),
+            Backend(source, b"diff --git a/a b/a\n"),
+            Evaluator(source),
             jobs.tasks.source,
             lambda: now,
+            source,
         )
         assert WorkerShell(repository, executor, lambda: now).run_once("worker-report")
         assert login(client).status_code == 200

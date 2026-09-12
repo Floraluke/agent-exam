@@ -56,8 +56,10 @@ export async function runArtifacts(id: string): Promise<ArtifactPage> {
   );
 }
 
-export async function runTrajectory(id: string): Promise<TrajectoryPage> {
+export async function runTrajectory(id: string, after = 0): Promise<TrajectoryPage> {
   return parseTrajectoryPage(
-    await request(`runs/${encodeURIComponent(id)}/trajectory?limit=100`),
+    await request(
+      `runs/${encodeURIComponent(id)}/trajectory?after_sequence=${after}&limit=100`,
+    ),
   );
 }

@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import UTC, datetime
 
 from identity.conftest import WRITE_HEADERS
@@ -64,6 +65,13 @@ def test_http_submission_approval_worker_and_layered_reports(internal_reports_ap
         "ProcessMetricsResponse"
     )
     assert "object_key" not in jobs_api.client.get("/openapi.json").text
+    stored = jobs_api.repository.reports[run_id]
+    bad = replace(stored.artifacts[0], run_id="00000000-0000-4000-8000-000000000099")
+    jobs_api.repository.reports[run_id] = replace(
+        stored, artifacts=(bad, *stored.artifacts[1:])
+    )
+    assert jobs_api.client.get(f"/api/v1/reports/runs/{run_id}").status_code == 503
+    jobs_api.repository.reports[run_id] = stored
     missing_key = next(iter(artifacts.content))
     artifacts.content.pop(missing_key)
     unavailable = jobs_api.client.get(f"/api/v1/reports/runs/{run_id}")

@@ -63,9 +63,7 @@ class CompletionFactory:
         )
         references = (
             patch_ref,
-            *self.evidence.publish_evaluation(
-                run.run_id, result.report_ref, result.log_refs
-            ),
+            *self.evidence.publish_evaluation(run.run_id, result),
             public_summary,
             *((public_trajectory,) if public_trajectory is not None else ()),
         )
