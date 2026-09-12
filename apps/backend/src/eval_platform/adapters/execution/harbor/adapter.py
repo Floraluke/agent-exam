@@ -121,20 +121,22 @@ class HarborExecutionAdapter:
         command = harbor_command(self.harbor_executable, config_path)
         job_dir = _job_dir(plan, request.job_id)
         monitor = HarborProgressMonitor(plan, job_dir, progress)
-        outcome = run_bounded_process(
-            command,
-            cwd=self.project_root.resolve(),
-            env=env,
-            timeout_sec=process_timeout_sec(request),
-            evidence_root=run_root,
-            on_poll=monitor.scan,
-        )
-        if outcome.start_error is not None:
-            return process_start_failure(
-                request, run_root, outcome.start_error, outcome.warnings
+        try:
+            outcome = run_bounded_process(
+                command,
+                cwd=self.project_root.resolve(),
+                env=env,
+                timeout_sec=process_timeout_sec(request),
+                evidence_root=run_root,
+                on_poll=monitor.scan,
             )
+            monitor.scan()
+        except Exception:
+            cleanup_timed_out_projects(job_dir)
+            raise
+        if outcome.start_error is not None:
+            return process_start_failure(request, outcome.start_error, outcome.warnings)
         process_warnings = outcome.warnings
-        monitor.scan()
         if outcome.timed_out:
             process_warnings += cleanup_timed_out_projects(job_dir)
         return map_job_results(

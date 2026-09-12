@@ -24,7 +24,7 @@ def _write_json(path: Path, value: dict[str, Any]) -> None:
 
 def _plan(task_dir: Path) -> HarborJobPlan:
     return HarborJobPlan(
-        config={},
+        config={"job_name": "platform-job"},
         bindings=(
             HarborRunBinding(
                 run_id="run-one",
@@ -36,7 +36,7 @@ def _plan(task_dir: Path) -> HarborJobPlan:
 
 
 def _write_job(job_dir: Path) -> None:
-    _write_json(job_dir / "result.json", {"id": "harbor-job-id"})
+    _write_json(job_dir / "result.json", {"id": "C:\\private\\harbor-job"})
 
 
 def _write_patch(trial_dir: Path, content: bytes = b"") -> None:
@@ -100,11 +100,9 @@ def test_maps_completed_trial_and_preserves_nonzero_process_warning(
         },
         include_trajectory=True,
     )
-
     (result,) = map_job_results(_plan(task_dir), job_dir, process_returncode=7)
-
     assert result.termination_reason is TerminationReason.COMPLETED
-    assert result.backend_job_ref == "harbor-job-id"
+    assert result.backend_job_ref == "platform-job"
     assert result.backend_trial_ref == "harbor-trial-id"
     assert result.patch_ref is not None and result.patch_ref.size_bytes == 0
     assert result.trajectory_ref is not None
@@ -115,30 +113,39 @@ def test_maps_completed_trial_and_preserves_nonzero_process_warning(
     assert result.warnings == ("HARBOR_PROCESS_EXIT_7",)
 
 
-def test_missing_job_result_marks_every_run_interrupted(tmp_path: Path) -> None:
-    task_dir = tmp_path / "task"
-
-    (result,) = map_job_results(
-        _plan(task_dir), tmp_path / "missing-job", process_returncode=1
+def test_missing_job_summary_keeps_finished_trial_on_process_timeout(
+    tmp_path: Path,
+) -> None:
+    first_task, second_task = tmp_path / "first", tmp_path / "second"
+    job_dir = tmp_path / "incomplete-job"
+    first = _plan(first_task).bindings[0]
+    plan = HarborJobPlan(
+        {"job_name": "platform-job"},
+        (
+            first,
+            HarborRunBinding(
+                "run-two", harbor_task_path_key(str(second_task)), first.agent_key
+            ),
+        ),
     )
+    _write_trial(job_dir, first_task)
 
-    assert result.termination_reason is TerminationReason.INFRASTRUCTURE_INTERRUPTED
-    assert result.warnings == ("HARBOR_JOB_RESULT_MISSING",)
-
-
-def test_process_timeout_marks_unfinished_run_timed_out(tmp_path: Path) -> None:
-    task_dir = tmp_path / "task"
-
-    (result,) = map_job_results(
-        _plan(task_dir),
-        tmp_path / "missing-job",
+    first_result, second_result = map_job_results(
+        plan,
+        job_dir,
         process_returncode=124,
         process_failure_reason=TerminationReason.TIMED_OUT,
         process_warnings=("HARBOR_PROCESS_TIMEOUT",),
     )
 
-    assert result.termination_reason is TerminationReason.TIMED_OUT
-    assert result.warnings == ("HARBOR_JOB_RESULT_MISSING", "HARBOR_PROCESS_TIMEOUT")
+    assert first_result.termination_reason is TerminationReason.COMPLETED
+    assert first_result.backend_job_ref == "platform-job"
+    assert "HARBOR_JOB_RESULT_MISSING" in first_result.warnings
+    assert second_result.termination_reason is TerminationReason.TIMED_OUT
+    assert second_result.warnings == (
+        "HARBOR_JOB_RESULT_MISSING",
+        "HARBOR_PROCESS_TIMEOUT",
+    )
 
 
 def test_missing_trial_after_clean_exit_is_protocol_error(tmp_path: Path) -> None:

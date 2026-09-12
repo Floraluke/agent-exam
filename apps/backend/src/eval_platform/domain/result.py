@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
+
+_SAFE_BACKEND_REF = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}")
 
 
 class TerminationReason(StrEnum):
@@ -85,6 +88,11 @@ class ExecutionTrialResult:
     warnings: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
+        if _SAFE_BACKEND_REF.fullmatch(self.backend_job_ref) is None or (
+            self.backend_trial_ref
+            and _SAFE_BACKEND_REF.fullmatch(self.backend_trial_ref) is None
+        ):
+            raise ValueError("Backend references must be safe opaque identities")
         if (
             self.termination_reason is TerminationReason.COMPLETED
             and self.patch_ref is None

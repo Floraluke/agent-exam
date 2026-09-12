@@ -3,7 +3,12 @@ from typing import Literal
 from pydantic import BaseModel
 
 from eval_platform.domain.jobs.execution import JobReport
-from eval_platform.domain.jobs.models import EvaluationRun, JobStatus, RunStatus
+from eval_platform.domain.jobs.models import (
+    EvaluationRun,
+    JobStatus,
+    RunStatus,
+    run_order_key,
+)
 
 BatchOutcome = Literal["resolved", "unresolved", "infrastructure_error", "incomplete"]
 
@@ -61,7 +66,7 @@ class JobReportResponse(BaseModel):
     @classmethod
     def from_record(cls, report: JobReport) -> "JobReportResponse":
         job = report.job
-        runs = sorted(job.runs, key=lambda item: item.run_id)
+        runs = sorted(job.runs, key=run_order_key)
         return cls(
             job_id=job.job_id,
             status=job.status,
@@ -70,9 +75,7 @@ class JobReportResponse(BaseModel):
             trial_count=job.trial_count,
             completed_runs=sum(run.status == "COMPLETED" for run in runs),
             failed_runs=sum(run.status == "FAILED" for run in runs),
-            pending_runs=sum(
-                run.status not in {"COMPLETED", "FAILED", "CANCELED"} for run in runs
-            ),
+            pending_runs=sum(run.status not in {"COMPLETED", "FAILED"} for run in runs),
             resolved_runs=sum(run.resolved_summary is True for run in runs),
             unresolved_runs=sum(run.resolved_summary is False for run in runs),
             runs=[_run(run) for run in runs],

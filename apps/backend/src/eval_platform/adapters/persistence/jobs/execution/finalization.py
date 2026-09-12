@@ -67,7 +67,13 @@ def finish(
     if code is None and failed:
         code = "BATCH_PARTIAL_FAILURE" if completed else "BATCH_FAILED"
     target = _target_status(code, completed)
-    summary = "批次包含未形成可信结果的运行。" if code else None
+    summary = None
+    if code is not None:
+        summary = (
+            "批次包含未形成可信结果的运行。"
+            if failed
+            else "批次生命周期信号不完整或不一致。"
+        )
     connection.execute(
         "UPDATE evaluation_jobs SET status=%s,row_version=row_version+1,"
         "failure_code=%s,failure_summary=%s,finished_at=%s WHERE job_id=%s",

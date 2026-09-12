@@ -6,6 +6,7 @@ from uuid import uuid4
 import psycopg
 
 from eval_platform.domain.jobs.execution import JobLease, JobLeaseConflict
+from eval_platform.domain.jobs.policy import worker_lease_timeout_sec
 
 Connection = psycopg.Connection[Any]
 
@@ -76,7 +77,8 @@ def expiry(snapshot: object, now: datetime, trial_count: int = 1) -> datetime:
         or min(agent, evaluator, trial_count) <= 0
     ):
         raise JobLeaseConflict
-    return now + timedelta(seconds=(agent + evaluator) * trial_count + 300)
+    seconds = worker_lease_timeout_sec(agent, evaluator, trial_count)
+    return now + timedelta(seconds=seconds)
 
 
 def validate_worker(value: str) -> None:

@@ -82,7 +82,13 @@ def postgres_api(sandbox, *, initialize=True, report_store=None):
         jobs=jobs,
         approvals=approvals,
         reporting=(
-            JobReporting(repository, report_store) if report_store is not None else None
+            JobReporting(
+                repository,
+                report_store,
+                lambda scope: scope == "internal_test",
+            )
+            if report_store is not None
+            else None
         ),
     )
     with TestClient(app, base_url=ORIGIN, raise_server_exceptions=False) as client:

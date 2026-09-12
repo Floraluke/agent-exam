@@ -49,6 +49,7 @@ def read_run_report(connection: Connection, run_id: str) -> RunReport:
         raise JobUnavailable
     return RunReport(
         str(owner["created_by"]),
+        job.result_scope,
         run,
         result,
         _metrics(metrics_row["process_metrics"]),

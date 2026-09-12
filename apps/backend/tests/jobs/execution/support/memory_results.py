@@ -46,6 +46,7 @@ def complete(repository, lease, completion):
         repository.records[job.job_id] = job
         repository.reports[run.run_id] = RunReport(
             job.created_by,
+            job.result_scope,
             run,
             result,
             completion.process_metrics,
@@ -92,6 +93,7 @@ def fail(repository, lease, run_id, code, summary, now, trial=None):
         repository.records[job.job_id] = job
         repository.reports[run.run_id] = RunReport(
             job.created_by,
+            job.result_scope,
             run,
             None,
             ProcessMetrics(UsageSummary(), ResourceSummary()),
@@ -141,7 +143,11 @@ def finish(repository, lease, now, failure_code=None):
             row_version=job.row_version + 1,
             failure_code=code,
             failure_summary=(
-                "批次包含未形成可信结果的运行。" if code is not None else None
+                None
+                if code is None
+                else "批次包含未形成可信结果的运行。"
+                if failed
+                else "批次生命周期信号不完整或不一致。"
             ),
             finished_at=now,
             state_events=job.state_events
@@ -162,14 +168,21 @@ def get_run_report(repository, run_id):
     try:
         return repository.reports[run_id]
     except KeyError:
+        for job in repository.records.values():
+            run = next((item for item in job.runs if item.run_id == run_id), None)
+            if run is not None:
+                return RunReport(
+                    job.created_by,
+                    job.result_scope,
+                    run,
+                    None,
+                    ProcessMetrics(UsageSummary(), ResourceSummary()),
+                    (),
+                )
         raise JobNotFound from None
 
 
 def get_job_report(repository, job_id):
     job = repository.get(job_id)
-    reports = tuple(
-        repository.reports[run.run_id]
-        for run in job.runs
-        if run.run_id in repository.reports
-    )
+    reports = tuple(get_run_report(repository, run.run_id) for run in job.runs)
     return JobReport(job.created_by, job, reports)

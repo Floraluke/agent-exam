@@ -1,5 +1,7 @@
+from dataclasses import replace
 from datetime import UTC, datetime
 
+import pytest
 from jobs.execution.support.fakes import (
     Backend,
     Evaluator,
@@ -25,6 +27,18 @@ class NoisyBackend(Backend):
             progress.trial_started(result.run_id)
             progress.trial_finished(result.run_id)
         return results
+
+
+class ProtocolWarningBackend(Backend):
+    def __init__(self, store, warning):
+        super().__init__(store, b"diff --git a/a b/a\n")
+        self.warning = warning
+
+    def execute(self, request, progress=None):
+        return tuple(
+            replace(result, warnings=(self.warning,))
+            for result in super().execute(request, progress)
+        )
 
 
 class IncompleteBackend:
@@ -121,10 +135,10 @@ def test_duplicate_signals_are_idempotent_and_disorder_fails_closed():
         artifacts,
         now,
     )
-
     stored = repository.get(job.job_id)
     assert stored.status == "COMPLETED_WITH_ERRORS"
     assert stored.failure_code == "BACKEND_PROGRESS_INVALID"
+    assert stored.failure_summary == "批次生命周期信号不完整或不一致。"
     assert all(run.status == "COMPLETED" for run in stored.runs)
     assert all(
         [event.reason_code for event in run.state_events].count("TRIAL_STARTED") == 1
@@ -156,3 +170,31 @@ def test_timeout_and_missing_trial_keep_prior_result_and_close_matrix():
     assert by_id[ordered[1].run_id].failure_code == "EXECUTION_TIMED_OUT"
     assert by_id[ordered[2].run_id].failure_code == "BACKEND_RESULT_IDENTITY_INVALID"
     assert repository.get_run_report(ordered[0].run_id).deterministic_result
+
+
+@pytest.mark.parametrize(
+    "warning",
+    [
+        "HARBOR_JOB_RESULT_MISSING",
+        "UNEXPECTED_HARBOR_TRIAL",
+        "DUPLICATE_HARBOR_TRIAL",
+        "INVALID_HARBOR_TRIAL_RESULT",
+        "HARBOR_PROCESS_TIMEOUT",
+    ],
+)
+def test_backend_lifecycle_warning_preserves_runs_but_marks_batch_partial(warning):
+    now = datetime(2026, 9, 12, 15, 15, tzinfo=UTC)
+    job, bundles = queued_batch(now)
+    artifacts = MemoryArtifacts()
+    repository = _execute(
+        job,
+        bundles,
+        ProtocolWarningBackend(artifacts, warning),
+        Evaluator(artifacts),
+        artifacts,
+        now,
+    )
+
+    stored = repository.get(job.job_id)
+    assert stored.status == "COMPLETED_WITH_ERRORS"
+    assert all(run.status == "COMPLETED" for run in stored.runs)

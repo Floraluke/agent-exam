@@ -10,14 +10,14 @@ from pathlib import Path
 
 import pytest
 
-from eval_platform.adapters.execution.harbor.lifecycle.cleanup import (
-    _docker_resource_ids,
-    cleanup_timed_out_projects,
-)
 from eval_platform.adapters.execution.harbor.config_mapper import (
     ARTIFACT_CONTRACT_VERSION,
     HARBOR_REVISION,
     build_job_plan,
+)
+from eval_platform.adapters.execution.harbor.lifecycle.cleanup import (
+    _docker_resource_ids,
+    cleanup_timed_out_projects,
 )
 from eval_platform.adapters.execution.harbor.process_runner import run_bounded_process
 from eval_platform.adapters.execution.harbor.result_mapper import map_job_results

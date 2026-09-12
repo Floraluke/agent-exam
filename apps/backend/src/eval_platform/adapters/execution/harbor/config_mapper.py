@@ -11,14 +11,11 @@ from typing import Any
 from eval_platform.adapters.execution.network import validate_hosts
 from eval_platform.application.ports.execution import ExecutionJobRequest
 from eval_platform.domain.agent import AgentConfiguration
+from eval_platform.domain.jobs.policy import execution_process_timeout_sec
 
 HARBOR_REVISION = "6af8d6e31eced13b93849cdf80feeadf24603d15"
 ARTIFACT_CONTRACT_VERSION = "agentexam.m0.v1"
 _SAFE_ID = re.compile(r"[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}")
-_ENVIRONMENT_BUILD_TIMEOUT_SEC = 1800
-_AGENT_SETUP_TIMEOUT_SEC = 360
-_COLLECT_TIMEOUT_SEC = 60
-_PROCESS_GRACE_SEC = 120
 
 
 @dataclass(frozen=True, slots=True)
@@ -146,11 +143,6 @@ def harbor_agent_key(agent: Mapping[str, Any]) -> str:
 
 
 def process_timeout_sec(request: ExecutionJobRequest) -> int:
-    per_trial = (
-        _ENVIRONMENT_BUILD_TIMEOUT_SEC
-        + _AGENT_SETUP_TIMEOUT_SEC
-        + request.limits.wall_timeout_sec
-        + _COLLECT_TIMEOUT_SEC
-        + _PROCESS_GRACE_SEC
+    return execution_process_timeout_sec(
+        request.limits.wall_timeout_sec, len(request.runs)
     )
-    return len(request.runs) * per_trial

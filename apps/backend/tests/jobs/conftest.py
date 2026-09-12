@@ -66,7 +66,7 @@ class JobAPI:
 
 
 @contextmanager
-def job_api(result_scope="internal_test"):
+def job_api(result_scope="internal_test", scope_visible=None):
     clock = Clock()
     identities = MemoryMembershipRepository()
     passwords = Argon2Passwords()
@@ -114,6 +114,11 @@ def job_api(result_scope="internal_test"):
         submission_policy(result_scope=result_scope),
         clock,
     )
+    reporting = (
+        JobReporting(job_repository, run_artifacts)
+        if scope_visible is None
+        else JobReporting(job_repository, run_artifacts, scope_visible)
+    )
     app = create_app(
         identity,
         HttpConfig(public_origin=ORIGIN),
@@ -122,7 +127,7 @@ def job_api(result_scope="internal_test"):
         agents,
         jobs,
         OwnerApproval(job_repository, clock),
-        JobReporting(job_repository, run_artifacts),
+        reporting,
     )
     with TestClient(app, base_url=ORIGIN, raise_server_exceptions=False) as client:
         yield JobAPI(client, clock, job_repository, jobs, run_artifacts)
@@ -131,4 +136,10 @@ def job_api(result_scope="internal_test"):
 @pytest.fixture
 def jobs_api():
     with job_api() as api:
+        yield api
+
+
+@pytest.fixture
+def internal_reports_api():
+    with job_api(scope_visible=lambda scope: scope == "internal_test") as api:
         yield api

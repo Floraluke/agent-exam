@@ -50,4 +50,18 @@ test("batch progress survives refresh and opens every run report", async ({ page
   await reports.nth(1).click();
   await expect(jobs.getByRole("region", { name: "单题运行报告" }))
     .toContainText("确定性结果：已解决");
+
+  await jobs.getByLabel("任务 example__repo-1").check();
+  await jobs.getByLabel("任务 example__repo-2").check();
+  await jobs.getByLabel("配置 Synthetic Codex").check();
+  await jobs.getByRole("button", { name: "提交等待批准" }).click();
+  await jobs.getByRole("button", { name: "拒绝批次" }).click();
+  await jobs.getByRole("button", { name: "查看批次进度" }).click();
+  batch = jobs.getByRole("region", { name: "批次进度" });
+  await expect(batch).toContainText("未完成 2");
+  const canceledReports = batch.getByRole("button", { name: /运行报告$/ });
+  await expect(canceledReports).toHaveCount(2);
+  await canceledReports.first().click();
+  await expect(jobs.getByRole("region", { name: "单题运行报告" }))
+    .toContainText("本次没有形成确定性成绩");
 });

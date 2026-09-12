@@ -8,6 +8,7 @@ from eval_platform.domain.jobs.models import (
     EvaluationJob,
     EvaluationRun,
     JobError,
+    ResultScope,
     StateEvent,
 )
 from eval_platform.domain.result import ArtifactRef, ResourceSummary, UsageSummary
@@ -76,6 +77,7 @@ class RunCompletion:
 @dataclass(frozen=True, slots=True)
 class RunReport:
     created_by: str
+    result_scope: ResultScope
     run: EvaluationRun
     deterministic_result: StoredDeterministicResult | None
     process_metrics: ProcessMetrics

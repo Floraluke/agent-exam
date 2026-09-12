@@ -1,5 +1,5 @@
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from jobs.execution.support.fakes import (
@@ -87,6 +87,7 @@ def test_batch_progress_rejects_stale_wrong_and_duplicate_worker_updates(
         now = datetime(2026, 9, 12, 16, 30, tzinfo=UTC)
         claimed = repository.claim("pg-batch-worker", now)
         assert claimed is not None
+        assert claimed.lease.lease_expires_at == now + timedelta(seconds=7_380)
         lease = repository.start_execution(claimed.lease, now)
         run_id = min(created.runs, key=run_order_key).run_id
         running = repository.start_run(lease, run_id, now)

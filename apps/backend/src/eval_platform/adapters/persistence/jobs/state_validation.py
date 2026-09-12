@@ -5,6 +5,11 @@ from eval_platform.domain.jobs.models import EvaluationJob
 def stored_job_valid(record: EvaluationJob) -> bool:
     if not initial_events_valid(record.state_events):
         return False
+    has_failure = record.failure_code is not None and record.failure_summary is not None
+    if (record.failure_code is None) != (record.failure_summary is None):
+        return False
+    if (record.status in {"FAILED", "COMPLETED_WITH_ERRORS"}) != has_failure:
+        return False
     decided = (
         record.owner_decided_by is not None and record.owner_decided_at is not None
     )
@@ -46,5 +51,9 @@ def stored_job_valid(record: EvaluationJob) -> bool:
     if record.status == "COMPLETED":
         return statuses == {"COMPLETED"}
     if record.status == "COMPLETED_WITH_ERRORS":
-        return bool(statuses) and statuses <= terminal
-    return record.status == "FAILED" and statuses <= terminal
+        return "COMPLETED" in statuses and statuses <= terminal
+    return (
+        record.status == "FAILED"
+        and "COMPLETED" not in statuses
+        and statuses <= terminal
+    )

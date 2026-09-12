@@ -185,7 +185,9 @@ def test_reporting_fails_closed_when_durable_evidence_is_missing():
     report = repository.get_run_report(job.runs[0].run_id)
     artifacts.content.pop(report.artifacts[0].reference.object_key)
 
-    reporting = JobReporting(repository, artifacts)
+    reporting = JobReporting(
+        repository, artifacts, lambda scope: scope == "internal_test"
+    )
     actor = AuthenticatedActor(job.created_by, "creator", "collaborator")
     with pytest.raises(ArtifactUnavailable):
         reporting.run(actor, job.runs[0].run_id)

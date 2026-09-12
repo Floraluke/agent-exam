@@ -11,6 +11,32 @@ from eval_platform.domain.jobs.models import (
     ToolProfileSnapshot,
 )
 
+ENVIRONMENT_BUILD_TIMEOUT_SEC = 1800
+AGENT_SETUP_TIMEOUT_SEC = 360
+RESULT_COLLECTION_TIMEOUT_SEC = 60
+PROCESS_TERMINATION_GRACE_SEC = 120
+FINALIZATION_GRACE_SEC = 300
+
+
+def execution_process_timeout_sec(agent_timeout_sec: int, trial_count: int) -> int:
+    """Bound one sequential backend process, including each Trial's setup."""
+    return trial_count * (
+        ENVIRONMENT_BUILD_TIMEOUT_SEC
+        + AGENT_SETUP_TIMEOUT_SEC
+        + agent_timeout_sec
+        + RESULT_COLLECTION_TIMEOUT_SEC
+        + PROCESS_TERMINATION_GRACE_SEC
+    )
+
+
+def worker_lease_timeout_sec(
+    agent_timeout_sec: int, evaluator_timeout_sec: int, trial_count: int
+) -> int:
+    """Keep the lease valid through backend, evaluation, and final persistence."""
+    backend = execution_process_timeout_sec(agent_timeout_sec, trial_count)
+    evaluators = evaluator_timeout_sec * trial_count
+    return backend + evaluators + FINALIZATION_GRACE_SEC
+
 
 @dataclass(frozen=True, slots=True)
 class BatchPreset:

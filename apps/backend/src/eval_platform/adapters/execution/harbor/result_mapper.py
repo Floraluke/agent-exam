@@ -34,14 +34,14 @@ def map_job_results(
     process_failure_reason: TerminationReason | None = None,
     process_warnings: tuple[str, ...] = (),
 ) -> tuple[ExecutionTrialResult, ...]:
+    job_ref = required_string(plan.config, "job_name")
+    job_result_missing = False
     try:
-        job_ref = required_string(read_json(job_dir / "result.json"), "id")
+        required_string(read_json(job_dir / "result.json"), "id")
     except (OSError, ValueError, json.JSONDecodeError):
-        return _missing_results(
-            plan,
-            str(job_dir.resolve()),
-            process_failure_reason or TerminationReason.INFRASTRUCTURE_INTERRUPTED,
-            _failure_warnings("HARBOR_JOB_RESULT_MISSING", process_warnings),
+        job_result_missing = True
+        process_warnings = _failure_warnings(
+            "HARBOR_JOB_RESULT_MISSING", process_warnings
         )
 
     bindings = {
@@ -83,7 +83,13 @@ def map_job_results(
                 binding.run_id,
                 job_ref,
                 reason,
-                _failure_warnings("HARBOR_TRIAL_RESULT_MISSING", process_warnings),
+                (
+                    process_warnings
+                    if job_result_missing
+                    else _failure_warnings(
+                        "HARBOR_TRIAL_RESULT_MISSING", process_warnings
+                    )
+                ),
             )
         if protocol_warnings:
             result = replace(
@@ -158,18 +164,6 @@ def _map_trial(
         usage=usage,
         resource_summary=resources,
         warnings=tuple(warnings),
-    )
-
-
-def _missing_results(
-    plan: HarborJobPlan,
-    job_ref: str,
-    reason: TerminationReason,
-    warnings: tuple[str, ...],
-) -> tuple[ExecutionTrialResult, ...]:
-    return tuple(
-        _failed_result(binding.run_id, job_ref, reason, warnings)
-        for binding in plan.bindings
     )
 
 

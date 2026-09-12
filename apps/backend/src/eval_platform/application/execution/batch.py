@@ -27,6 +27,11 @@ from eval_platform.domain.result import (
 )
 from eval_platform.domain.task import TaskBundle
 
+_INCOMPLETE_BATCH_WARNINGS = frozenset(
+    "HARBOR_JOB_RESULT_MISSING UNEXPECTED_HARBOR_TRIAL DUPLICATE_HARBOR_TRIAL "
+    "INVALID_HARBOR_TRIAL_RESULT HARBOR_PROCESS_TIMEOUT".split()
+)
+
 
 class BatchProgress:
     """Persist ordered lifecycle signals, then publish each returned result."""
@@ -78,6 +83,14 @@ class BatchProgress:
     def reconcile(self, trials: tuple[ExecutionTrialResult, ...]) -> str | None:
         returned: dict[str, ExecutionTrialResult] = {}
         expected = {run.run_id for run in self.runs}
+        if any(
+            warning in _INCOMPLETE_BATCH_WARNINGS
+            for trial in trials
+            for warning in trial.warnings
+        ):
+            self.protocol_error = (
+                self.protocol_error or "BACKEND_RESULT_IDENTITY_INVALID"
+            )
         for trial in trials:
             if trial.run_id in returned or trial.run_id not in expected:
                 self.protocol_error = "BACKEND_RESULT_IDENTITY_INVALID"

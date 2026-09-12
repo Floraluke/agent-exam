@@ -41,6 +41,7 @@ CREATE TABLE evaluation_jobs (
     CHECK ((status IN ('AWAITING_OWNER_APPROVAL', 'QUEUED', 'REJECTED') AND claimed_by IS NULL) OR (status NOT IN ('AWAITING_OWNER_APPROVAL', 'QUEUED', 'REJECTED') AND claimed_by IS NOT NULL)),
     CHECK ((status IN ('FAILED', 'COMPLETED_WITH_ERRORS')) =
            (failure_code IS NOT NULL AND failure_summary IS NOT NULL)),
+    CHECK (num_nonnulls(failure_code, failure_summary) IN (0, 2)),
     UNIQUE (created_by, idempotency_key_hash)
 );
 

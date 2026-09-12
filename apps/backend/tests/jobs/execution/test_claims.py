@@ -1,6 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from threading import Barrier
 
 import pytest
@@ -44,6 +44,7 @@ def test_claims_approved_multi_run_and_skips_unapproved_or_rejected_jobs():
     claimed = repository.claim("worker-one", now)
     assert claimed is not None and claimed.job.job_id == multi.job_id
     assert claimed.job.trial_count == 3
+    assert claimed.lease.lease_expires_at == now + timedelta(seconds=10_920)
     assert sum(run.status == "PREPARING" for run in claimed.job.runs) == 1
 
     repository = ExecutableMemoryJobs(queued)

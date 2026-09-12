@@ -4,6 +4,7 @@ from uuid import uuid4
 
 from eval_platform.domain.jobs.execution import JobLease
 from eval_platform.domain.jobs.models import StateEvent, run_order_key
+from eval_platform.domain.jobs.policy import worker_lease_timeout_sec
 
 _TERMINAL = {"COMPLETED", "FAILED", "CANCELED"}
 
@@ -46,9 +47,11 @@ def replace_run(runs, changed):
 
 def expiry(job, now):
     limits = job.limit_snapshot
-    seconds = (
-        limits.agent_wall_timeout_sec + limits.evaluator_wall_timeout_sec
-    ) * job.trial_count + 300
+    seconds = worker_lease_timeout_sec(
+        limits.agent_wall_timeout_sec,
+        limits.evaluator_wall_timeout_sec,
+        job.trial_count,
+    )
     return now + timedelta(seconds=seconds)
 
 

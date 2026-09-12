@@ -114,7 +114,11 @@ app = create_app(
     agents,
     jobs,
     OwnerApproval(job_repository, browser_clock),
-    JobReporting(job_repository, run_artifacts),
+    JobReporting(
+        job_repository,
+        run_artifacts,
+        lambda scope: scope == "internal_test",
+    ),
 )
 
 

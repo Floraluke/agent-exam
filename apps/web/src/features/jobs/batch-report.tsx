@@ -6,6 +6,7 @@ const outcomes = {
   infrastructure_error: "基础设施错误",
   incomplete: "未完成",
 };
+const terminalStatuses = new Set<string>(["COMPLETED", "FAILED", "CANCELED"]);
 
 export default function BatchReportView({
   report, openRun,
@@ -23,7 +24,7 @@ export default function BatchReportView({
       <strong>{run.task_instance_id}</strong> × {run.agent_display_name}：
       {outcomes[run.outcome]}。{run.stage_message}
       {run.failure_code && <> 错误码：{run.failure_code}。</>}
-      {(run.status === "COMPLETED" || run.status === "FAILED") &&
+      {terminalStatuses.has(run.status) &&
       <button onClick={() => openRun(run.run_id)}>
         查看 {run.task_instance_id} / {run.agent_display_name} 运行报告
       </button>}

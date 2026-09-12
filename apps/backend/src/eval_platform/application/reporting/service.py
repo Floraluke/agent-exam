@@ -1,28 +1,46 @@
+from collections.abc import Callable
+
 from eval_platform.application.ports.artifacts import ArtifactReader
 from eval_platform.application.ports.repositories import JobRepository
 from eval_platform.domain.catalog import ArtifactUnavailable
 from eval_platform.domain.identity import AuthenticatedActor
 from eval_platform.domain.jobs.execution import JobReport, RunReport
-from eval_platform.domain.jobs.models import JobNotFound
+from eval_platform.domain.jobs.models import JobNotFound, ResultScope
+
+
+def _official(scope: ResultScope) -> bool:
+    return scope == "official"
 
 
 class JobReporting:
-    def __init__(self, repository: JobRepository, artifacts: ArtifactReader) -> None:
+    def __init__(
+        self,
+        repository: JobRepository,
+        artifacts: ArtifactReader,
+        scope_visible: Callable[[ResultScope], bool] = _official,
+    ) -> None:
         self.repository = repository
         self.artifacts = artifacts
+        self.scope_visible = scope_visible
 
     def run(self, actor: AuthenticatedActor, run_id: str) -> RunReport:
         report = self.repository.get_run_report(run_id)
+        self._publishable(report.result_scope)
         self._authorize(actor, report.created_by)
         self._verify(report)
         return report
 
     def job(self, actor: AuthenticatedActor, job_id: str) -> JobReport:
         report = self.repository.get_job_report(job_id)
+        self._publishable(report.job.result_scope)
         self._authorize(actor, report.created_by)
         for run in report.run_reports:
             self._verify(run)
         return report
+
+    def _publishable(self, scope: ResultScope) -> None:
+        if not self.scope_visible(scope):
+            raise JobNotFound
 
     def _verify(self, report: RunReport) -> None:
         result = report.deterministic_result

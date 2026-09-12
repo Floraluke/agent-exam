@@ -9,7 +9,8 @@ from jobs.test_http import submission, submit
 from jobs.test_security import invite
 
 
-def test_http_submission_approval_worker_and_layered_reports(jobs_api):
+def test_http_submission_approval_worker_and_layered_reports(internal_reports_api):
+    jobs_api = internal_reports_api
     assert jobs_api.login().status_code == 200
     task, agent = jobs_api.register_catalogs()
     created = submit(
@@ -79,12 +80,20 @@ def test_report_requires_identity_and_hides_unknown_run(jobs_api):
     assert response.status_code == 404
 
 
-def test_batch_report_exposes_safe_identity_stage_and_partial_matrix(jobs_api):
+def test_batch_report_exposes_safe_identity_stage_and_partial_matrix(
+    internal_reports_api,
+):
+    jobs_api = internal_reports_api
     jobs_api.login()
     first, agent = jobs_api.register_catalogs()
     second = jobs_api.register_task("verified-task-2")
+    other_agent = jobs_api.register_agent("verified-codex-2")
     body = submission(first["task_id"], agent["agent_configuration_id"])
     body["task_ids"] = [first["task_id"], second["task_id"]]
+    body["agent_configuration_ids"] = [
+        agent["agent_configuration_id"],
+        other_agent["agent_configuration_id"],
+    ]
     created = submit(jobs_api, body, "batch-report-source-0001").json()
     jobs_api.client.post(
         f"/api/v1/jobs/{created['job_id']}/approve",
@@ -112,7 +121,8 @@ def test_batch_report_exposes_safe_identity_stage_and_partial_matrix(jobs_api):
     report = response.json()
     assert report["status"] == "COMPLETED_WITH_ERRORS"
     assert report["failure_code"] == "BATCH_PARTIAL_FAILURE"
-    assert report["completed_runs"] == report["failed_runs"] == 1
+    assert report["completed_runs"] == 3
+    assert report["failed_runs"] == 1
     assert {run["outcome"] for run in report["runs"]} == {
         "resolved",
         "infrastructure_error",
@@ -121,13 +131,26 @@ def test_batch_report_exposes_safe_identity_stage_and_partial_matrix(jobs_api):
         "example__repo-1",
         "example__repo-2",
     }
-    assert all(
-        run["agent_display_name"] == "Synthetic Codex 1" for run in report["runs"]
-    )
+    expected = [
+        (run.task.instance_id, run.agent.agent_configuration_id)
+        for run in sorted(
+            frozen.runs,
+            key=lambda run: (
+                run.task.task_id,
+                run.agent.agent_configuration_id,
+                run.run_id,
+            ),
+        )
+    ]
+    assert [
+        (run["task_instance_id"], run["agent_configuration_id"])
+        for run in report["runs"]
+    ] == expected
     assert all("log" not in run["stage_message"].lower() for run in report["runs"])
 
 
-def test_run_report_uses_the_same_owner_or_creator_scope(jobs_api):
+def test_run_report_uses_the_same_owner_or_creator_scope(internal_reports_api):
+    jobs_api = internal_reports_api
     jobs_api.login()
     task, agent = jobs_api.register_catalogs()
     invite(jobs_api, "report_creator")

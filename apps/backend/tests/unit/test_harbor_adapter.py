@@ -184,6 +184,7 @@ def test_process_timeout_is_explicit_and_keeps_partial_logs(
     result = _adapter(tmp_path).execute(_request("timeout-test"))[0]
 
     assert result.termination_reason is TerminationReason.TIMED_OUT
+    assert result.backend_job_ref == "timeout-test"
     assert result.warnings == (
         "HARBOR_JOB_RESULT_MISSING",
         "HARBOR_PROCESS_TIMEOUT",
