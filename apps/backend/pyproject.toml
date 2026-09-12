@@ -13,6 +13,7 @@ dependencies = [
   "uvicorn==0.52.4",
   "psycopg[binary]==3.3.5",
   "argon2-cffi==25.1.0",
+  "boto3==1.43.93",
 ]
 
 [project.scripts]
@@ -32,6 +33,7 @@ where = ["src"]
 [tool.setuptools.package-data]
 "eval_platform.adapters.tasks" = ["collect_patch.sh"]
 "eval_platform.adapters.persistence" = ["identity.sql", "membership.sql"]
+"eval_platform.adapters.persistence.catalog" = ["schema.sql"]
 
 [tool.pytest.ini_options]
 addopts = "-ra"

@@ -4,12 +4,16 @@ const messages: Record<ApiErrorCode, string> = {
   AUTHENTICATION_REQUIRED: "账号或密码不正确，或登录已失效。",
   FORBIDDEN: "请求未获允许，请从配置的同源入口访问。",
   VALIDATION_ERROR: "请检查输入格式。",
-  DEPENDENCY_UNAVAILABLE: "身份存储暂不可用，请稍后重试。",
+  DEPENDENCY_UNAVAILABLE: "平台存储暂不可用，请稍后重试。",
   RATE_LIMITED: "尝试过多，请稍等一分钟。",
   UNAVAILABLE: "暂时无法连接平台，请稍后重试。",
   INVITATION_UNAVAILABLE: "邀请码无效、已过期、已撤销或已使用。",
   IDENTITY_CONFLICT: "账号名称已被使用，或邀请已兑换，无法执行本操作。",
   MEMBER_NOT_FOUND: "未找到该成员，请刷新列表。",
+  INVALID_REQUEST: "目录选择或筛选条件无效。",
+  CATALOG_CONFLICT: "固定身份的内容发生冲突，未覆盖原记录。",
+  TASK_NOT_FOUND: "未找到该任务，请刷新目录。",
+  AGENT_CONFIGURATION_NOT_FOUND: "未找到该配置，请刷新目录。",
 };
 
 export class ApiError extends Error {

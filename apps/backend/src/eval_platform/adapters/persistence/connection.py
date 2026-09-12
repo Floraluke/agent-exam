@@ -10,7 +10,12 @@ from eval_platform.domain.identity import IdentityConflict, IdentityUnavailable
 
 
 @contextmanager
-def transaction(dsn: str) -> Iterator[psycopg.Connection[DictRow]]:
+def transaction(
+    dsn: str,
+    *,
+    conflict: type[Exception] = IdentityConflict,
+    unavailable: type[Exception] = IdentityUnavailable,
+) -> Iterator[psycopg.Connection[DictRow]]:
     try:
         with psycopg.connect(
             dsn,
@@ -20,6 +25,6 @@ def transaction(dsn: str) -> Iterator[psycopg.Connection[DictRow]]:
         ) as connection:
             yield connection
     except psycopg.errors.UniqueViolation:
-        raise IdentityConflict from None
+        raise conflict from None
     except psycopg.Error:
-        raise IdentityUnavailable from None
+        raise unavailable from None

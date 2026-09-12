@@ -5,6 +5,8 @@ import { ApiError, currentActor, login, logout } from "../../lib/api-client";
 import type { Actor } from "../../lib/contracts";
 import JoinPanel from "./join";
 import MembersPanel from "./members";
+import TasksPanel from "../catalog/tasks";
+import AgentsPanel from "../catalog/agents";
 
 export default function SessionPanel() {
   const [actor, setActor] = useState<Actor | null>(null);
@@ -56,6 +58,8 @@ export default function SessionPanel() {
       <p className="muted">账号入口已接通。评测提交、批准和报告将在后续任务中提供。</p>
       <button disabled={busy} onClick={signOut}>退出登录</button>
       {actor.role === "owner" && <MembersPanel />}
+      <TasksPanel owner={actor.role === "owner"} />
+      <AgentsPanel owner={actor.role === "owner"} />
     </> : <>
       {joined && <p role="status">加入成功，请使用新账号登录。</p>}
       {joining ? <>

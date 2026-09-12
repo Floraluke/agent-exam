@@ -6,6 +6,15 @@ from starlette.datastructures import Headers
 from starlette.exceptions import HTTPException
 
 from eval_platform.delivery.http.schemas import ApiError, ErrorDetails
+from eval_platform.domain.catalog import (
+    AgentConfigurationNotFound,
+    CatalogConflict,
+    CatalogError,
+    CatalogForbidden,
+    CatalogInvalid,
+    CatalogUnavailable,
+    TaskNotFound,
+)
 from eval_platform.domain.identity import IdentityConflict
 from eval_platform.domain.membership import (
     InvitationUnavailable,
@@ -38,6 +47,24 @@ async def validation_error(request: Request, exc: Exception) -> JSONResponse:
 
 async def dependency_error(request: Request, exc: Exception) -> JSONResponse:
     return error_response(503, "DEPENDENCY_UNAVAILABLE", "身份存储暂不可用，请稍后重试")
+
+
+async def catalog_error(request: Request, exc: Exception) -> JSONResponse:
+    assert isinstance(exc, CatalogError)
+    if isinstance(exc, CatalogUnavailable):
+        return error_response(503, "DEPENDENCY_UNAVAILABLE", "目录或快照暂不可用")
+    status, code, message = {
+        CatalogForbidden: (403, "FORBIDDEN", "只有所有者可以管理目录"),
+        CatalogInvalid: (400, "INVALID_REQUEST", "目录选择无效"),
+        CatalogConflict: (409, "CATALOG_CONFLICT", "固定身份内容冲突，不能覆盖"),
+        TaskNotFound: (404, "TASK_NOT_FOUND", "任务不存在"),
+        AgentConfigurationNotFound: (
+            404,
+            "AGENT_CONFIGURATION_NOT_FOUND",
+            "配置不存在",
+        ),
+    }[type(exc)]
+    return error_response(status, code, message)
 
 
 async def membership_error(request: Request, exc: Exception) -> JSONResponse:

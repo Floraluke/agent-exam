@@ -7,20 +7,26 @@ from starlette.exceptions import HTTPException
 from eval_platform.adapters.identity.passwords import Argon2Passwords
 from eval_platform.adapters.persistence.identity import PostgresIdentityRepository
 from eval_platform.adapters.persistence.membership import PostgresMembershipRepository
+from eval_platform.application.agent_registry import AgentRegistry
 from eval_platform.application.identity import IdentityService
 from eval_platform.application.membership import MembershipService
+from eval_platform.application.task_catalog import TaskCatalog
+from eval_platform.delivery.catalog_presets import create_catalog
 from eval_platform.delivery.http.config import HttpConfig, database_url
 from eval_platform.delivery.http.errors import (
     authentication_error,
+    catalog_error,
     dependency_error,
     error_response,
     framework_http_error,
     membership_error,
     validation_error,
 )
+from eval_platform.delivery.http.routes.catalog import catalog_router
 from eval_platform.delivery.http.routes.identity import identity_router
 from eval_platform.delivery.http.routes.membership import membership_router
 from eval_platform.delivery.http.security import LoginLimiter, trusted_write
+from eval_platform.domain.catalog import CatalogError
 from eval_platform.domain.identity import (
     AuthenticationRequired,
     IdentityConflict,
@@ -37,6 +43,8 @@ def create_app(
     service: IdentityService,
     config: HttpConfig,
     membership: MembershipService | None = None,
+    tasks: TaskCatalog | None = None,
+    agents: AgentRegistry | None = None,
 ) -> FastAPI:
     app = FastAPI(title="AgentExam", version="0.1.0")
     limiters = {
@@ -44,6 +52,7 @@ def create_app(
         "/api/v1/invitations/redeem": LoginLimiter(),
     }
     app.add_exception_handler(AuthenticationRequired, authentication_error)
+    app.add_exception_handler(CatalogError, catalog_error)
     app.add_exception_handler(RequestValidationError, validation_error)
     app.add_exception_handler(IdentityUnavailable, dependency_error)
     app.add_exception_handler(HTTPException, framework_http_error)
@@ -79,6 +88,8 @@ def create_app(
     app.include_router(identity_router(service, config))
     if membership is not None:
         app.include_router(membership_router(service, membership, config))
+    if tasks is not None:
+        app.include_router(catalog_router(service, tasks, config, agents))
     return app
 
 
@@ -88,4 +99,5 @@ def create_runtime_app() -> FastAPI:
     passwords = Argon2Passwords()
     identity = IdentityService(PostgresIdentityRepository(dsn), passwords)
     membership = MembershipService(PostgresMembershipRepository(dsn), passwords)
-    return create_app(identity, config, membership)
+    tasks, agents = create_catalog(dsn)
+    return create_app(identity, config, membership, tasks, agents)

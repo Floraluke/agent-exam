@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start --hostname 127.0.0.1",
     "typecheck": "tsc --noEmit",
-    "test:e2e": "playwright test"
+    "test:e2e": "node tests/run-browser-tests.mjs"
   },
   "dependencies": {
     "next": "15.5.25",

@@ -1,0 +1,19 @@
+# Test-only build of the user-approved archived MinIO CE source. Not a deployment baseline.
+FROM public.ecr.aws/docker/library/golang@sha256:bc6beb46032d45f421cf400036bf031cdc64f683ba9cdc124e31d063e71670bd AS build
+ENV CGO_ENABLED=0 GOTOOLCHAIN=local GOMAXPROCS=2 GOMEMLIMIT=2GiB
+WORKDIR /src
+COPY minio.tar.gz /tmp/minio.tar.gz
+RUN echo "71794c2df26aad0cc99e8421c58b7aa2dd55969f979b0e7d1e931042e9fabcd6  /tmp/minio.tar.gz" | sha256sum -c - \
+    && tar -xzf /tmp/minio.tar.gz --strip-components=1 -C /src \
+    && go mod download \
+    && go mod verify \
+    && go build -mod=readonly -trimpath -p 2 -ldflags="-s -w" -o /out/minio . \
+    && /out/minio --version
+FROM scratch
+COPY --from=build /out/minio /minio
+COPY --from=build /src/LICENSE /LICENSE
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+LABEL org.opencontainers.image.source="https://github.com/minio/minio"
+LABEL org.opencontainers.image.revision="7aac2a2c5b7c882e68c1ce017d8256be2feea27f"
+USER 65534:65534
+ENTRYPOINT ["/minio"]
