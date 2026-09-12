@@ -10,7 +10,20 @@ from eval_platform.domain.jobs.models import JobInputError
 
 class OwnerDecisionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    reason: Annotated[str, Field(min_length=1, max_length=500)] | None = None
+    reason: (
+        Annotated[
+            str,
+            Field(
+                description="Trimmed before validating normalized Unicode length.",
+                json_schema_extra={
+                    "x-normalization": "trim",
+                    "x-normalizedMinLength": 1,
+                    "x-normalizedMaxLength": 500,
+                },
+            ),
+        ]
+        | None
+    ) = None
 
     @field_validator("reason", mode="before")
     @classmethod

@@ -120,12 +120,15 @@ def test_decision_reason_and_missing_job_fail_closed(jobs_api):
     assert code(response) == "JOB_NOT_FOUND"
 
 
-def test_openapi_declares_decision_reason_bounds(jobs_api):
+def test_openapi_declares_normalized_decision_reason_bounds(jobs_api):
     schema = jobs_api.client.get("/openapi.json").json()
     reason = schema["components"]["schemas"]["OwnerDecisionRequest"]
     variants = reason["properties"]["reason"]["anyOf"]
     text = next(item for item in variants if item.get("type") == "string")
-    assert text["minLength"] == 1 and text["maxLength"] == 500
+    assert "minLength" not in text and "maxLength" not in text
+    assert text["x-normalization"] == "trim"
+    assert text["x-normalizedMinLength"] == 1
+    assert text["x-normalizedMaxLength"] == 500
 
 
 def test_decision_replay_and_conflicts_keep_one_final_state(jobs_api):
