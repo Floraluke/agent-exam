@@ -1,16 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ApiError } from "../../lib/api-client";
 import { agents as loadAgents, tasks as loadTasks } from "../../lib/catalog-client";
 import type {
   CatalogAgent, CatalogTask, JobDetail, JobOptions,
 } from "../../lib/contracts";
-import { jobDetail, jobOptions, jobs, submitJob } from "../../lib/job-client";
+import {
+  decideJob, jobDetail, jobOptions, jobs, submitJob,
+} from "../../lib/job-client";
+import OwnerApprovalPanel from "./approval";
 import JobControls from "./controls";
 import JobDetails from "./details";
 
-export default function JobsPanel() {
+export default function JobsPanel({ owner }: { owner: boolean }) {
   const [options, setOptions] = useState<JobOptions | null>(null);
   const [tasks, setTasks] = useState<CatalogTask[]>([]);
   const [agents, setAgents] = useState<CatalogAgent[]>([]);
@@ -21,6 +24,9 @@ export default function JobsPanel() {
   const [current, setCurrent] = useState<JobDetail | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const decisionAttempt = useRef<{
+    job: string; kind: "approve" | "reject"; reason: string; key: string;
+  } | null>(null);
 
   function explain(value: unknown) {
     setError(value instanceof ApiError ? value.message : "暂时无法读取评测批次。");
@@ -81,6 +87,28 @@ export default function JobsPanel() {
     catch (value) { explain(value); }
     finally { setBusy(false); }
   }
+  async function decide(kind: "approve" | "reject", reason: string) {
+    if (!current) return;
+    setBusy(true); setError("");
+    const previous = decisionAttempt.current;
+    const attempt = previous && previous.job === current.job_id &&
+      previous.kind === kind && previous.reason === reason
+      ? previous
+      : { job: current.job_id, kind, reason, key: crypto.randomUUID() };
+    decisionAttempt.current = attempt;
+    try {
+      await decideJob(current.job_id, kind, reason, attempt.key);
+      setCurrent(await jobDetail(current.job_id));
+      decisionAttempt.current = null;
+    } catch (value) {
+      if (value instanceof ApiError && value.code === "JOB_STATE_CONFLICT") {
+        try { setCurrent(await jobDetail(current.job_id)); }
+        catch { /* Keep the conflict visible; refresh remains available. */ }
+      }
+      explain(value);
+    }
+    finally { setBusy(false); }
+  }
   const count = selectedTasks.length * selectedAgents.length;
   return <section aria-label="提交评测">
     <h2>提交评测</h2>
@@ -99,6 +127,8 @@ export default function JobsPanel() {
     <button disabled={busy || count === 0} onClick={submit}>提交等待批准</button>
     {current && <>
       <JobDetails job={current} />
+      {owner && current.status === "AWAITING_OWNER_APPROVAL" &&
+        <OwnerApprovalPanel busy={busy} decide={decide} />}
       <button disabled={busy} onClick={refresh}>刷新当前批次</button>
     </>}
   </section>;

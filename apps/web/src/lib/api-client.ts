@@ -18,6 +18,8 @@ const messages: Record<ApiErrorCode, string> = {
   IDEMPOTENCY_CONFLICT: "本次提交标识已用于不同选择，请重新提交。",
   IDEMPOTENCY_KEY_INVALID: "提交标识无效，请重新提交。",
   JOB_NOT_FOUND: "未找到该评测批次，或当前账号无权查看。",
+  OWNER_APPROVAL_REQUIRED: "只有评测机所有者可以批准或拒绝批次。",
+  JOB_STATE_CONFLICT: "批次状态已经改变，请刷新后查看。",
   EMPTY_JOB_SELECTION: "请至少选择一道任务和一个配置。",
   BATCH_PRESET_EXCEEDED: "任务或配置数量不符合所选批次规模。",
   LIMIT_PROFILE_NOT_ALLOWED: "所选资源限制不可用，请刷新选项。",

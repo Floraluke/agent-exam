@@ -14,6 +14,7 @@ from eval_platform.application.agent_registry import AgentRegistry
 from eval_platform.application.identity import IdentityService
 from eval_platform.application.job_submission import JobSubmission
 from eval_platform.application.membership import MembershipService
+from eval_platform.application.owner_approval import OwnerApproval
 from eval_platform.application.task_catalog import TaskCatalog
 from eval_platform.delivery.http.app import create_app
 from eval_platform.delivery.http.config import HttpConfig
@@ -65,10 +66,11 @@ agents = AgentRegistry(
         )
     },
 )
+job_repository = MemoryJobs()
 jobs = JobSubmission(
     tasks,
     agents,
-    MemoryJobs(),
+    job_repository,
     submission_policy("internal_test"),
     browser_clock,
 )
@@ -79,4 +81,5 @@ app = create_app(
     tasks,
     agents,
     jobs,
+    OwnerApproval(job_repository, browser_clock),
 )

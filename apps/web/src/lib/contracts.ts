@@ -12,6 +12,7 @@ export type ApiErrorCode =
   | "INVALID_REQUEST" | "CATALOG_CONFLICT" | "TASK_NOT_FOUND"
   | "AGENT_CONFIGURATION_NOT_FOUND" | "AGENT_CONFIGURATION_DISABLED"
   | "IDEMPOTENCY_CONFLICT" | "IDEMPOTENCY_KEY_INVALID" | "JOB_NOT_FOUND"
+  | "OWNER_APPROVAL_REQUIRED" | "JOB_STATE_CONFLICT"
   | "EMPTY_JOB_SELECTION" | "BATCH_PRESET_EXCEEDED"
   | "LIMIT_PROFILE_NOT_ALLOWED" | "EVALUATION_TRACK_NOT_ENABLED";
 
@@ -54,10 +55,12 @@ export type JobOptions = {
   maximum_runs: number;
 };
 export type JobSummary = {
-  job_id: string; status: "AWAITING_OWNER_APPROVAL";
+  job_id: string; status: "AWAITING_OWNER_APPROVAL" | "QUEUED" | "REJECTED";
   evaluation_track: "closed_book"; result_scope: "official" | "internal_test";
   batch_preset: string; limit_profile_id: string; trial_count: number;
   run_ids: string[]; estimated_finish_at: null; created_at: string;
+  owner_decided_by: string | null; owner_decided_at: string | null;
+  owner_decision_reason: string | null;
 };
 export type JobDetail = JobSummary & {
   task_snapshots: Array<{

@@ -141,11 +141,10 @@ def test_unknown_or_repeated_job_query_is_rejected(jobs_api):
         assert response.status_code == 400
 
 
-def test_task_five_routes_are_not_prebuilt(jobs_api):
+def test_future_cancel_route_is_not_prebuilt(jobs_api):
     jobs_api.login()
     missing = "00000000-0000-0000-0000-000000000099"
-    for action in ("approve", "reject", "cancel"):
-        response = jobs_api.client.post(
-            f"/api/v1/jobs/{missing}/{action}", json={}, headers=WRITE_HEADERS
-        )
-        assert response.status_code == 404
+    response = jobs_api.client.post(
+        f"/api/v1/jobs/{missing}/cancel", json={}, headers=WRITE_HEADERS
+    )
+    assert response.status_code == 404

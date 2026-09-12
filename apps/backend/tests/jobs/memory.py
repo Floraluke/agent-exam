@@ -1,14 +1,22 @@
 """Thread-safe synthetic adapter for the JobRepository port."""
 
+from dataclasses import replace
 from threading import Lock
+from uuid import uuid4
 
-from eval_platform.domain.jobs.models import JobIdempotencyConflict, JobNotFound
+from eval_platform.domain.jobs.decisions import JobStateConflict
+from eval_platform.domain.jobs.models import (
+    JobIdempotencyConflict,
+    JobNotFound,
+    StateEvent,
+)
 
 
 class MemoryJobs:
     def __init__(self):
         self.records = {}
         self.keys = {}
+        self.decisions = {}
         self.lock = Lock()
 
     def resolve_idempotency(self, created_by, key_hash, request_sha256):
@@ -48,3 +56,63 @@ class MemoryJobs:
             and (cursor is None or key > cursor)
             and all(getattr(record, field) == value for field, value in filters.items())
         ][:limit]
+
+    def decide(self, decision):
+        with self.lock:
+            record = self.get(decision.job_id)
+            previous = self.decisions.get(decision.job_id)
+            if previous is not None:
+                key_hash, request_sha = previous
+                if key_hash == decision.idempotency_key_hash:
+                    if request_sha != decision.request_sha256:
+                        raise JobIdempotencyConflict
+                    return record
+                raise JobStateConflict
+            if record.status != "AWAITING_OWNER_APPROVAL":
+                raise JobStateConflict
+            status = "QUEUED" if decision.kind == "approve" else "REJECTED"
+            event = StateEvent(
+                str(uuid4()),
+                2,
+                "AWAITING_OWNER_APPROVAL",
+                status,
+                "OWNER_APPROVED" if decision.kind == "approve" else "OWNER_REJECTED",
+                decision.decided_at,
+                decision.actor_user_id,
+                decision.reason,
+            )
+            runs = record.runs
+            if decision.kind == "reject":
+                runs = tuple(
+                    replace(
+                        run,
+                        status="CANCELED",
+                        state_events=run.state_events
+                        + (
+                            StateEvent(
+                                str(uuid4()),
+                                2,
+                                "PENDING",
+                                "CANCELED",
+                                "JOB_REJECTED",
+                                decision.decided_at,
+                            ),
+                        ),
+                    )
+                    for run in runs
+                )
+            decided = replace(
+                record,
+                status=status,
+                runs=runs,
+                state_events=record.state_events + (event,),
+                owner_decided_by=decision.actor_user_id,
+                owner_decided_at=decision.decided_at,
+                owner_decision_reason=decision.reason,
+            )
+            self.records[record.job_id] = decided
+            self.decisions[record.job_id] = (
+                decision.idempotency_key_hash,
+                decision.request_sha256,
+            )
+            return decided

@@ -141,7 +141,13 @@ class JobSubmission:
     ) -> EvaluationJob:
         job_id, now = str(uuid4()), self.clock()
         event = StateEvent(
-            str(uuid4()), 1, None, "AWAITING_OWNER_APPROVAL", "JOB_SUBMITTED", now
+            str(uuid4()),
+            1,
+            None,
+            "AWAITING_OWNER_APPROVAL",
+            "JOB_SUBMITTED",
+            now,
+            actor.user_id,
         )
         backend = "mock" if self.policy.result_scope == "internal_test" else "harbor"
         runs = tuple(

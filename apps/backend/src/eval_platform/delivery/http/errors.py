@@ -16,6 +16,7 @@ from eval_platform.domain.catalog import (
     TaskNotFound,
 )
 from eval_platform.domain.identity import IdentityConflict
+from eval_platform.domain.jobs.decisions import JobStateConflict, OwnerApprovalRequired
 from eval_platform.domain.jobs.models import (
     JobConfigurationDisabled,
     JobError,
@@ -80,6 +81,12 @@ async def job_error(request: Request, exc: Exception) -> JSONResponse:
     if isinstance(exc, JobInputError):
         return error_response(400, exc.code, "评测批次选择无效")
     status, code, message = {
+        OwnerApprovalRequired: (
+            403,
+            "OWNER_APPROVAL_REQUIRED",
+            "只有所有者可以决定评测",
+        ),
+        JobStateConflict: (409, "JOB_STATE_CONFLICT", "评测批次状态已经改变"),
         JobConfigurationDisabled: (409, "AGENT_CONFIGURATION_DISABLED", "配置已禁用"),
         JobIdempotencyConflict: (409, "IDEMPOTENCY_CONFLICT", "幂等键正文冲突"),
         JobNotFound: (404, "JOB_NOT_FOUND", "评测批次不存在"),

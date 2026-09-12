@@ -98,7 +98,9 @@ def publish(
         )
     event = record.state_events[0]
     connection.execute(
-        "INSERT INTO job_state_events VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
+        "INSERT INTO job_state_events "
+        "(event_id,job_id,sequence,from_status,to_status,reason_code,"
+        "actor_user_id,occurred_at,note) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)",
         (
             event.event_id,
             record.job_id,
@@ -106,8 +108,9 @@ def publish(
             event.from_status,
             event.to_status,
             event.reason_code,
-            record.created_by,
+            event.actor_user_id or record.created_by,
             event.occurred_at,
+            event.note,
         ),
     )
     return record.job_id

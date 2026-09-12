@@ -1,8 +1,10 @@
 """PostgreSQL JobRepository Adapter."""
 
 from eval_platform.adapters.persistence.jobs import job_transaction
+from eval_platform.adapters.persistence.jobs.decisions import decide
 from eval_platform.adapters.persistence.jobs.publication import publish
 from eval_platform.adapters.persistence.jobs.records import read_job
+from eval_platform.domain.jobs.decisions import OwnerDecision
 from eval_platform.domain.jobs.models import (
     EvaluationJob,
     JobIdempotencyConflict,
@@ -48,6 +50,14 @@ class PostgresJobRepository:
             record = read_job(connection, job_id)
         if record is None:
             raise JobNotFound
+        return record
+
+    def decide(self, decision: OwnerDecision) -> EvaluationJob:
+        with job_transaction(self.dsn) as connection:
+            job_id = decide(connection, decision)
+            record = read_job(connection, job_id)
+        if record is None:
+            raise JobUnavailable
         return record
 
     def list(

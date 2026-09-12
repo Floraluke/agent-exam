@@ -19,22 +19,44 @@ function number(value: Record<string, unknown>, key: string): number {
   }
   return Number(value[key]);
 }
+function nullableText(value: Record<string, unknown>, key: string): string | null {
+  if (value[key] !== null && typeof value[key] !== "string") {
+    throw new ApiError("UNAVAILABLE");
+  }
+  return value[key] as string | null;
+}
 function summary(value: unknown): JobSummary {
   const item = object(value);
-  if (item.status !== "AWAITING_OWNER_APPROVAL" ||
+  if (!["AWAITING_OWNER_APPROVAL", "QUEUED", "REJECTED"].includes(
+        String(item.status)) ||
       item.evaluation_track !== "closed_book" ||
       !["official", "internal_test"].includes(String(item.result_scope)) ||
       !Array.isArray(item.run_ids) ||
       item.run_ids.some((id) => typeof id !== "string") ||
       item.estimated_finish_at !== null) throw new ApiError("UNAVAILABLE");
+  const decidedBy = nullableText(item, "owner_decided_by");
+  const decidedAt = nullableText(item, "owner_decided_at");
+  const reason = nullableText(item, "owner_decision_reason");
+  if (reason !== null && (reason !== reason.trim() || [...reason].length < 1 ||
+      [...reason].length > 500 || /[\u0000-\u001f\u007f-\u009f]/u.test(reason))) {
+    throw new ApiError("UNAVAILABLE");
+  }
+  const awaiting = item.status === "AWAITING_OWNER_APPROVAL";
+  if ((awaiting && (decidedBy !== null || decidedAt !== null || reason !== null)) ||
+      (!awaiting && (decidedBy === null || decidedAt === null))) {
+    throw new ApiError("UNAVAILABLE");
+  }
   return {
-    job_id: text(item, "job_id"), status: "AWAITING_OWNER_APPROVAL",
+    job_id: text(item, "job_id"),
+    status: item.status as JobSummary["status"],
     evaluation_track: "closed_book",
     result_scope: item.result_scope === "official" ? "official" : "internal_test",
     batch_preset: text(item, "batch_preset"),
     limit_profile_id: text(item, "limit_profile_id"),
     trial_count: number(item, "trial_count"), run_ids: item.run_ids,
     estimated_finish_at: null, created_at: text(item, "created_at"),
+    owner_decided_by: decidedBy, owner_decided_at: decidedAt,
+    owner_decision_reason: reason,
   };
 }
 function detail(value: unknown): JobDetail {
@@ -117,6 +139,16 @@ export async function submitJob(body: object, key: string): Promise<JobSummary> 
 }
 export async function jobDetail(id: string): Promise<JobDetail> {
   return detail(await request("jobs/" + encodeURIComponent(id)));
+}
+export async function decideJob(
+  id: string, decision: "approve" | "reject", reason: string, key: string,
+): Promise<JobSummary> {
+  const body = reason.trim() ? { reason } : {};
+  return summary(await request(
+    `jobs/${encodeURIComponent(id)}/${decision}`,
+    body,
+    { "Idempotency-Key": key },
+  ));
 }
 export async function jobs(): Promise<Page<JobSummary>> {
   const value = object(await request("jobs?limit=20"));

@@ -61,7 +61,7 @@ export default function SessionPanel() {
       {actor.role === "owner" && <MembersPanel />}
       <TasksPanel owner={actor.role === "owner"} />
       <AgentsPanel owner={actor.role === "owner"} />
-      <JobsPanel />
+      <JobsPanel owner={actor.role === "owner"} />
     </> : <>
       {joined && <p role="status">加入成功，请使用新账号登录。</p>}
       {joining ? <>

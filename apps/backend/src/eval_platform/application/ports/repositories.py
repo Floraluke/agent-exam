@@ -1,6 +1,7 @@
 from typing import Protocol
 
 from eval_platform.domain.catalog import CatalogTask, RegisteredAgent
+from eval_platform.domain.jobs.decisions import OwnerDecision
 from eval_platform.domain.jobs.models import EvaluationJob
 
 
@@ -57,3 +58,5 @@ class JobRepository(Protocol):
         cursor: str | None,
         limit: int,
     ) -> list[EvaluationJob]: ...
+
+    def decide(self, decision: OwnerDecision) -> EvaluationJob: ...

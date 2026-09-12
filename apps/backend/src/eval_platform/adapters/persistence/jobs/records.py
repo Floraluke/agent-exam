@@ -20,6 +20,7 @@ from eval_platform.domain.jobs.models import (
 
 
 def _event(row: dict[str, Any]) -> StateEvent:
+    actor = row.get("actor_user_id")
     return StateEvent(
         str(row["event_id"]),
         row["sequence"],
@@ -27,6 +28,8 @@ def _event(row: dict[str, Any]) -> StateEvent:
         row["to_status"],
         row["reason_code"],
         row["occurred_at"],
+        None if actor is None else str(actor),
+        row.get("note"),
     )
 
 
@@ -124,15 +127,48 @@ def read_job(connection: psycopg.Connection[Any], job_id: str) -> EvaluationJob 
             row["swe_bench_fork_revision"],
             runs,
             tuple(_event(item) for item in job_event_rows),
+            None if row["owner_decided_by"] is None else str(row["owner_decided_by"]),
+            row["owner_decided_at"],
+            row["owner_decision_reason"],
         )
     except (KeyError, TypeError, ValueError):
         raise JobUnavailable from None
-    if (
-        record.trial_count != row["trial_count"]
-        or len(record.state_events) != 1
-        or any(len(run.state_events) != 1 for run in record.runs)
-        or record.status != "AWAITING_OWNER_APPROVAL"
-        or any(run.status != "PENDING" for run in record.runs)
-    ):
+    if record.trial_count != row["trial_count"] or not _valid_state(record):
         raise JobUnavailable
     return record
+
+
+def _valid_state(record: EvaluationJob) -> bool:
+    if not record.state_events or record.state_events[0].reason_code != "JOB_SUBMITTED":
+        return False
+    decided = (
+        record.owner_decided_by is not None and record.owner_decided_at is not None
+    )
+    if record.status == "AWAITING_OWNER_APPROVAL":
+        return (
+            not decided
+            and record.owner_decision_reason is None
+            and len(record.state_events) == 1
+            and all(
+                run.status == "PENDING"
+                and len(run.state_events) == 1
+                and run.state_events[0].reason_code == "JOB_SUBMITTED"
+                for run in record.runs
+            )
+        )
+    if not decided or len(record.state_events) != 2:
+        return False
+    latest = record.state_events[-1]
+    if record.status == "QUEUED":
+        return latest.reason_code == "OWNER_APPROVED" and all(
+            run.status == "PENDING" and len(run.state_events) == 1
+            for run in record.runs
+        )
+    if record.status == "REJECTED":
+        return latest.reason_code == "OWNER_REJECTED" and all(
+            run.status == "CANCELED"
+            and len(run.state_events) == 2
+            and run.state_events[-1].reason_code == "JOB_REJECTED"
+            for run in record.runs
+        )
+    return False

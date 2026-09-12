@@ -20,6 +20,7 @@ from eval_platform.adapters.persistence.jobs.repository import PostgresJobReposi
 from eval_platform.application.agent_registry import AgentRegistry
 from eval_platform.application.identity import IdentityService
 from eval_platform.application.job_submission import JobSubmission
+from eval_platform.application.owner_approval import OwnerApproval
 from eval_platform.application.task_catalog import TaskCatalog
 from eval_platform.delivery.http.app import create_app
 from eval_platform.delivery.http.config import HttpConfig
@@ -71,12 +72,14 @@ def postgres_api(sandbox, *, initialize=True):
     )
     repository = PostgresJobRepository(sandbox.dsn)
     jobs = JobSubmission(tasks, agents, repository, submission_policy("internal_test"))
+    approvals = OwnerApproval(repository)
     app = create_app(
         identity,
         HttpConfig(public_origin=ORIGIN),
         tasks=tasks,
         agents=agents,
         jobs=jobs,
+        approvals=approvals,
     )
     with TestClient(app, base_url=ORIGIN, raise_server_exceptions=False) as client:
         yield client, jobs, repository, owner

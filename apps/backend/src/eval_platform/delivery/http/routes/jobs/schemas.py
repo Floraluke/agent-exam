@@ -27,6 +27,8 @@ class StateEventResponse(BaseModel):
     to_status: str
     reason_code: str
     occurred_at: datetime
+    actor_user_id: str | None
+    note: str | None
 
 
 class TaskSnapshotResponse(BaseModel):
@@ -56,7 +58,7 @@ class RunResponse(BaseModel):
     run_id: str
     task_id: str
     agent_configuration_id: str
-    status: Literal["PENDING"]
+    status: Literal["PENDING", "CANCELED"]
     backend_kind: str
     backend_revision: str
     execution_contract_version: str
@@ -65,7 +67,7 @@ class RunResponse(BaseModel):
 
 class JobSummary(BaseModel):
     job_id: str
-    status: Literal["AWAITING_OWNER_APPROVAL"]
+    status: Literal["AWAITING_OWNER_APPROVAL", "QUEUED", "REJECTED"]
     evaluation_track: Literal["closed_book"]
     result_scope: Literal["official", "internal_test"]
     batch_preset: str
@@ -74,6 +76,9 @@ class JobSummary(BaseModel):
     run_ids: list[str]
     estimated_finish_at: None = None
     created_at: datetime
+    owner_decided_by: str | None
+    owner_decided_at: datetime | None
+    owner_decision_reason: str | None
 
     @classmethod
     def from_record(cls, record: EvaluationJob) -> "JobSummary":
@@ -87,6 +92,9 @@ class JobSummary(BaseModel):
             trial_count=record.trial_count,
             run_ids=[run.run_id for run in record.runs],
             created_at=record.created_at,
+            owner_decided_by=record.owner_decided_by,
+            owner_decided_at=record.owner_decided_at,
+            owner_decision_reason=record.owner_decision_reason,
         )
 
 

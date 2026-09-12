@@ -7,8 +7,8 @@ from typing import Literal
 
 from eval_platform.domain.catalog import CatalogTask, RegisteredAgent
 
-JobStatus = Literal["AWAITING_OWNER_APPROVAL"]
-RunStatus = Literal["PENDING"]
+JobStatus = Literal["AWAITING_OWNER_APPROVAL", "QUEUED", "REJECTED"]
+RunStatus = Literal["PENDING", "CANCELED"]
 ResultScope = Literal["official", "internal_test"]
 
 
@@ -145,6 +145,8 @@ class StateEvent:
     to_status: str
     reason_code: str
     occurred_at: datetime
+    actor_user_id: str | None = None
+    note: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -181,6 +183,9 @@ class EvaluationJob:
     swe_bench_fork_revision: str
     runs: tuple[EvaluationRun, ...]
     state_events: tuple[StateEvent, ...]
+    owner_decided_by: str | None = None
+    owner_decided_at: datetime | None = None
+    owner_decision_reason: str | None = None
 
     @property
     def trial_count(self) -> int:

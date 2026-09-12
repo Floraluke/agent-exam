@@ -19,6 +19,7 @@ from eval_platform.application.agent_registry import AgentRegistry
 from eval_platform.application.identity import IdentityService
 from eval_platform.application.job_submission import JobSubmission
 from eval_platform.application.membership import MembershipService
+from eval_platform.application.owner_approval import OwnerApproval
 from eval_platform.application.task_catalog import TaskCatalog
 from eval_platform.delivery.http.app import create_app
 from eval_platform.delivery.http.config import HttpConfig
@@ -99,10 +100,11 @@ def job_api(result_scope="internal_test"):
         agent_presets,
     )
     membership = MembershipService(identities, passwords, clock)
+    job_repository = MemoryJobs()
     jobs = JobSubmission(
         tasks,
         agents,
-        MemoryJobs(),
+        job_repository,
         submission_policy(result_scope=result_scope),
         clock,
     )
@@ -113,6 +115,7 @@ def job_api(result_scope="internal_test"):
         tasks,
         agents,
         jobs,
+        OwnerApproval(job_repository, clock),
     )
     with TestClient(app, base_url=ORIGIN, raise_server_exceptions=False) as client:
         yield JobAPI(client, clock)
