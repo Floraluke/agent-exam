@@ -1,3 +1,4 @@
+import psycopg
 import pytest
 from identity.conftest import WRITE_HEADERS
 from psycopg.conninfo import make_conninfo
@@ -91,3 +92,24 @@ def test_missing_published_snapshot_is_not_presented_as_complete(
             assert response.status_code == 503
             assert "HIDDEN_ANSWER" not in response.text
             assert source.object_key not in response.text
+
+
+@pytest.mark.integration
+def test_stored_problem_drift_fails_closed(postgres_sandbox, minio_sandbox):
+    initialize_schema(postgres_sandbox.dsn)
+    store, _, _ = minio_sandbox
+    with catalog_api(PostgresTaskRepository(postgres_sandbox.dsn), store) as api:
+        api.login()
+        task_id = register(api).json()["task_id"]
+        # Inject storage corruption; observe only the public HTTP boundary.
+        with psycopg.connect(postgres_sandbox.dsn) as connection:
+            connection.execute(
+                "UPDATE evaluation_tasks SET problem_statement=%s WHERE task_id=%s",
+                ("CORRUPTED_DATABASE_TEXT", task_id),
+            )
+        for path in ("/api/v1/tasks", "/api/v1/tasks/" + task_id):
+            response = api.client.get(path)
+            assert response.status_code == 503
+            assert response.json()["error"]["details"] == {}
+            assert "CORRUPTED_DATABASE_TEXT" not in response.text
+        assert register(api).status_code == 503

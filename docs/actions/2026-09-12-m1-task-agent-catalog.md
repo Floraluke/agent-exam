@@ -2,7 +2,7 @@
 
 ## 状态与情况说明
 
-- 状态：In progress。2026-09-12 用户已批准下方最小结构和专属隔离验证方案，并要求及时更新架构与数据模型；原授权等待解除，不重复申请。目录主体实现与隔离存储检查已完成，正在完整回归和独立评审；任务 03 尚未收尾；源码测试候选、维护风险与适用边界见依赖总表第 2.3 节。
+- 状态：Completed。2026-09-12 完成目录、真实隔离存储验收、HTTP/Web 回归和双轴评审；P2 摘要漂移已修复并复核，架构与数据模型同步。可选页面去重未纳入。固定 CE 只用于隔离合成验证，不是长期/远程部署基线；维护风险见依赖总表第 2.3 节。
 - 本行动对应[任务 03](../../.scratch/m1-platform/issues/03-task-agent-catalog.md)；与成员行动分开记录，之后同一任务的计划、实施和验证继续更新本文件。
 - 已确认复用现有 Task Catalog、Agent Registry、Artifact Store 的规划职责，不新增顶层业务模块。现有账号/会话/邀请表不能承载固定任务、配置身份及原始快照索引；现有 SWE-Gym 适配器只从已校验本机数据读取任务，不是持久化目录。
 - MinIO 上游维护/发行事实仍只在[依赖总表第 2.3 节](../dependencies/DEPENDENCIES.md#23-任务-03-对象存储依赖复核)维护。已批准固定 CE 源码候选的隔离合成验证，不改用 AIStor、不作为长期/远程部署批准，也不把本地文件替身当作真实对象存储验收。
@@ -45,9 +45,30 @@ E:/9.1agent_exam/
 
 ## 自验证情况
 
+## Standards
+
+- 固定评审范围 `1563c66...62ea681`。P2：PostgresTaskRepository 读取未核对 problem_sha256，正文与摘要不一致时仍成功，违反数据模型第 4.1 节和模块契约第 6.2 节。评审者纯内存调用确认；已按确认的 HTTP/真实存储边界新增故障注入用例并修复。实测列表、详情和重复登记都安全返回 503；原 Standards 评审者只读复核确认覆盖原问题、未发现新缺陷。
+- P3（可选判断）：两个目录页面的请求代次、忙碌/错误与详情失效代码重复。不是硬违规；未经确认不扩大本轮重构，后续可评估局部共享请求状态处理。
+
+## Spec
+
+- 同一固定范围未发现任务 03 的规格遗漏、未经授权扩展或可复现实现错误。三表、四个 Interface、固定种子、限制引用暂空及隔离 CE 测试均属于已批准方案。
+
+双轴评审计数：Standards 1 项 P2、1 项可选 P3；Spec 0 项。评审者未重跑容器或完整测试，原测试属于沿用证据；下方另记修复后的实际验证。
+
 ### 2026-09-12 实施进展与本轮实际验证
 
 后续结果（覆盖下方较早的“待执行”快照）：
+
+- 修复后 `verify.ps1`：55 passed、2 warnings，33.73 秒；scope catalog-7231804e88e14d759b3cfc4aaf91bc15，driver sha256:2162edefcc51562f3a2ad3c405699f4e4b107efae8b6a92b7c38fc7e6e69cd24。真实 PG 正文损坏经 HTTP 列表/详情/重入全部安全失败，目录及身份/成员 PG 回归通过。三个专属容器与 tmpfs 已精确删除；未连接现有服务或运行模型。
+- 修复后全后端 `python -m pytest -q -p no:cacheprovider --tb=short`：274 passed、47 skipped、2 warnings，25.86 秒；新增跳过是 PG 故障用例，已在上项显式开启通过。`ruff check src tests`、`ruff format --check src tests` 通过（130 文件），`mypy src` 通过（74 源文件）。Web 没有再修改，沿用本轮前段的 11 项浏览器、typecheck/build 证据，不冒称修复后重跑。
+- 收尾文档检查：10 份 Markdown、247 条本地链接、77 处锚点、围栏/空白/diff 通过，暂存区为空，任务 03 八项验收完成。只读资源复核 catalog-test 容器为 0，现有容器/卷/网络仍 18/15/5；四场专属测试的数据已清理，镜像与缓存保留。
+- 原 Standards 评审者只读复核确认原 P2 已覆盖，未重跑容器。任务 03 验收据本行动的实测与双轴评审完成；可选 P3 不扩大重构，MinIO 安全部署、全量题库、M1 后续能力和完整 M0 验收未借此完成。
+
+- 评审修复红灯：在真实 PostgreSQL 注入正文与摘要不一致后，经 HTTP 列表实际返回 200 而非预期 503；本场 54 passed、1 failed、2 warnings，35.35 秒。scope catalog-b577a9de12624362bb256111aa3dd8fe 的三个容器及 tmpfs 已精确删除。随后在任务 Repository 统一读出边界增加摘要比对，列表、详情、同身份重入共用；架构与数据模型同步，后续绿灯见上项。
+- 修复验证准备曾尝试禁网构建，因构建网络模式改变导致依赖层缓存未命中而失败；原授权允许构建联网，因此恢复原命令后成功（driver sha256:01197454104ae315b4d95b0f138340e27833acb8b0840f29e63b316be1296f05），未改机器设置或运行容器隔离策略。
+- 任务 03 实现检查点 `62ea681`（feat: implement M1 task and Codex catalogs with isolated storage acceptance）精确提交 46 个允许文件，暂存集合与允许集合一致、暂存 diff 通过，提交后暂存区为空。混合旧权威文档继续保留工作区，没有推送。双轴评审固定为 `1563c66...62ea681`，两路只读评审已完成，结论及修复见上节。
+- 离线 wheel 构建成功（runtime/tools/catalog-wheel-check/agentexam_backend-0.1.0-py3-none-any.whl）；默认沙箱首次直接打开 ZIP 被拒绝，属于检查权限失败，不是包资源缺失。经授权只读重试成功，确认身份 SQL、邀请 SQL、catalog/schema.sql 均已包含；没有安装到系统、联网或发布。
 
 - 检查点前文档校验：10 份 Markdown、247 条本地链接、77 处锚点、围栏/空白/diff 检查通过，暂存区为空；任务验收暂不勾选，等待独立评审。只读资源收尾：catalog-test 标签容器 0，现有容器/卷/网络为 18/15/5；只删除了两场各自的精确合成容器，保留既有资源及新建镜像/缓存。
 
@@ -98,7 +119,7 @@ E:/9.1agent_exam/
 
 #### 必要新增与复用理由
 
-| 项目 | 候选最小实现 | 为什么不能直接复用身份能力 |
+| 项目 | 已实施最小实现 | 为什么不能直接复用身份能力 |
 |---|---|---|
 | PostgreSQL 表 | `evaluation_tasks`、`agent_configurations`、`artifact_records`，只落任务 03 所需字段/关联，不预建 Job/Run/P2 表 | 账号/会话/邀请无法表达不可变任务身份、配置指纹及对象索引；三者均为已有数据模型规划的实体 |
 | 应用与存储 Interface | TaskSource、TaskRepository、AgentConfigurationRepository、ArtifactStore；沿用规划的 `task_source.py`、`repositories.py`、`artifacts.py` 三个 port 文件 | 现有 `load()` 可作为 TaskSource 实现复用，但没有持久目录或对象存储 Interface；生产 PostgreSQL/MinIO 与合成测试 Adapter 分别满足同一接口，应用不见 SQL、SDK 或连接 |
@@ -106,7 +127,7 @@ E:/9.1agent_exam/
 | 初始化 | 独立本机目录结构升级命令，显式创建上述三表；启动 API 不建表/同步，重复执行失败且不覆盖数据 | 保持现有身份初始化行为，旧应用库需要明确升级入口，不能借一次登录隐式写结构 |
 | 外部依赖 | MinIO Adapter 使用支持原子条件写的公开 S3 Python 客户端；具体锁定版本由官方接口/兼容核查确定 | 现有依赖没有 S3 客户端；不手写签名或依赖 SDK 私有方法，也不因使用 S3 协议而更换 MinIO 产品 |
 
-Task Catalog 拥有登记/读取与发布一致性；Agent Registry 拥有固定配置与启用状态；Artifact Store 隐藏条件写、实际字节校验与对象错误。三个 Module 的 Implementation 深化，不新增顶层业务 Module、不修改 M0 ExecutionBackend/PatchEvaluator Interface。原 `connection.py` 的错误转换只认识身份错误，候选以兼容默认行为的内部参数化复用短事务，使目录故障不会被翻译为身份故障；不扩大为通用事务框架。
+Task Catalog 拥有登记/读取与发布一致性；Agent Registry 拥有固定配置与启用状态；Artifact Store 隐藏条件写、实际字节校验与对象错误。三个 Module 的 Implementation 深化，不新增顶层业务 Module、不修改 M0 ExecutionBackend/PatchEvaluator Interface。原 `connection.py` 的错误转换只认识身份错误，以兼容默认行为的内部参数化复用短事务，使目录故障不会被翻译为身份故障；不扩大为通用事务框架。
 
 #### 双存储一致性与公开边界
 
@@ -146,35 +167,38 @@ apps/backend/tests/
 │  ├─ __init__.py / conftest.py / memory.py  # 合成外部存储、固定任务与共享夹具
 │  ├─ test_http.py / test_security.py        # 调用者可见流程、权限、隐藏字段和错误
 │  ├─ test_postgres.py / test_minio.py / test_consistency.py # 真实持久化、不可变与双侧故障
-│  └─ runtime/                               # 候选测试辅助子目录，不新增顶层 infra
+│  └─ runtime/                               # 测试辅助子目录，不新增顶层 infra
 │     ├─ Dockerfile.minio / Dockerfile.tests  # 固定源码构建 MinIO、准备 Linux 测试依赖
 │     └─ verify.ps1                         # 精确创建/核对/清理专属容器，无全局 prune
 └─ identity/browser_server.py                # 修改：仅内部浏览器测试接入目录用例
 apps/backend/pyproject.toml / uv.lock         # 修改：锁定公开 S3 客户端、打包目录 SQL
+apps/backend/.dockerignore                   # 新增：构建上下文代码/测试/锁白名单
 apps/web/src/
 ├─ features/catalog/                        # 新目录：目录浏览/详情与所有者受控登记
 │  └─ tasks.tsx / agents.tsx                # 通过 HTTP，不直连 PostgreSQL/MinIO
 ├─ features/identity/session.tsx             # 修改：登录后接通目录，不代替后端权限
 └─ lib/api-client.ts / contracts.ts / catalog-client.ts # 复用唯一 HTTP 请求入口与安全类型
 apps/web/tests/catalog.spec.ts               # 新增：真实浏览器目录和协作者回归
+apps/web/tests/run-browser-tests.mjs          # 新增：每个用例文件使用独立合成后端
+apps/web/package.json                        # 修改：默认浏览器命令接入上述编排
 ```
 
-下方树已实际落地；追加的构建上下文白名单与浏览器编排文件见实施进展。开工计数：domain 6、application 3、ports 4、persistence 6、HTTP 7、routes 3、identity/membership 测试各 8、Web lib 3。按上述布局，新增直接目录均不超过 8 文件、动态源码目标不超过 200 行；不得先越限再用事后拆分解释。文档在上方已有事实源同步，超出此范围的新结构仍须确认。
+上述树已实际落地，包含构建上下文白名单与浏览器编排。开工计数：domain 6、application 3、ports 4、persistence 6、HTTP 7、routes 3、identity/membership 测试各 8、Web lib 3。按上述布局，新增直接目录均不超过 8 文件、动态源码目标不超过 200 行；不得先越限再用事后拆分解释。文档在上方已有事实源同步，超出此范围的新结构仍须确认。
 
 #### 分步验收
 
 - HTTP 红绿切片：查询/受控登记 → 原始快照与身份不变 → 配置禁用/秘密隔离 → 空列表/筛选/安全错误；合成 Adapter 不替代应用授权和规则。
 - 专属 PostgreSQL：任务和制品索引一起提交/回滚、重复/并发登记、禁用历史及初始化升级；已获任务 02–04 临时 PG 授权，仍不连接现有库。
-- 获准后专属 MinIO：原子拒绝覆盖、同内容重入、GET 字节校验、丢对象/断流，以及 PostgreSQL/MinIO 单侧故障；合成凭据/数据、资源限额、精确清理。新调研发现旧 Docker 的发布回环端口限制，测试环境改为下节“不发布端口”的候选；尚未启动。
+- 已完成专属 MinIO：原子拒绝覆盖、同内容重入、GET 字节校验、丢对象及双存储单侧故障；SDK 流失败另作受控边界检查。采用下节不发布端口方案和合成数据，资源已精确清理。
 - 浏览器：所有者受控登记、协作者列表/筛选/详情、禁用可见；复跑身份/成员回归。静态、默认无模型测试、文档/树检查后，按固定提交做 Standards/Spec 双轴评审，修复及本地提交后才进入 04。
 
 #### 专属对象存储验证环境
 
-2026-09-12 已获本节限定授权。构建输入核验和实际运行结果将在本行动追加。
+2026-09-12 已按本节授权完成构建输入核验、隔离验证与清理；结果见自验证情况。
 
 - MinIO 的固定 CE 源码测试候选见[依赖总表第 2.3 节](../dependencies/DEPENDENCIES.md#23-任务-03-对象存储依赖复核)，包括最后 release 后的条件写修复，但不关闭官方已知安全风险。本次仅使用合成数据验证 Adapter，不能据此批准 M1 长期或远程运行。
 - 已记录的本机 Docker 为 27.5.1；官方提示低于 28.0.0 的回环发布端口可能从同一二层网络到达。实际本机可达性尚未验证，不能把一般性警告当作本机漏洞已复现；也不能只靠 `-p 127.0.0.1` 声称隔离。出处由本机 Docker 文档维护。
-- 候选使用三个专属容器：MinIO 以 `--network none` 建立只有回环的网络命名空间；专属 PostgreSQL 与 Linux 测试器共享该空间，只经其中的 127.0.0.1 交互。全部不发布宿主端口，不使用 host 网络、Docker socket、宿主敏感目录、真实账号或凭据；不修改代理、Docker/WSL、防火墙或现有容器/卷/网络。
+- 实际使用三个专属容器：MinIO 以 `--network none` 建立只有回环的网络命名空间；专属 PostgreSQL 与 Linux 测试器共享该空间，只经其中的 127.0.0.1 交互。全部不发布宿主端口，不使用 host 网络、Docker socket、宿主敏感目录、真实账号或凭据；不修改代理、Docker/WSL、防火墙或现有容器/卷/网络。
 - 构建阶段需要联网获取经核验的官方 MinIO 固定源码、官方 Go/Python 构建镜像及锁定依赖；执行前分别固定身份与摘要，不能直接用 latest。构建与无网络运行分开，限制构建资源并核对磁盘余量，不能给运行中的测试服务打开联网。
 - 完成/失败均核验完整容器 ID/标签再删除，仅清理专属测试数据；保留原有镜像与资源，不用全局 prune。构建产物和可复用缓存的实际保留范围另记，不把“容器删除”冒称所有下载缓存消失。
-- 技术前提若不能满足，停止该验证并报告，不静默退回宿主发布端口或升级机器。此环境已批准，但尚未执行。
+- 技术前提若不能满足，停止该验证并报告，不静默退回宿主发布端口或升级机器。此环境已完成本行动限定验证，未批准长期部署。

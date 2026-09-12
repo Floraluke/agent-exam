@@ -5,7 +5,12 @@ from typing import Any
 from psycopg import sql
 
 from eval_platform.adapters.persistence.catalog import catalog_transaction
-from eval_platform.domain.catalog import CatalogConflict, CatalogTask, TaskNotFound
+from eval_platform.domain.catalog import (
+    CatalogConflict,
+    CatalogTask,
+    CatalogUnavailable,
+    TaskNotFound,
+)
 from eval_platform.domain.result import ArtifactRef
 from eval_platform.domain.task import EvaluationTask
 
@@ -16,6 +21,8 @@ _SELECT = """SELECT t.*, a.artifact_id, a.object_key, a.artifact_type, a.sha256,
 
 
 def _record(row: dict[str, Any]) -> CatalogTask:
+    if sha256(row["problem_statement"].encode()).hexdigest() != row["problem_sha256"]:
+        raise CatalogUnavailable
     task = EvaluationTask(
         **{
             key: row[key]
