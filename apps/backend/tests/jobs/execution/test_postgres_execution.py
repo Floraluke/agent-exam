@@ -16,21 +16,32 @@ from jobs.test_postgres import login, postgres_api
 pytestmark = pytest.mark.integration
 
 
+def approved_job(jobs, repository, owner, submit_key, approval_key):
+    task = jobs.tasks.register(owner, "verified-task")
+    agent = jobs.agents.register(owner, "verified-codex")
+    created = jobs.submit(
+        owner,
+        [task.task_id],
+        [agent.configuration.configuration_id],
+        "closed_book",
+        "demo",
+        "default-single-host-v1",
+        submit_key,
+    )
+    OwnerApproval(repository).decide(
+        owner, created.job_id, "approve", None, approval_key
+    )
+    return created
+
+
 def test_postgres_claim_is_exclusive_versioned_and_restart_safe(postgres_sandbox):
     with postgres_api(postgres_sandbox) as (_client, jobs, repository, owner):
-        task = jobs.tasks.register(owner, "verified-task")
-        agent = jobs.agents.register(owner, "verified-codex")
-        created = jobs.submit(
+        created = approved_job(
+            jobs,
+            repository,
             owner,
-            [task.task_id],
-            [agent.configuration.configuration_id],
-            "closed_book",
-            "demo",
-            "default-single-host-v1",
             "postgres-worker-source-0001",
-        )
-        OwnerApproval(repository).decide(
-            owner, created.job_id, "approve", None, "postgres-worker-approve-0001"
+            "postgres-worker-approve-0001",
         )
         now = datetime(2026, 9, 12, 10, 0, tzinfo=UTC)
         barrier = Barrier(2, timeout=10)
@@ -57,19 +68,12 @@ def test_postgres_claim_is_exclusive_versioned_and_restart_safe(postgres_sandbox
 
 def test_postgres_result_transaction_restores_complete_report(postgres_sandbox):
     with postgres_api(postgres_sandbox) as (_client, jobs, repository, owner):
-        task = jobs.tasks.register(owner, "verified-task")
-        agent = jobs.agents.register(owner, "verified-codex")
-        created = jobs.submit(
+        created = approved_job(
+            jobs,
+            repository,
             owner,
-            [task.task_id],
-            [agent.configuration.configuration_id],
-            "closed_book",
-            "demo",
-            "default-single-host-v1",
             "postgres-result-source-0001",
-        )
-        OwnerApproval(repository).decide(
-            owner, created.job_id, "approve", None, "postgres-result-approve-0001"
+            "postgres-result-approve-0001",
         )
         now = datetime(2026, 9, 12, 11, 0, tzinfo=UTC)
         artifacts = MemoryArtifacts()
@@ -110,22 +114,11 @@ def test_real_pg_minio_database_failure_never_publishes_partial_result(
 ):
     store, service, bucket = job_minio_sandbox
     with postgres_api(postgres_sandbox) as (_client, jobs, repository, owner):
-        task = jobs.tasks.register(owner, "verified-task")
-        agent = jobs.agents.register(owner, "verified-codex")
-        created = jobs.submit(
+        created = approved_job(
+            jobs,
+            repository,
             owner,
-            [task.task_id],
-            [agent.configuration.configuration_id],
-            "closed_book",
-            "demo",
-            "default-single-host-v1",
             "postgres-minio-failure-source-0001",
-        )
-        OwnerApproval(repository).decide(
-            owner,
-            created.job_id,
-            "approve",
-            None,
             "postgres-minio-failure-approve-0001",
         )
         with psycopg.connect(postgres_sandbox.dsn) as connection:
@@ -174,19 +167,12 @@ def test_real_pg_minio_http_report_fails_closed_after_object_loss(
         repository,
         owner,
     ):
-        task = jobs.tasks.register(owner, "verified-task")
-        agent = jobs.agents.register(owner, "verified-codex")
-        created = jobs.submit(
+        created = approved_job(
+            jobs,
+            repository,
             owner,
-            [task.task_id],
-            [agent.configuration.configuration_id],
-            "closed_book",
-            "demo",
-            "default-single-host-v1",
             "postgres-minio-report-source-0001",
-        )
-        OwnerApproval(repository).decide(
-            owner, created.job_id, "approve", None, "postgres-minio-report-approve-0001"
+            "postgres-minio-report-approve-0001",
         )
         now = datetime(2026, 9, 12, 13, 0, tzinfo=UTC)
         source = MemoryArtifacts()

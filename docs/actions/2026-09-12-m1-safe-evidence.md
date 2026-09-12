@@ -75,3 +75,4 @@ docs/{architecture,interfaces}/                      # 当前事实与公开契�
 - 修复后定向后端 42 通过、1 个真实 MinIO 项按门控跳过；浏览器通过路由把页长压到 1，实际验证“查看→加载更多→第二事件→下载”为 1/1 通过；Ruff、mypy 123 源码、Web typecheck/build 和 `git diff --check` 通过。
 - 修复后真实临时 PostgreSQL+MinIO 最终 72 通过、2 个依赖弃用警告：真实对象经过声明原长度但正文少 1 字节的传输包装后明确失败；共享 bucket 在数据库失败时只含 `agent_patch/harness_report/harness_test_output/public_test_summary/public_trajectory` 五类派生/公开对象，不含私有原文。中间两次清单断言失败均如实记录且每次容器均已精确清理；最终同样清理，镜像/构建缓存保留。
 - 修复后完整默认后端 329 通过、63 个未启用重型项跳过、2 个依赖弃用警告；Web 最终生产构建通过。待提交修复并复做双轴评审。
+- 修复复评中 Spec 已 PASS；Standards 发现 `test_postgres_execution.py` 被增量推到 210 行。已把四处重复的登记/提交/批准前置收敛为同文件测试辅助函数，格式化后为 196 行，Ruff 与 `git diff --check` 通过；待 Standards 最终复核。
