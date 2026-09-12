@@ -21,13 +21,16 @@ CREATE TABLE artifact_records (
     run_id uuid,
     artifact_type text NOT NULL CHECK (artifact_type IN (
         'task_source_snapshot', 'agent_patch', 'harness_report',
-        'harness_summary', 'harness_test_output'
+        'harness_summary', 'harness_test_output', 'public_test_summary',
+        'public_trajectory'
     )),
     object_key text NOT NULL UNIQUE CHECK (length(object_key) > 0),
     sha256 char(64) NOT NULL CHECK (sha256 ~ '^[0-9a-f]{64}$'),
     size_bytes bigint NOT NULL CHECK (size_bytes >= 0 AND size_bytes <= 52428800),
     content_type text NOT NULL CHECK (
-        content_type IN ('application/json', 'text/plain', 'text/x-diff')
+        content_type IN (
+            'application/json', 'application/x-ndjson', 'text/plain', 'text/x-diff'
+        )
     ),
     retention_class text NOT NULL CHECK (retention_class = 'long_term'),
     redaction_status text NOT NULL DEFAULT 'not_required'

@@ -60,6 +60,14 @@ class JobIdempotencyConflict(JobError):
     pass
 
 
+class EvidenceNotFound(JobError):
+    pass
+
+
+class EvidenceNotReady(JobError):
+    pass
+
+
 class JobNotFound(JobError):
     pass
 

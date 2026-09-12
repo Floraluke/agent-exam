@@ -90,7 +90,7 @@ def test_postgres_result_transaction_restores_complete_report(postgres_sandbox):
         assert report.deterministic_result is not None
         assert report.deterministic_result.resolved is True
         assert report.process_metrics.resources.peak_memory_bytes == 4096
-        assert len(report.artifacts) == 3
+        assert len(report.artifacts) == 5
         patch_artifact = next(
             item
             for item in report.artifacts
@@ -153,7 +153,12 @@ def test_real_pg_minio_database_failure_never_publishes_partial_result(
         objects = service.list_objects_v2(Bucket=bucket).get("Contents", [])
         assert stored.status == "FAILED"
         assert report.deterministic_result is None and report.artifacts == ()
-        assert len(objects) == 3
+        assert sorted(item["Key"].split("/")[2] for item in objects) == [
+            "agent_patch",
+            "harness_report",
+            "harness_test_output",
+            "public_test_summary",
+        ]
 
 
 def test_real_pg_minio_http_report_fails_closed_after_object_loss(

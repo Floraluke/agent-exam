@@ -3,6 +3,11 @@
 from datetime import UTC, datetime
 from hashlib import sha256
 
+from eval_platform.application.execution.public_evidence import (
+    normalize_test_summary,
+    normalize_trajectory,
+    validate_public_text,
+)
 from eval_platform.application.ports.artifacts import ArtifactReader, ArtifactStore
 from eval_platform.domain.catalog import ArtifactUnavailable
 from eval_platform.domain.result import ArtifactRef
@@ -19,6 +24,7 @@ class EvidencePublication:
         if reference.artifact_type not in {"model_patch", "agent_patch"}:
             raise ValueError("Execution patch evidence has an unsupported type")
         content = self.source.read_verified(reference)
+        validate_public_text(content)
         return self._reference(
             run_id, "agent_patch", "text/x-diff", reference, content
         ), content
@@ -46,6 +52,48 @@ class EvidencePublication:
                 self._publish(run_id, "harness_test_output", "text/plain", outputs[0])
             )
         return tuple(published)
+
+    def publish_test_summary(
+        self, run_id: str, summary: dict[str, object]
+    ) -> ArtifactRef:
+        content = normalize_test_summary(summary)
+        return self._publish_derived(
+            run_id, "public_test_summary", "application/json", content
+        )
+
+    def publish_trajectory(
+        self,
+        run_id: str,
+        source: ArtifactRef | None,
+        agent_source: str,
+        occurred_at: datetime,
+    ) -> ArtifactRef | None:
+        if source is None:
+            return None
+        if source.artifact_type != "agent_trajectory":
+            raise ArtifactUnavailable
+        content = normalize_trajectory(
+            self.source.read_verified(source), agent_source, occurred_at
+        )
+        return self._publish_derived(
+            run_id, "public_trajectory", "application/x-ndjson", content
+        )
+
+    def _publish_derived(
+        self, run_id: str, kind: str, content_type: str, content: bytes
+    ) -> ArtifactRef:
+        digest = sha256(content).hexdigest()
+        reference = ArtifactRef(
+            f"runs/{run_id}/{kind}/{digest}",
+            kind,
+            len(content),
+            digest,
+            content_type,
+            "long_term",
+            created_at=datetime.now(UTC),
+        )
+        self.persist(reference, content)
+        return reference
 
     def _publish(
         self, run_id: str, kind: str, content_type: str, source: ArtifactRef

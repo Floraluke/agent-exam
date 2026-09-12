@@ -65,6 +65,17 @@ def read_job_report(connection: Connection, job_id: str) -> JobReport:
     return JobReport(job.created_by, job, reports)
 
 
+def read_artifact_report(connection: Connection, artifact_id: str) -> RunReport:
+    row = connection.execute(
+        "SELECT run_id FROM artifact_records WHERE artifact_id=%s "
+        "AND run_id IS NOT NULL",
+        (artifact_id,),
+    ).fetchone()
+    if row is None:
+        raise JobNotFound
+    return read_run_report(connection, str(row["run_id"]))
+
+
 def _result(row: dict[str, Any]) -> StoredDeterministicResult:
     output = row["test_output_artifact_id"]
     return StoredDeterministicResult(

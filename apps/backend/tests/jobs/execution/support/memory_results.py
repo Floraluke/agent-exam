@@ -186,3 +186,12 @@ def get_job_report(repository, job_id):
     job = repository.get(job_id)
     reports = tuple(get_run_report(repository, run.run_id) for run in job.runs)
     return JobReport(job.created_by, job, reports)
+
+
+def get_artifact_report(repository, artifact_id):
+    for job in repository.records.values():
+        for run in job.runs:
+            report = get_run_report(repository, run.run_id)
+            if any(item.artifact_id == artifact_id for item in report.artifacts):
+                return report
+    raise JobNotFound

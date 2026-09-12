@@ -52,6 +52,8 @@ def test_worker_executes_one_job_and_persists_layered_report():
         "agent_patch",
         "harness_report",
         "harness_test_output",
+        "public_test_summary",
+        "public_trajectory",
     }
     assert len(backend.requests) == len(evaluator.requests) == 1
     assert backend.requests[0].job_id == job.job_id

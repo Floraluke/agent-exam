@@ -2,10 +2,24 @@ from collections.abc import Callable
 
 from eval_platform.application.ports.artifacts import ArtifactReader
 from eval_platform.application.ports.repositories import JobRepository
+from eval_platform.application.reporting.evidence import (
+    ArtifactPage,
+    EvidenceContent,
+    TrajectoryPage,
+    artifact,
+    artifact_page,
+    content,
+    trajectory_page,
+)
 from eval_platform.domain.catalog import ArtifactUnavailable
 from eval_platform.domain.identity import AuthenticatedActor
 from eval_platform.domain.jobs.execution import JobReport, RunReport
-from eval_platform.domain.jobs.models import JobNotFound, ResultScope
+from eval_platform.domain.jobs.models import (
+    EvidenceNotFound,
+    EvidenceNotReady,
+    JobNotFound,
+    ResultScope,
+)
 
 
 def _official(scope: ResultScope) -> bool:
@@ -20,7 +34,7 @@ class JobReporting:
         scope_visible: Callable[[ResultScope], bool] = _official,
     ) -> None:
         self.repository = repository
-        self.artifacts = artifacts
+        self.artifact_reader = artifacts
         self.scope_visible = scope_visible
 
     def run(self, actor: AuthenticatedActor, run_id: str) -> RunReport:
@@ -37,6 +51,49 @@ class JobReporting:
         for run in report.run_reports:
             self._verify(run)
         return report
+
+    def artifacts(
+        self,
+        actor: AuthenticatedActor,
+        run_id: str,
+        kind: str | None,
+        cursor: str | None,
+        limit: int,
+    ) -> ArtifactPage:
+        return artifact_page(self.run(actor, run_id), kind, cursor, limit)
+
+    def content(self, actor: AuthenticatedActor, artifact_id: str) -> EvidenceContent:
+        try:
+            report = self.repository.get_artifact_report(artifact_id)
+            self._publishable(report.result_scope)
+            self._authorize(actor, report.created_by)
+        except JobNotFound:
+            raise EvidenceNotFound from None
+        self._verify(report)
+        item = artifact(report, artifact_id)
+        return content(item, self.artifact_reader.read_verified(item.reference))
+
+    def trajectory(
+        self,
+        actor: AuthenticatedActor,
+        run_id: str,
+        after_sequence: int,
+        limit: int,
+        kind: str | None,
+    ) -> TrajectoryPage:
+        report = self.run(actor, run_id)
+        item = next(
+            (
+                item
+                for item in report.artifacts
+                if item.reference.artifact_type == "public_trajectory"
+            ),
+            None,
+        )
+        if item is None:
+            raise EvidenceNotReady
+        body = self.artifact_reader.read_verified(item.reference)
+        return trajectory_page(report, body, after_sequence, limit, kind)
 
     def _publishable(self, scope: ResultScope) -> None:
         if not self.scope_visible(scope):
@@ -72,7 +129,7 @@ class JobReporting:
         ):
             raise ArtifactUnavailable
         for item in report.artifacts:
-            self.artifacts.read_verified(item.reference)
+            self.artifact_reader.read_verified(item.reference)
 
     @staticmethod
     def _authorize(actor: AuthenticatedActor, created_by: str) -> None:

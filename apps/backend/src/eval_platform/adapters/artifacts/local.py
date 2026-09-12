@@ -14,6 +14,7 @@ _SOURCE_TYPES = {
     "harness_summary",
     "harness_log",
     "harness_test_output",
+    "agent_trajectory",
 }
 
 

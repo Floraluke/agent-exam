@@ -1,6 +1,7 @@
 import { request } from "./api-client";
 import type {
-  JobDetail, JobOptions, JobReport, JobSummary, Page, RunReport,
+  ArtifactPage, JobDetail, JobOptions, JobReport, JobSummary, Page, RunReport,
+  TrajectoryPage,
 } from "./contracts";
 import { parseJobReport } from "./batch-report-shapes";
 import {
@@ -9,7 +10,7 @@ import {
   parseJobPage,
   parseJobSummary,
 } from "./job-shapes";
-import { parseRunReport } from "./report-shapes";
+import { parseArtifactPage, parseRunReport, parseTrajectoryPage } from "./report-shapes";
 
 export async function jobOptions(): Promise<JobOptions> {
   return parseJobOptions(await request("job-options"));
@@ -47,4 +48,16 @@ export async function runReport(id: string): Promise<RunReport> {
 
 export async function jobReport(id: string): Promise<JobReport> {
   return parseJobReport(await request("reports/jobs/" + encodeURIComponent(id)));
+}
+
+export async function runArtifacts(id: string): Promise<ArtifactPage> {
+  return parseArtifactPage(
+    await request(`runs/${encodeURIComponent(id)}/artifacts?limit=100`),
+  );
+}
+
+export async function runTrajectory(id: string): Promise<TrajectoryPage> {
+  return parseTrajectoryPage(
+    await request(`runs/${encodeURIComponent(id)}/trajectory?limit=100`),
+  );
 }

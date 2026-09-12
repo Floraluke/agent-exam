@@ -18,6 +18,8 @@ from eval_platform.domain.catalog import (
 from eval_platform.domain.identity import IdentityConflict
 from eval_platform.domain.jobs.decisions import JobStateConflict, OwnerApprovalRequired
 from eval_platform.domain.jobs.models import (
+    EvidenceNotFound,
+    EvidenceNotReady,
     JobConfigurationDisabled,
     JobError,
     JobIdempotencyConflict,
@@ -91,6 +93,8 @@ async def job_error(request: Request, exc: Exception) -> JSONResponse:
         JobIdempotencyConflict: (409, "IDEMPOTENCY_CONFLICT", "幂等键正文冲突"),
         JobNotFound: (404, "JOB_NOT_FOUND", "评测批次不存在"),
         JobUnavailable: (503, "DEPENDENCY_UNAVAILABLE", "评测批次存储暂不可用"),
+        EvidenceNotFound: (404, "ARTIFACT_NOT_FOUND", "证据不存在或无权查看"),
+        EvidenceNotReady: (409, "ARTIFACT_NOT_READY", "证据正文尚不可安全发布"),
     }[type(exc)]
     return error_response(status, code, message)
 

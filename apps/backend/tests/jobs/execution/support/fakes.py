@@ -1,3 +1,4 @@
+import json
 from hashlib import sha256
 
 from eval_platform.application.ports.evaluator import EvaluationError
@@ -60,13 +61,34 @@ class Backend:
             patch = artifact(
                 self.store, run.run_id, "agent_patch", self.patch, "text/x-diff"
             )
+            trajectory = None
+            if hasattr(self.store, "content"):
+                raw = json.dumps(
+                    {
+                        "steps": [
+                            {
+                                "source": "agent",
+                                "message": "private synthetic message",
+                                "tool_calls": [{"function_name": "Read"}],
+                            },
+                            {"source": "agent", "message": "private final message"},
+                        ]
+                    }
+                ).encode()
+                trajectory = artifact(
+                    self.store,
+                    run.run_id,
+                    "agent_trajectory",
+                    raw,
+                    "application/json",
+                )
             result = ExecutionTrialResult(
                 run.run_id,
                 "harbor-job-one",
                 f"harbor-trial-{index}",
                 TerminationReason.COMPLETED,
                 patch,
-                None,
+                trajectory,
                 usage=UsageSummary(11, 2, 3, 0.01),
                 resource_summary=ResourceSummary(1.5, 0.5, 4096),
             )

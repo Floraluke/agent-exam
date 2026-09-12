@@ -1,4 +1,5 @@
 import type { RunReport } from "../../lib/contracts";
+import EvidenceView from "./evidence";
 
 function shown(value: number | null, suffix = "") {
   return value === null ? "未知" : `${value}${suffix}`;
@@ -24,11 +25,6 @@ export default function RunReportView({ report }: { report: RunReport }) {
       {shown(resources.cpu_time_sec, " 秒")}；峰值内存
       {shown(resources.peak_memory_bytes, " 字节")}</p>
     <p>Judge 分析：未启用（0）；人工复核：无；质量决胜：无；复核状态：无需复核</p>
-    <h4>受保护证据索引</h4>
-    <ul>{report.artifact_links.map((item) => <li key={item.artifact_id}>
-      {item.artifact_type} · {item.size_bytes} 字节 · SHA-256 {item.sha256}
-      {item.warnings.includes("PATCH_SIZE_WARNING") ? " · 补丁超过 256 KiB" : ""}
-    </li>)}</ul>
-    <p className="muted">这里只显示允许公开的元数据；对象键、私密轨迹和原始配置不公开。</p>
+    <EvidenceView runId={report.run.run_id} artifacts={report.artifact_links} />
   </section>;
 }

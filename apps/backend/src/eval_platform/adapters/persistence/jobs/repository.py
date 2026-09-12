@@ -141,6 +141,10 @@ class PostgresJobRepository:
         with job_transaction(self.dsn) as connection:
             return reports.read_job_report(connection, job_id)
 
+    def get_artifact_report(self, artifact_id: str) -> RunReport:
+        with job_transaction(self.dsn) as connection:
+            return reports.read_artifact_report(connection, artifact_id)
+
     def list(
         self,
         created_by: str | None,

@@ -100,6 +100,8 @@ class MinioArtifactStore:
             "harness_report": ("application/json", _MAX_SNAPSHOT),
             "harness_summary": ("application/json", _MAX_SNAPSHOT),
             "harness_test_output": ("text/plain", _MAX_SNAPSHOT),
+            "public_test_summary": ("application/json", _MAX_SNAPSHOT),
+            "public_trajectory": ("application/x-ndjson", _MAX_SNAPSHOT),
         }
         run_artifact = _valid_run_reference(reference, run_types)
         if (

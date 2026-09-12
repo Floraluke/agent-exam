@@ -12,7 +12,11 @@ from eval_platform.domain.result import ArtifactRef
 
 def run_reference(content: bytes, kind: str = "agent_patch") -> ArtifactRef:
     run_id, digest = str(uuid4()), sha256(content).hexdigest()
-    content_type = "text/x-diff" if kind == "agent_patch" else "application/json"
+    content_type = {
+        "agent_patch": "text/x-diff",
+        "public_test_summary": "application/json",
+        "public_trajectory": "application/x-ndjson",
+    }[kind]
     return ArtifactRef(
         f"runs/{run_id}/{kind}/{digest}",
         kind,
@@ -47,6 +51,13 @@ class FakeS3:
         }
 
 
+class ShortReadS3(FakeS3):
+    def get_object(self, **values):
+        response = super().get_object(**values)
+        response["ContentLength"] += 1
+        return response
+
+
 def test_minio_accepts_only_verified_run_artifact_contract():
     content = b"diff --git a/a b/a\n"
     reference = run_reference(content)
@@ -64,6 +75,15 @@ def test_minio_accepts_only_verified_run_artifact_contract():
     )
     with pytest.raises(ArtifactUnavailable):
         store.put_immutable(invalid, content)
+
+
+def test_minio_rejects_a_truncated_public_trajectory():
+    content = b'{"sequence":1}\n'
+    reference = run_reference(content, "public_trajectory")
+    client = ShortReadS3()
+    client.objects[reference.object_key] = content
+    with pytest.raises(ArtifactUnavailable):
+        MinioArtifactStore(client, "synthetic-bucket").read_verified(reference)
 
 
 @pytest.mark.integration

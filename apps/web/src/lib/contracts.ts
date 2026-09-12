@@ -13,6 +13,7 @@ export type ApiErrorCode =
   | "AGENT_CONFIGURATION_NOT_FOUND" | "AGENT_CONFIGURATION_DISABLED"
   | "IDEMPOTENCY_CONFLICT" | "IDEMPOTENCY_KEY_INVALID" | "JOB_NOT_FOUND"
   | "OWNER_APPROVAL_REQUIRED" | "JOB_STATE_CONFLICT"
+  | "ARTIFACT_NOT_FOUND" | "ARTIFACT_NOT_READY"
   | "EMPTY_JOB_SELECTION" | "BATCH_PRESET_EXCEEDED"
   | "LIMIT_PROFILE_NOT_ALLOWED" | "EVALUATION_TRACK_NOT_ENABLED";
 
@@ -65,7 +66,7 @@ export const RUN_STATUSES = [
 ] as const;
 export type RunStatus = typeof RUN_STATUSES[number];
 export const ARTIFACT_TYPES = [
-  "agent_patch", "harness_report", "harness_summary", "harness_test_output",
+  "agent_patch", "public_test_summary", "public_trajectory",
 ] as const;
 export type ArtifactType = typeof ARTIFACT_TYPES[number];
 export const REDACTION_STATUSES = ["not_required", "redacted"] as const;
@@ -147,4 +148,13 @@ export type JobReport = {
   failure_code: string | null; trial_count: number; completed_runs: number;
   failed_runs: number; pending_runs: number; resolved_runs: number;
   unresolved_runs: number; runs: JobRunReport[];
+};
+
+export type ArtifactPage = Page<RunReport["artifact_links"][number]>;
+export type TrajectoryEvent = {
+  sequence: number; occurred_at: string; source: string; type: string;
+  summary: string; payload: Record<string, never>;
+};
+export type TrajectoryPage = {
+  items: TrajectoryEvent[]; next_after_sequence: number; complete: boolean;
 };

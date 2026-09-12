@@ -49,11 +49,25 @@ class CompletionFactory:
             result.resolved and not patch_exists
         ):
             raise ValueError("Evaluator result contradicts patch evidence")
+        public_summary = self.evidence.publish_test_summary(
+            run.run_id, result.tests_status_summary
+        )
+        trajectory_time = self.clock()
+        if trial.trajectory_ref is not None and trial.trajectory_ref.created_at:
+            trajectory_time = trial.trajectory_ref.created_at
+        public_trajectory = self.evidence.publish_trajectory(
+            run.run_id,
+            trial.trajectory_ref,
+            run.agent.agent_type,
+            trajectory_time,
+        )
         references = (
             patch_ref,
             *self.evidence.publish_evaluation(
                 run.run_id, result.report_ref, result.log_refs
             ),
+            public_summary,
+            *((public_trajectory,) if public_trajectory is not None else ()),
         )
         verified = tuple(self._artifact(run.run_id, item) for item in references)
         report = next(
@@ -99,4 +113,9 @@ class CompletionFactory:
         if not reference.object_key.startswith(prefix):
             raise ValueError("Artifact owner identity mismatch")
         self.artifacts.read_verified(reference)
-        return RunArtifact(str(uuid4()), run_id, reference)
+        redaction = (
+            "redacted"
+            if reference.artifact_type in {"public_test_summary", "public_trajectory"}
+            else "not_required"
+        )
+        return RunArtifact(str(uuid4()), run_id, reference, redaction)

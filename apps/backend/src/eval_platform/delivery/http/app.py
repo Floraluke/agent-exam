@@ -26,6 +26,7 @@ from eval_platform.delivery.http.errors import (
     membership_error,
     validation_error,
 )
+from eval_platform.delivery.http.routes.artifacts import artifact_router
 from eval_platform.delivery.http.routes.catalog import catalog_router
 from eval_platform.delivery.http.routes.identity import identity_router
 from eval_platform.delivery.http.routes.jobs import jobs_router
@@ -106,6 +107,7 @@ def create_app(
         app.include_router(jobs_router(service, jobs, config, approvals))
     if reporting is not None:
         app.include_router(report_router(service, reporting, config))
+        app.include_router(artifact_router(service, reporting, config))
     return app
 
 

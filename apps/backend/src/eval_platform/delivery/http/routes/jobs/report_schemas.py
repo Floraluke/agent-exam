@@ -8,7 +8,9 @@ from eval_platform.domain.jobs.execution import RunReport
 from eval_platform.domain.jobs.models import RunStatus
 
 ArtifactType = Literal[
-    "agent_patch", "harness_report", "harness_summary", "harness_test_output"
+    "agent_patch",
+    "public_test_summary",
+    "public_trajectory",
 ]
 
 
@@ -119,5 +121,7 @@ class RunReportResponse(BaseModel):
                     }
                 )
                 for item in report.artifacts
+                if item.reference.artifact_type
+                in {"agent_patch", "public_test_summary", "public_trajectory"}
             ],
         )

@@ -1,6 +1,8 @@
 import { ApiError } from "./api-client";
 import { ARTIFACT_TYPES, REDACTION_STATUSES, RUN_STATUSES } from "./contracts";
-import type { RunReport, RunStatus } from "./contracts";
+import type {
+  ArtifactPage, RunReport, RunStatus, TrajectoryPage,
+} from "./contracts";
 
 function record(value: unknown): Record<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -126,4 +128,39 @@ export function parseRunReport(value: unknown): RunReport {
     human_review: null, quality_tiebreak: null, review_status: "NOT_REQUIRED",
     artifact_links: item.artifact_links.map(artifact),
   };
+}
+
+export function parseArtifactPage(value: unknown): ArtifactPage {
+  const item = record(value);
+  if (!Array.isArray(item.items) ||
+      item.next_cursor !== null && typeof item.next_cursor !== "string") {
+    throw new ApiError("UNAVAILABLE");
+  }
+  return {
+    items: item.items.map(artifact),
+    next_cursor: item.next_cursor as string | null,
+  };
+}
+
+export function parseTrajectoryPage(value: unknown): TrajectoryPage {
+  const item = record(value);
+  if (!Array.isArray(item.items) || typeof item.complete !== "boolean") {
+    throw new ApiError("UNAVAILABLE");
+  }
+  const next = natural(item, "next_after_sequence");
+  const events = item.items.map((value) => {
+    const event = record(value); const payload = record(event.payload);
+    if (Object.keys(payload).length !== 0) throw new ApiError("UNAVAILABLE");
+    return {
+      sequence: natural(event, "sequence"),
+      occurred_at: text(event, "occurred_at"), source: text(event, "source"),
+      type: text(event, "type"), summary: text(event, "summary"), payload: {},
+    };
+  });
+  if (events.some((event, index) => index > 0 &&
+      event.sequence <= events[index - 1].sequence) ||
+      events.some((event) => event.sequence > next)) {
+    throw new ApiError("UNAVAILABLE");
+  }
+  return { items: events, next_after_sequence: next, complete: item.complete };
 }

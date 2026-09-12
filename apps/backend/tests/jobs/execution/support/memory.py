@@ -158,6 +158,9 @@ class ExecutableMemoryJobs(MemoryJobs):
     def get_job_report(self, job_id):
         return memory_results.get_job_report(self, job_id)
 
+    def get_artifact_report(self, artifact_id):
+        return memory_results.get_artifact_report(self, artifact_id)
+
     def _current(self, lease, now, job_status, run_status):
         job = self.records[lease.job_id]
         run = next(item for item in job.runs if item.run_id == lease.run_id)

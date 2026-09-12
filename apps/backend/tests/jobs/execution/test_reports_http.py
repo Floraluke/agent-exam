@@ -53,8 +53,8 @@ def test_http_submission_approval_worker_and_layered_reports(internal_reports_ap
     assert body["review_status"] == "NOT_REQUIRED"
     assert {item["artifact_type"] for item in body["artifact_links"]} == {
         "agent_patch",
-        "harness_report",
-        "harness_test_output",
+        "public_test_summary",
+        "public_trajectory",
     }
     assert all("object_key" not in item for item in body["artifact_links"])
     report_schema = jobs_api.client.get("/openapi.json").json()["components"][
