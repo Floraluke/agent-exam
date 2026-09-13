@@ -15,6 +15,7 @@ import CancellationPanel from "./cancellation";
 import JobControls from "./controls";
 import JobDetails from "./details";
 import RunReportView from "./report";
+import RecoveryPanel from "./lifecycle/recovery";
 
 export default function JobsPanel({ owner }: { owner: boolean }) {
   const [options, setOptions] = useState<JobOptions | null>(null);
@@ -176,6 +177,7 @@ export default function JobsPanel({ owner }: { owner: boolean }) {
     <button disabled={busy || count === 0} onClick={submit}>提交等待批准</button>
     {current && <>
       <JobDetails job={current} />
+      <RecoveryPanel job={current} owner={owner} onChanged={setCurrent} />
       {owner && current.status === "AWAITING_OWNER_APPROVAL" &&
         <OwnerApprovalPanel busy={busy} decide={decide} />}
       {["AWAITING_OWNER_APPROVAL", "QUEUED", "PREPARING", "EXECUTING"]

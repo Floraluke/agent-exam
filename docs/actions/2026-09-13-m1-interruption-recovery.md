@@ -49,11 +49,13 @@ apps/backend/tests/jobs/
 │                                                          # 各阶段、竞争、持久化与幂等
 ├─ support/recovery.py                                    # 内存 Repository 恢复事务替身
 └─ {conftest,memory}.py                                   # 测试装配与端口实现
+apps/backend/tests/identity/browser_server.py             # 环境门控的中断浏览器替身
 apps/web/src/
 ├─ features/jobs/lifecycle/recovery.tsx                   # 中断说明、恢复和新建重试控件
 ├─ features/jobs/{details,submit}.tsx                     # 详情显示与既有页面接线
 └─ lib/{contracts,job-client,jobs/shapes}.ts              # HTTP 类型、调用和运行时校验
-apps/web/tests/jobs/recovery.spec.ts                      # 中断详情到重试浏览器流
+apps/web/tests/{run-browser-tests.mjs,jobs/interruption-recovery.spec.ts}
+                                                           # 子目录发现与中断到重试浏览器流
 docs/{architecture,interfaces}/                          # 当前恢复契约和文件树
 .scratch/m1-platform/issues/10-interruption-recovery.md  # 八项验收与证据
 ```
@@ -79,6 +81,10 @@ docs/{architecture,interfaces}/                          # 当前恢复契约和
 - 首次真实临时 PostgreSQL/MinIO 套件没有进入测试执行：新增恢复用例与既有用例同名为 `test_http.py`、`test_postgres.py`，pytest 收集时报 import mismatch。已把新文件改为唯一名称；本次专属容器和 tmpfs 均精确清理，不把它记为通过。
 - 改名后的真实套件首次执行为 `94 passed, 1 failed`。失败揭示内存取消测试替身仍为取消中的 Run 合成 `BATCH_*` 失败码，而生产 PostgreSQL 路径会清空它；已修正替身，并把变化中的 `lease_expires_at` 限定为详情字段，避免幂等取消摘要随心跳漂移。本次环境同样已精确清理。
 - 修正后真实隔离套件为 `95 passed, 2 warnings in 36.32s`。其中新增 PostgreSQL 用例验证：过期恢复原子提交、重复恢复只产生一个收束事件、旧 Worker 不能再推进；以及 Run 结果已提交但 Job 尚未终结的合成崩溃，恢复只根据持久化结果到达 `COMPLETED`，不改变结果或重新执行。三个容器均无宿主端口、无宿主挂载，结束后已按专属标签精确删除并移除 tmpfs；镜像和构建缓存保留。
+- 新增多 Run 和取消交叉状态测试与既有恢复/重试组共 `8 passed, 2 warnings`：已完成 Run 保持原对象，活跃 Run 记 `INFRASTRUCTURE_INTERRUPTED`，未开始 Run 取消；有取消请求时 Job 收束为 `CANCELED`，但 Run 的中断事实保留。两项新增测试第一次即通过，是对现有算法的边界刻画，不冒称经历了产品代码红灯。
+- 浏览器红灯先经历两项测试设施修正：原测试运行器不发现子目录且嵌套输出目录创建失败，已改为递归发现并使用扁平结果目录；测试控制请求最初因缺少同源/写请求头被拒绝，已按真实 HTTP 安全边界补齐。设施就绪后的产品红灯为 `1 failed`：页面找不到“中断恢复”区域和“不自动续跑”提示。
+- 页面绿灯为 `1 passed (10.8s)`，Web `tsc --noEmit` 通过。环境门控的浏览器替身只在 `AGENTEXAM_IDENTITY_BROWSER_TEST=1` 时提供暂停/合成过期能力；真实页面经后端 HTTP 完成 owner 收束和新建重试，验证不同 Job ID、旧 Job 关联、URL 切换和重新等待批准，且不显示 Worker 身份。
+- 本片 Ruff 已通过；源代码和测试文件均未超过项目的 200 行指标，`submit.tsx` 为 195 行。真实 PostgreSQL 新增的并发恢复和损坏证据回滚用例尚待下一次隔离套件执行，因此当前不记为通过。
 - 源码事务核对确认：`results.complete()` 在同一 PostgreSQL 事务中写入制品索引、`deterministic_results` 和 Run 的 `COMPLETED`/事件；事务失败会整体回滚。因此一致存储中“可信结果已落盘”必然对应终态 Run，恢复只需验证这些既有记录并收束 Job，不得重新调用 Evaluator。
 - `RUNNING_AGENT`、`VERIFYING` 或其他活跃 Run 若没有上述完整事务结果，即使存在进程内返回值、孤立对象或 Harbor 残留也不能证明确定性结果；候选恢复会明确写 `INFRASTRUCTURE_INTERRUPTED`，不猜测或补造结果。
 - `execution.common.current()` 明确拒绝 `now >= lease_expires_at`、Worker/版本/租约错配；现有 `fail()`、`start_finalizing()`、`finish()` 均依赖该检查，证明确需独立且受限的过期租约恢复事务，而不是复用正常执行入口。

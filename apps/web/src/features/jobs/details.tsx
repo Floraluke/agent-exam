@@ -22,6 +22,7 @@ export default function JobDetails({ job }: { job: JobDetail }) {
     {job.trial_count > 1 && <p>同一 Harbor Job 按顺序执行每个冻结组合，并发固定为 1。</p>}
     <p>批次：{job.batch_preset} · 赛道：闭卷</p>
     <p>结果范围：{job.result_scope === "official" ? "正式" : "内部测试"}</p>
+    {job.rerun_of_job_id && <p>重试来源：{job.rerun_of_job_id}</p>}
     <p>限制：{job.limit_profile_id}；Agent {job.limit_snapshot.agent_wall_timeout_sec} 秒 /
       {job.limit_snapshot.agent_cpus} CPU / {job.limit_snapshot.agent_memory_mb} MiB 内存 /
       {job.limit_snapshot.agent_storage_mb} MiB 存储；判卷 {job.limit_snapshot.evaluator_wall_timeout_sec} 秒 /

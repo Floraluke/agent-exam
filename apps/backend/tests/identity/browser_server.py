@@ -1,9 +1,10 @@
 """Explicitly gated synthetic HTTP server for browser wiring tests only."""
 
 import os
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from threading import Thread
+from threading import Event, Thread
 from time import sleep
 
 from catalog.conftest import task_bundle
@@ -25,6 +26,7 @@ from eval_platform.application.agent_registry import AgentRegistry
 from eval_platform.application.execute_job import JobExecutor
 from eval_platform.application.identity import IdentityService
 from eval_platform.application.job_lifecycle.cancellation import JobCancellation
+from eval_platform.application.job_lifecycle.recovery import JobRecovery
 from eval_platform.application.job_submission import JobSubmission
 from eval_platform.application.membership import MembershipService
 from eval_platform.application.owner_approval import OwnerApproval
@@ -125,11 +127,40 @@ app = create_app(
         lambda scope: scope == "internal_test",
     ),
     JobCancellation(job_repository, browser_clock),
+    JobRecovery(job_repository, jobs, browser_clock),
 )
+
+worker_enabled = Event()
+worker_enabled.set()
+
+
+@app.post("/__test__/worker/pause")
+def pause_worker():
+    worker_enabled.clear()
+    return {"paused": True}
+
+
+@app.post("/__test__/worker/resume")
+def resume_worker():
+    worker_enabled.set()
+    return {"paused": False}
+
+
+@app.post("/__test__/jobs/interrupt-next")
+def interrupt_next_job():
+    claimed = job_repository.claim("internal-browser-interrupted", browser_clock())
+    if claimed is None:
+        return {"job_id": None}
+    with job_repository.lock:
+        job_repository.records[claimed.job.job_id] = replace(
+            claimed.job, lease_expires_at=browser_clock()
+        )
+    return {"job_id": claimed.job.job_id}
 
 
 def run_synthetic_worker() -> None:
     while True:
+        worker_enabled.wait()
         if not worker.run_once("internal-browser-worker"):
             sleep(0.05)
 

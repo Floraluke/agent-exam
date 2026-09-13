@@ -1,5 +1,8 @@
+from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
+from threading import Barrier
 
+import psycopg
 import pytest
 from identity.conftest import WRITE_HEADERS, Clock
 from jobs.execution.support.fakes import Backend, Evaluator, MemoryArtifacts
@@ -8,7 +11,7 @@ from jobs.test_postgres import login, postgres_api
 
 from eval_platform.application.execute_job import JobExecutor
 from eval_platform.delivery.worker.main import WorkerShell
-from eval_platform.domain.jobs.execution import JobLeaseConflict
+from eval_platform.domain.jobs.execution import JobLeaseConflict, RecoveryRequest
 
 pytestmark = pytest.mark.integration
 
@@ -39,11 +42,19 @@ def test_postgres_expired_recovery_is_atomic_and_rejects_the_old_worker(
         assert claimed is not None
         clock.value = claimed.lease.lease_expires_at
 
-        response = _recover(client, created.job_id)
-        assert response.status_code == 200
-        assert response.json()["failure_code"] == "INFRASTRUCTURE_INTERRUPTED"
+        barrier = Barrier(2, timeout=10)
+        request = RecoveryRequest(created.job_id, owner.user_id, clock())
+
+        def recover_once(_index):
+            barrier.wait()
+            return type(repository)(postgres_sandbox.dsn).recover(request)
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            outcomes = tuple(pool.map(recover_once, range(2)))
+        assert {outcome.status for outcome in outcomes} == {"FAILED"}
         replay = _recover(client, created.job_id)
-        assert replay.json() == response.json()
+        assert replay.status_code == 200
+        assert replay.json()["failure_code"] == "INFRASTRUCTURE_INTERRUPTED"
         stored = type(repository)(postgres_sandbox.dsn).get(created.job_id)
         assert stored.status == "FAILED"
         assert stored.runs[0].failure_code == "INFRASTRUCTURE_INTERRUPTED"
@@ -117,3 +128,52 @@ def test_postgres_recovery_finishes_from_complete_persisted_run_without_reexecut
         assert recovered.json()["failure_code"] is None
         after = repository.get_run_report(before.runs[0].run_id)
         assert after.deterministic_result == result
+
+
+def test_postgres_corrupt_result_evidence_rolls_back_recovery(postgres_sandbox):
+    clock = Clock()
+    with postgres_api(postgres_sandbox, recovery_clock=clock) as (
+        client,
+        jobs,
+        repository,
+        owner,
+    ):
+        login(client)
+        created = approved_job(
+            jobs,
+            repository,
+            owner,
+            "postgres-corrupt-source-0001",
+            "postgres-corrupt-approve-0001",
+        )
+        artifacts = MemoryArtifacts()
+        executor = JobExecutor(
+            repository,
+            artifacts,
+            Backend(artifacts, b"diff --git a/a.py b/a.py\n+x\n"),
+            Evaluator(artifacts),
+            jobs.tasks.source,
+            clock,
+        )
+        assert WorkerShell(repository, executor, clock).run_once("corrupt-worker")
+        with psycopg.connect(postgres_sandbox.dsn) as connection:
+            connection.execute(
+                "UPDATE evaluation_jobs SET status='FINALIZING',finished_at=NULL,"
+                "lease_expires_at=%s,row_version=row_version+1 WHERE job_id=%s",
+                (clock(), created.job_id),
+            )
+            connection.execute(
+                "DELETE FROM deterministic_results WHERE run_id=%s",
+                (created.runs[0].run_id,),
+            )
+        before = repository.get(created.job_id)
+        event_count = len(before.state_events)
+
+        response = _recover(client, created.job_id)
+
+        assert response.status_code == 503
+        assert response.json()["error"]["code"] == "DEPENDENCY_UNAVAILABLE"
+        after = repository.get(created.job_id)
+        assert after.status == "FINALIZING"
+        assert after.runs[0].status == "COMPLETED"
+        assert len(after.state_events) == event_count

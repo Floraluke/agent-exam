@@ -6,8 +6,12 @@ import type {
   JobSummary,
   LimitProfile,
   Page,
+  StateEvent,
 } from "./contracts";
-import { bool, number, object, parseJobSummary, text } from "./jobs/shapes";
+import { RUN_STATUSES } from "./contracts";
+import {
+  bool, nullableText, number, object, parseJobSummary, text,
+} from "./jobs/shapes";
 
 export { parseJobSummary } from "./jobs/shapes";
 
@@ -41,13 +45,50 @@ function limitSnapshot(value: unknown): JobDetail["limit_snapshot"] {
     JobDetail["limit_snapshot"];
 }
 
+function stateEvent(value: unknown): StateEvent {
+  const item = object(value);
+  return {
+    sequence: number(item, "sequence"),
+    from_status: nullableText(item, "from_status"),
+    to_status: text(item, "to_status"),
+    reason_code: text(item, "reason_code"),
+    occurred_at: text(item, "occurred_at"),
+    actor_user_id: nullableText(item, "actor_user_id"),
+    note: nullableText(item, "note"),
+  };
+}
+
+function runDetail(value: unknown): JobDetail["runs"][number] {
+  const item = object(value);
+  if (!RUN_STATUSES.includes(String(item.status) as typeof RUN_STATUSES[number]) ||
+      !Array.isArray(item.state_events)) throw new ApiError("UNAVAILABLE");
+  const failureCode = nullableText(item, "failure_code");
+  const failureSummary = nullableText(item, "failure_summary");
+  if ((failureCode === null) !== (failureSummary === null) ||
+      (item.status === "FAILED") !== (failureCode !== null)) {
+    throw new ApiError("UNAVAILABLE");
+  }
+  return {
+    run_id: text(item, "run_id"), task_id: text(item, "task_id"),
+    agent_configuration_id: text(item, "agent_configuration_id"),
+    status: item.status as JobDetail["runs"][number]["status"],
+    backend_kind: text(item, "backend_kind"),
+    backend_revision: text(item, "backend_revision"),
+    execution_contract_version: text(item, "execution_contract_version"),
+    stage: nullableText(item, "stage"), failure_code: failureCode,
+    failure_summary: failureSummary, state_events: item.state_events.map(stateEvent),
+  };
+}
+
 export function parseJobDetail(value: unknown): JobDetail {
   const item = object(value);
-  if (!Array.isArray(item.task_snapshots) || !Array.isArray(item.agent_snapshots)) {
+  if (!Array.isArray(item.task_snapshots) || !Array.isArray(item.agent_snapshots) ||
+      !Array.isArray(item.job_state_events) || !Array.isArray(item.runs)) {
     throw new ApiError("UNAVAILABLE");
   }
   return {
     ...parseJobSummary(item),
+    lease_expires_at: nullableText(item, "lease_expires_at"),
     task_snapshots: item.task_snapshots.map((value) => {
       const task = object(value);
       return {
@@ -77,6 +118,8 @@ export function parseJobDetail(value: unknown): JobDetail {
     harbor_revision: text(item, "harbor_revision"),
     swe_gym_revision: text(item, "swe_gym_revision"),
     swe_bench_fork_revision: text(item, "swe_bench_fork_revision"),
+    job_state_events: item.job_state_events.map(stateEvent),
+    runs: item.runs.map(runDetail),
   };
 }
 

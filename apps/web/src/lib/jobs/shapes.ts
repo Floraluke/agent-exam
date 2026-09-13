@@ -26,7 +26,9 @@ export function bool(value: Record<string, unknown>, key: string): boolean {
   return value[key];
 }
 
-function nullableText(value: Record<string, unknown>, key: string): string | null {
+export function nullableText(
+  value: Record<string, unknown>, key: string,
+): string | null {
   if (value[key] !== null && typeof value[key] !== "string") {
     throw new ApiError("UNAVAILABLE");
   }
@@ -59,17 +61,23 @@ export function parseJobSummary(value: unknown): JobSummary {
   const cancelBy = nullableText(item, "cancel_requested_by");
   const cancelAt = nullableText(item, "cancel_requested_at");
   const cancelReason = normalizedReason(item, "cancel_reason");
+  const failureCode = nullableText(item, "failure_code");
+  const failureSummary = nullableText(item, "failure_summary");
+  const rerunOf = nullableText(item, "rerun_of_job_id");
   const awaiting = item.status === "AWAITING_OWNER_APPROVAL";
   const canceled = item.status === "CANCELED";
   const hasDecision = decidedBy !== null && decidedAt !== null;
   const hasCancellation = cancelBy !== null && cancelAt !== null;
   const cancelState = ["CANCEL_REQUESTED", "CANCELED"].includes(String(item.status));
+  const failed = ["FAILED", "COMPLETED_WITH_ERRORS"].includes(String(item.status));
   if (
     (decidedBy === null) !== (decidedAt === null) ||
     (!hasDecision && reason !== null) || (awaiting && hasDecision) ||
     (!awaiting && !canceled && !hasDecision) ||
     ((cancelBy === null) !== (cancelAt === null)) ||
-    (!hasCancellation && cancelReason !== null) || cancelState !== hasCancellation
+    (!hasCancellation && cancelReason !== null) || cancelState !== hasCancellation ||
+    ((failureCode === null) !== (failureSummary === null)) ||
+    failed !== (failureCode !== null) || rerunOf === item.job_id
   ) throw new ApiError("UNAVAILABLE");
   return {
     job_id: text(item, "job_id"),
@@ -88,5 +96,8 @@ export function parseJobSummary(value: unknown): JobSummary {
     cancel_requested_by: cancelBy,
     cancel_requested_at: cancelAt,
     cancel_reason: cancelReason,
+    failure_code: failureCode,
+    failure_summary: failureSummary,
+    rerun_of_job_id: rerunOf,
   };
 }

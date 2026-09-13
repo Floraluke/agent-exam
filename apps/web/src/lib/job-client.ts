@@ -49,6 +49,18 @@ export async function cancelJob(
   );
 }
 
+export async function recoverJob(id: string): Promise<JobSummary> {
+  return parseJobSummary(await request(`jobs/${encodeURIComponent(id)}/recover`, {}));
+}
+
+export async function retryJob(id: string, key: string): Promise<JobSummary> {
+  return parseJobSummary(
+    await request(`jobs/${encodeURIComponent(id)}/retry`, {}, {
+      "Idempotency-Key": key,
+    }),
+  );
+}
+
 export async function jobs(): Promise<Page<JobSummary>> {
   return parseJobPage(await request("jobs?limit=20"));
 }

@@ -81,8 +81,23 @@ export type JobSummary = {
   owner_decision_reason: string | null;
   cancel_requested_by: string | null; cancel_requested_at: string | null;
   cancel_reason: string | null;
+  failure_code: string | null; failure_summary: string | null;
+  rerun_of_job_id: string | null;
+};
+export type StateEvent = {
+  sequence: number; from_status: string | null; to_status: string;
+  reason_code: string; occurred_at: string; actor_user_id: string | null;
+  note: string | null;
+};
+export type JobRunDetail = {
+  run_id: string; task_id: string; agent_configuration_id: string;
+  status: RunStatus; backend_kind: string; backend_revision: string;
+  execution_contract_version: string; stage: string | null;
+  failure_code: string | null; failure_summary: string | null;
+  state_events: StateEvent[];
 };
 export type JobDetail = JobSummary & {
+  lease_expires_at: string | null;
   task_snapshots: Array<{
     task_id: string; instance_id: string; problem_statement: string;
   }>;
@@ -101,6 +116,7 @@ export type JobDetail = JobSummary & {
     agent_type: string; web_search: string; arbitrary_commands: boolean;
   };
   harbor_revision: string; swe_gym_revision: string; swe_bench_fork_revision: string;
+  job_state_events: StateEvent[]; runs: JobRunDetail[];
 };
 
 export type RunReport = {
