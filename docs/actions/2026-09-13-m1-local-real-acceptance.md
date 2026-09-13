@@ -75,3 +75,7 @@ HANDOFF.md                            # 最新真实状态与下一任务入口
 - 首次专属存储回归使用 Windows PowerShell 5.1，因运行时缺少所需加密随机数 Interface 而在创建测试凭据前失败；`finally` 确认专属容器和 tmpfs 数据已清理。改用项目既有 PowerShell 7 后第一次跑出 133 通过、2 失败，暴露 Worker 依赖源码目录层级推断、无法适配容器复制布局；改为显式 `AGENTEXAM_PROJECT_ROOT` 后重跑为 `135 passed`，再次确认专属容器和 tmpfs 数据全部移除。
 - 无模型 Docker 门禁：固定 Codex 离线安装/Harbor 复用 `1 passed in 15.53s`；真实 Harbor 外层 45 秒超时及精确 Compose 清理 `1 passed in 49.11s`。均未提供认证绑定或调用模型。
 - 真实模型 Run 尚未启动；下一步先建立一次性专属 PG/MinIO/回环 HTTP/页面拓扑，再执行唯一一次已批准的正式 Job。
+- 真实编排器在操作系统进程创建前被安全审批器拒绝：现有“批准最小方案”没有被判定为对“读取本机 ChatGPT 认证引用并访问外部模型网络的一次真实 Run”的足够具体授权。未启动脚本、未创建 Job、未读取认证、未连接模型。随后只读核对未发现本任务标签的容器/网络、验收摘要或 3100/8875/9000/5432 监听；不尝试绕过，等待用户对这一次真实 Run 明确授权。
+- 在等待授权期间增加 Git 忽略的 `preflight` 模式，只启动专属临时 PG/MinIO 与回环 HTTP，不创建 Job、不读取认证、不访问模型网络。首次因身份存储统一错误失败并完成清理；最小诊断依次排除了容器内健康、启动等待、schema 主流程、MinIO 和 Uvicorn 自身。
+- 诊断确认两个编排器问题：Docker Desktop 的 `--internal` 网络使已发布的 Windows 回环端口持续 `ConnectionTimeout`；移除该标志后端口仍只绑定 `127.0.0.1`，固定存储镜像、非特权限制和一次性随机凭据不变。其次，Identity 初始化已经同时建立邀请表，编排器重复调用 Membership schema 导致重复建表；已删除第二次调用。完整拓扑中回环就绪探针最后取得代理生成的 502，故所有本机 HTTP 客户端显式 `trust_env=False`，不更改机器代理，也不改变 Harbor 模型网络策略。
+- 原始零模型预检复跑通过：`storage=ready`、`http=ready`、`jobs_created=0`、`model_called=false`、`auth_read=false`、`cleanup=verified`。临时诊断文件和全部 `[DEBUG-task13-*]` 标记已删除；任务专属容器、网络与 tmpfs 数据没有残留。存储容器所在临时 bridge 理论上具备出站能力，但其固定命令只监听服务、端口仅发布到回环且不持有真实凭据；模型网络仍由 Harbor 单独 allowlist 控制。
