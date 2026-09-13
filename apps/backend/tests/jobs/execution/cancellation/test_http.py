@@ -19,9 +19,7 @@ def test_executing_cancel_returns_request_state_without_canceling_current_run(jo
     assert claimed is not None
     lease = jobs_api.repository.start_execution(claimed.lease, jobs_api.clock())
     ordered = sorted(claimed.job.runs, key=lambda run: run.task.task_id)
-    start = jobs_api.repository.start_run(
-        lease, ordered[0].run_id, jobs_api.clock()
-    )
+    start = jobs_api.repository.start_run(lease, ordered[0].run_id, jobs_api.clock())
     assert start.started
 
     response = jobs_api.client.post(

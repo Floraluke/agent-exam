@@ -63,9 +63,7 @@ class RunResultProcessor:
         assert self._active_lease is not None
         lease = self._active_lease
         if not trial.backend_job_ref:
-            return self.fail(
-                lease, run.run_id, "BACKEND_RESULT_IDENTITY_INVALID"
-            ), True
+            return self.fail(lease, run.run_id, "BACKEND_RESULT_IDENTITY_INVALID"), True
         if trial.termination_reason is not TerminationReason.COMPLETED:
             code = "EXECUTION_" + trial.termination_reason.value.upper()
             return self.fail(lease, run.run_id, code, trial), True

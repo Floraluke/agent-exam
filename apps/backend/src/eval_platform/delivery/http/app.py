@@ -106,9 +106,7 @@ def create_app(
     if tasks is not None:
         app.include_router(catalog_router(service, tasks, config, agents))
     if jobs is not None:
-        app.include_router(
-            jobs_router(service, jobs, config, approvals, cancellations)
-        )
+        app.include_router(jobs_router(service, jobs, config, approvals, cancellations))
     if reporting is not None:
         app.include_router(report_router(service, reporting, config))
         app.include_router(artifact_router(service, reporting, config))

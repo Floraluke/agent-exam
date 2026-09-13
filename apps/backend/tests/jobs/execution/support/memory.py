@@ -94,9 +94,7 @@ class ExecutableMemoryJobs(MemoryJobs):
                     heartbeat_at=now,
                     lease_expires_at=expiry(job, now),
                 )
-                anchor = next(
-                    run for run in job.runs if run.run_id == lease.run_id
-                )
+                anchor = next(run for run in job.runs if run.run_id == lease.run_id)
                 self.records[job.job_id] = job
                 return TrialStart(make_lease(job, anchor), False)
             job, _anchor = self._current(lease, now, "EXECUTING", None)

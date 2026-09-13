@@ -33,10 +33,7 @@ def current(
     )
     version_matches = row is not None and (
         row["row_version"] == lease.job_version
-        or (
-            cancellation_continuation
-            and row["row_version"] == lease.job_version + 1
-        )
+        or (cancellation_continuation and row["row_version"] == lease.job_version + 1)
     )
     if (
         row is None

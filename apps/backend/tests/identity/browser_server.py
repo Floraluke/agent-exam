@@ -24,8 +24,8 @@ from eval_platform.adapters.identity.passwords import Argon2Passwords
 from eval_platform.application.agent_registry import AgentRegistry
 from eval_platform.application.execute_job import JobExecutor
 from eval_platform.application.identity import IdentityService
-from eval_platform.application.job_submission import JobSubmission
 from eval_platform.application.job_lifecycle.cancellation import JobCancellation
+from eval_platform.application.job_submission import JobSubmission
 from eval_platform.application.membership import MembershipService
 from eval_platform.application.owner_approval import OwnerApproval
 from eval_platform.application.reporting import JobReporting

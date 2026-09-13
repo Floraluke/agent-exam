@@ -27,8 +27,7 @@ def stored_job_valid(record: EvaluationJob) -> bool:
         return False
     if record.status == "CANCELED":
         return cancel_requested and all(
-            run.status in {"COMPLETED", "FAILED", "CANCELED"}
-            for run in record.runs
+            run.status in {"COMPLETED", "FAILED", "CANCELED"} for run in record.runs
         )
     if not decided:
         return False

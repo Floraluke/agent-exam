@@ -2,7 +2,7 @@
 
 ## 状态
 
-Paused（额度阈值中断）。用户已确认通俗方案；实现与内存/静态验证已形成检查点，真实 PostgreSQL 已通过，浏览器、权威文档同步和双轴评审尚待完成。本任务以任务 08 关闭提交 `c8a5957` 为固定评审基准。
+In progress（已从额度阈值恢复）。用户已确认通俗方案；实现与内存/静态验证已形成检查点，真实 PostgreSQL 已通过，浏览器、权威文档同步和双轴评审尚待完成。本任务以任务 08 关闭提交 `c8a5957` 为固定评审基准。
 
 ## 情况说明
 
@@ -68,16 +68,21 @@ docs/{architecture,interfaces}/                       # 当前状态机、Module
 - `apps/backend/tests/jobs -q`：`65 passed, 19 skipped, 2 warnings`。跳过项是需要外部 PostgreSQL/真实执行条件的既有分层测试，未冒充通过。
 - 后端 `mypy src/eval_platform`：`Success: no issues found in 130 source files`。
 - 后端 `ruff check src tests/jobs`：`All checks passed!`。
-- Web `npm run typecheck`：通过；尚未运行生产 build 和 Playwright。
+- Web `npm run typecheck`：通过。生产 build 首次在编译前因沙箱拒绝 Next.js 用户级配置写入而 `EPERM`；只对当前进程设置 `NEXT_TELEMETRY_DISABLED=1` 后通过，Next 编译 3.0 秒，没有更改机器配置。
 - 规模与补丁检查：本任务变更的 Python/TypeScript/TSX 源码均未超过 200 行；`git diff --check` 通过。Git 的 LF/CRLF 输出仅为工作区换行提示。
 - 真实隔离 PostgreSQL+MinIO 首轮为 `1 failed, 83 passed, 2 warnings`：失败断言误把“批准先完成后，从 QUEUED 合法取消”视为不一致。数据库实际串行化正确；测试已改为固定两种合法事件序列（提交→取消，或提交→批准→取消），同时要求最终 Job/Run 均为 `CANCELED` 且返回值与事件吻合。
 - 同一专属脚本复验为 `84 passed, 2 warnings in 28.46s`。三个容器均无发布端口、无宿主挂载；两轮都在 `finally` 中按唯一标签和精确 ID 删除，tmpfs 测试数据已移除，固定镜像和构建缓存按授权保留。
-- 尚未完成：Web build、浏览器请求到终态、后端全量测试、权威架构/数据模型/接口同步、任务单八项验收回填，以及基于 `c8a5957` 的 Standards/Spec 双轴评审。
+- 浏览器 `jobs.spec.ts` 首轮为 1 failed / 3 passed：旧批准用例把冲突刷新后的实际状态硬编码为五秒内 `COMPLETED`，任务 09 为稳定命中 `EXECUTING` 增加的合成延迟使正确页面停在执行中。改为验证已离开待批且批准审计可见后，第二轮再次 1 failed / 3 passed，暴露旧用例仍断言任务 08 前的证据文案。同步为已验收的“安全证据/轨迹只含可观察事件”后，最终 `4 passed in 19.8s`；包含执行中取消从请求态到最终 `CANCELED`。3100/8875 无监听，测试时钟不存在，未下载浏览器或运行真实模型/Harbor。
+- 默认完整后端首轮为 `1 failed, 337 passed, 66 skipped, 2 warnings`：旧上传测试按 `_run` 私有位置参数索引取 bundle 路径，新增 control 参数使索引漂移。测试改为通过公开 `execute()` 可观察的暂存目的地验证，定向 `1 passed`；完整复验为 `338 passed, 66 skipped, 2 warnings in 32.82s`。66 项是未启用的外部 PG/MinIO/Docker/Harbor/Fork 门控；任务 09 的 PG 已由专属脚本覆盖。
+- 权威 `ARCHITECTURE.md`、`DATA_MODEL.md`、`MODULE_CONTRACTS.md`、`HTTP_API.md` 和 `HARBOR_EXECUTION.md` 已按现场同步取消状态、审计/幂等字段、Repository/Observer Interface、Harbor ready/permit/stop 协议及固定 revision 私有绑定风险；过期租约恢复仍明确留给任务 10。由于这些文件含此前未提交增量，终审必须读取整个现场，最终提交也只暂存可明确归属任务 09 的补丁。
+- 最终静态复核中，mypy 对 130 个源码文件通过、Web typecheck 通过、动态源码无超过 200 行；Ruff 首次发现浏览器合成服务 1 处导入排序和 7 个任务文件未格式化，机械修正后 `ruff check src tests` 与 `ruff format --check src tests` 均通过（221 文件已格式化）。旧“取消未落地/取消路由未注册”文字检索无命中。
+- 尚未完成：格式化后的定向回归、最终规模/diff 复核、任务单八项验收回填，以及基于 `c8a5957` 的 Standards/Spec 双轴评审。
 
-## 中断恢复点
+## 额度中断与恢复记录
 
 - 2026-09-13 按用户要求约五分钟检查额度时，Codex 周期额度为已用 98%、剩余约 2%，因此自动停止新工作；两张可用 Full reset 均未使用。
+- 用户随后明确要求先用完剩余约 2%，再使用一张 Full reset 继续；该授权只覆盖一次重置，另一张保留。恢复时尚未兑换重置。
+- 恢复验证与文档同步后额度为已用 99%、剩余约 1%；先保存本地重要节点，再兑换已授权的一张重置。
 - 已提交实现检查点 `d0cf278`（`feat: add cooperative job cancellation`）。该提交不是任务 09 验收完成点；其后只修正了 PostgreSQL 竞争测试契约和测试文件末尾空行，并更新本记录。
 - 恢复时先核对 `git status/log/diff` 与额度，不 pull/reset/push；继续保留未暂存的混合旧文档、缓存与 framework/runtime。
-- 下一验证顺序：Web `npm run build` → `npm run test:e2e -- jobs.spec.ts` → 默认完整后端测试 → Ruff/mypy/规模与 diff 复核。浏览器只使用既有合成服务，不运行真实模型。
-- 验证通过后同步当前现场中的架构、数据模型、模块契约、HTTP 接口和任务单八项证据；随后以 `c8a5957` 为固定基准并行执行 Standards/Spec 评审，修复、复验、记录并本地提交。任务 09 全部完成前不进入任务 10。
+- Web build、浏览器、默认完整后端和权威文档同步已完成；下一步是 Ruff/mypy/规模/diff 复核，再以 `c8a5957` 为固定基准并行执行 Standards/Spec 评审，修复、复验、记录并本地提交。任务 09 全部完成前不进入任务 10。

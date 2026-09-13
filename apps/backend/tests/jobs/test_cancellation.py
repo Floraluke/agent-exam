@@ -178,6 +178,6 @@ def test_postgres_cancel_is_atomic_and_restores_audited_state(postgres_sandbox):
         assert restored.cancel_reason == "撤回 PostgreSQL 任务"
         assert restored.state_events[-1].reason_code == "JOB_CANCELED"
         assert {run.status for run in restored.runs} == {"CANCELED"}
-        assert {
-            run.state_events[-1].reason_code for run in restored.runs
-        } == {"JOB_CANCELED"}
+        assert {run.state_events[-1].reason_code for run in restored.runs} == {
+            "JOB_CANCELED"
+        }

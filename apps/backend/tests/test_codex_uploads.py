@@ -151,11 +151,11 @@ def test_adapter_stages_private_inputs_outside_the_job_config(
     captured: dict[str, Any] = {}
 
     def prepare(_source: Path, destination: Path) -> Path:
+        captured["bundle_root"] = destination
         destination.mkdir()
         return destination
 
     def stop(_self: Any, *_args: Any) -> tuple[()]:
-        captured["args"] = _args
         return ()
 
     monkeypatch.setattr(adapter_module, "prepare_codex_bundle", prepare)
@@ -168,9 +168,7 @@ def test_adapter_stages_private_inputs_outside_the_job_config(
         codex_auth_path=auth,
     )
     assert adapter.execute(request) == ()
-    args = captured["args"]
-    assert args[-2] == tmp_path / "evidence/job/codex-input"
-    assert args[-1] is None
+    assert captured["bundle_root"] == tmp_path / "evidence/job/codex-input"
     config = (tmp_path / "evidence/job/harbor-config.json").read_text()
     assert str(auth.resolve()) not in config and str(archive.resolve()) not in config
     assert str(auth.resolve()) not in repr(adapter)

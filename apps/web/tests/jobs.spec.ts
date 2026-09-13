@@ -50,7 +50,9 @@ test("owner approves a frozen job and reloads its audit", async ({ page }) => {
   await staleJobs.getByRole("button", { name: "拒绝批次" }).click();
   await expect(staleJobs.getByRole("alert"))
     .toHaveText("批次状态已经改变，请刷新后查看。");
-  await expect(staleJobs.getByText("执行完成", { exact: true }))
+  await expect(staleJobs.getByText("等待所有者批准", { exact: true }))
+    .toHaveCount(0);
+  await expect(staleJobs.getByText("决定说明：已核对冻结范围", { exact: true }))
     .toBeVisible();
   await stale.close();
   await page.reload();
@@ -66,8 +68,8 @@ test("owner approves a frozen job and reloads its audit", async ({ page }) => {
   const report = jobs.getByRole("region", { name: "单题运行报告" });
   await expect(report.getByText("确定性结果：已解决", { exact: true })).toBeVisible();
   await expect(report).toContainText("Judge 分析：未启用（0）");
-  await expect(report).toContainText("受保护证据索引");
-  await expect(report).toContainText("这里只显示允许公开的元数据");
+  const evidence = report.getByRole("region", { name: "安全证据" });
+  await expect(evidence).toContainText("轨迹只含可观察事件");
   await expect(report).not.toContainText("runs/");
   await expect(report).not.toContainText("private-test-reference");
 });
