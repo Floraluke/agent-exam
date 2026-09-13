@@ -108,15 +108,19 @@ def canonical_request_sha(
     track: str,
     batch: str,
     limits: str,
+    rerun_of_job_id: str | None = None,
 ) -> str:
+    payload: dict[str, object] = {
+        "task_ids": tasks,
+        "agent_configuration_ids": agents,
+        "evaluation_track": track,
+        "batch_preset": batch,
+        "limit_profile_id": limits,
+    }
+    if rerun_of_job_id is not None:
+        payload["rerun_of_job_id"] = rerun_of_job_id
     body = json.dumps(
-        {
-            "task_ids": tasks,
-            "agent_configuration_ids": agents,
-            "evaluation_track": track,
-            "batch_preset": batch,
-            "limit_profile_id": limits,
-        },
+        payload,
         sort_keys=True,
         separators=(",", ":"),
     )

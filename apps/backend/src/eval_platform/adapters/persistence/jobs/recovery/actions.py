@@ -135,7 +135,9 @@ def _run_event(
     )
 
 
-def _outcome(canceling: bool, interrupted: bool, statuses: list[str]):
+def _outcome(
+    canceling: bool, interrupted: bool, statuses: list[str]
+) -> tuple[str, str | None, str | None]:
     completed = statuses.count("COMPLETED")
     if canceling:
         return "CANCELED", None, None

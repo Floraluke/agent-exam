@@ -27,8 +27,8 @@ def publish(
         "batch_preset,limit_profile_id,limit_snapshot,network_policy_id,"
         "network_policy_snapshot,tool_profile_id,tool_profile_snapshot,"
         "harbor_revision,swe_gym_revision,swe_bench_fork_revision,trial_count,"
-        "idempotency_key_hash,request_sha256) VALUES "
-        "(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) "
+        "idempotency_key_hash,request_sha256,rerun_of_job_id) VALUES "
+        "(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) "
         "ON CONFLICT (created_by,idempotency_key_hash) DO NOTHING RETURNING job_id",
         (
             record.job_id,
@@ -50,6 +50,7 @@ def publish(
             record.trial_count,
             key_hash,
             request_sha256,
+            record.rerun_of_job_id,
         ),
     ).fetchone()
     if inserted is None:

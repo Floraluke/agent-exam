@@ -20,6 +20,7 @@ from eval_platform.adapters.persistence.jobs.repository import PostgresJobReposi
 from eval_platform.application.agent_registry import AgentRegistry
 from eval_platform.application.identity import IdentityService
 from eval_platform.application.job_lifecycle.cancellation import JobCancellation
+from eval_platform.application.job_lifecycle.recovery import JobRecovery
 from eval_platform.application.job_submission import JobSubmission
 from eval_platform.application.owner_approval import OwnerApproval
 from eval_platform.application.reporting import JobReporting
@@ -39,7 +40,7 @@ pytestmark = pytest.mark.integration
 
 
 @contextmanager
-def postgres_api(sandbox, *, initialize=True, report_store=None):
+def postgres_api(sandbox, *, initialize=True, report_store=None, recovery_clock=None):
     if initialize:
         init_catalog(sandbox.dsn)
         init_jobs(sandbox.dsn)
@@ -83,6 +84,11 @@ def postgres_api(sandbox, *, initialize=True, report_store=None):
         jobs=jobs,
         approvals=approvals,
         cancellations=JobCancellation(repository),
+        recovery=(
+            JobRecovery(repository, jobs)
+            if recovery_clock is None
+            else JobRecovery(repository, jobs, recovery_clock)
+        ),
         reporting=(
             JobReporting(
                 repository,

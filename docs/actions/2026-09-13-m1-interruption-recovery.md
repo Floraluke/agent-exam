@@ -45,7 +45,8 @@ apps/backend/src/eval_platform/
 │        ├─ schemas.py                                    # 安全摘要字段
 │        └─ lifecycle/{routes,schemas}.py                 # 空正文恢复/重试 HTTP
 apps/backend/tests/jobs/
-├─ recovery/{test_http,test_postgres,test_states}.py      # 各阶段、竞争、持久化与幂等
+├─ recovery/{test_recovery_http,test_recovery_postgres,test_retry,test_states}.py
+│                                                          # 各阶段、竞争、持久化与幂等
 ├─ support/recovery.py                                    # 内存 Repository 恢复事务替身
 └─ {conftest,memory}.py                                   # 测试装配与端口实现
 apps/web/src/
@@ -72,7 +73,13 @@ docs/{architecture,interfaces}/                          # 当前恢复契约和
 
 - 第一片 TDD 红灯已出现：新增恢复 HTTP 测试为 `3 failed`，三项都因端点不存在返回 404，分别覆盖过期收束、有效租约冲突/幂等重放、owner-only 与伪造控制字段。
 - 第一片绿灯为 `3 passed, 2 warnings`。已实现 owner-only 空正文恢复入口、内存/生产 Repository 的过期租约原子收束、活跃 Run 基础设施中断、待运行取消、重复恢复无新事件，以及 Job/Run 安全失败字段；同组 Ruff 已通过。
+- 第二片 TDD 红灯为 `3 failed`，三项都因重试端点不存在返回 404，固定了仅 owner、必须先恢复收束、禁止正文伪造来源以及 `Idempotency-Key` 幂等语义。
+- 第二片绿灯为 `6 passed, 2 skipped`：手动重试会创建全新 Job/Run，保留原提交者 `created_by` 访问范围，以 owner 记录首事件，通过 `rerun_of_job_id` 关联旧 Job，并重新进入 `AWAITING_OWNER_APPROVAL`；普通提交的请求摘要保持兼容。两个跳过项是仅在真实 PostgreSQL 环境运行的持久化测试。
+- 定向静态检查已通过：Ruff 无告警；mypy 覆盖 `136` 个源码文件并通过。
+- 首次真实临时 PostgreSQL/MinIO 套件没有进入测试执行：新增恢复用例与既有用例同名为 `test_http.py`、`test_postgres.py`，pytest 收集时报 import mismatch。已把新文件改为唯一名称；本次专属容器和 tmpfs 均精确清理，不把它记为通过。
+- 改名后的真实套件首次执行为 `94 passed, 1 failed`。失败揭示内存取消测试替身仍为取消中的 Run 合成 `BATCH_*` 失败码，而生产 PostgreSQL 路径会清空它；已修正替身，并把变化中的 `lease_expires_at` 限定为详情字段，避免幂等取消摘要随心跳漂移。本次环境同样已精确清理。
+- 修正后真实隔离套件为 `95 passed, 2 warnings in 36.32s`。其中新增 PostgreSQL 用例验证：过期恢复原子提交、重复恢复只产生一个收束事件、旧 Worker 不能再推进；以及 Run 结果已提交但 Job 尚未终结的合成崩溃，恢复只根据持久化结果到达 `COMPLETED`，不改变结果或重新执行。三个容器均无宿主端口、无宿主挂载，结束后已按专属标签精确删除并移除 tmpfs；镜像和构建缓存保留。
 - 源码事务核对确认：`results.complete()` 在同一 PostgreSQL 事务中写入制品索引、`deterministic_results` 和 Run 的 `COMPLETED`/事件；事务失败会整体回滚。因此一致存储中“可信结果已落盘”必然对应终态 Run，恢复只需验证这些既有记录并收束 Job，不得重新调用 Evaluator。
 - `RUNNING_AGENT`、`VERIFYING` 或其他活跃 Run 若没有上述完整事务结果，即使存在进程内返回值、孤立对象或 Harbor 残留也不能证明确定性结果；候选恢复会明确写 `INFRASTRUCTURE_INTERRUPTED`，不猜测或补造结果。
 - `execution.common.current()` 明确拒绝 `now >= lease_expires_at`、Worker/版本/租约错配；现有 `fail()`、`start_finalizing()`、`finish()` 均依赖该检查，证明确需独立且受限的过期租约恢复事务，而不是复用正常执行入口。
-- 用户已明确批准唯一新增 Interface 及上述最小语义；下一步用新红灯实现手动重试和 `rerun_of_job_id`，之后补真实 PostgreSQL 竞争验证。
+- 用户已明确批准唯一新增 Interface 及上述最小语义。下一步补齐多 Run、取消交叉和损坏证据回滚边界，再接入页面/浏览器流程并同步权威契约；当前尚未宣称任务 10 验收完成。

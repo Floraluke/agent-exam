@@ -30,7 +30,7 @@ def create_jobs(
         submission,
         OwnerApproval(repository),
         JobCancellation(repository),
-        JobRecovery(repository),
+        JobRecovery(repository, submission),
     )
 
 

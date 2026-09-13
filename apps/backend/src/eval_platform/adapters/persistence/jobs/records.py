@@ -129,6 +129,9 @@ def read_job(connection: psycopg.Connection[Any], job_id: str) -> EvaluationJob 
             ),
             cancel_requested_at=row["cancel_requested_at"],
             cancel_reason=row["cancel_reason"],
+            rerun_of_job_id=(
+                None if row["rerun_of_job_id"] is None else str(row["rerun_of_job_id"])
+            ),
             row_version=row["row_version"],
             claimed_by=row["claimed_by"],
             claimed_at=row["claimed_at"],

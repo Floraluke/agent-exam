@@ -47,7 +47,11 @@ class JobSubmission:
         batch_preset: str,
         limit_profile_id: str,
         idempotency_key: str,
+        *,
+        created_by: str | None = None,
+        rerun_of_job_id: str | None = None,
     ) -> EvaluationJob:
+        creator = created_by or actor.user_id
         normalized_tasks = tuple(sorted(set(task_ids)))
         normalized_agents = tuple(sorted(set(agent_configuration_ids)))
         batch = self.policy.batch(batch_preset)
@@ -73,11 +77,10 @@ class JobSubmission:
             evaluation_track,
             batch_preset,
             limit_profile_id,
+            rerun_of_job_id,
         )
         key_hash = hashlib.sha256(idempotency_key.encode()).hexdigest()
-        replay = self.repository.resolve_idempotency(
-            actor.user_id, key_hash, request_sha
-        )
+        replay = self.repository.resolve_idempotency(creator, key_hash, request_sha)
         if replay is not None:
             return replay
         task_snapshots = tuple(
@@ -102,6 +105,8 @@ class JobSubmission:
             limits.snapshot(),
             self.policy,
             self.clock(),
+            created_by=creator,
+            rerun_of_job_id=rerun_of_job_id,
         )
         return self.repository.create(record, key_hash, request_sha)
 

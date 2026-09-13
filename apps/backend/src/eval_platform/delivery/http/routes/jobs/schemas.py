@@ -84,9 +84,9 @@ class JobSummary(BaseModel):
     cancel_requested_by: str | None
     cancel_requested_at: datetime | None
     cancel_reason: str | None
-    lease_expires_at: datetime | None
     failure_code: str | None
     failure_summary: str | None
+    rerun_of_job_id: str | None
 
     @classmethod
     def from_record(cls, record: EvaluationJob) -> "JobSummary":
@@ -106,13 +106,14 @@ class JobSummary(BaseModel):
             cancel_requested_by=record.cancel_requested_by,
             cancel_requested_at=record.cancel_requested_at,
             cancel_reason=record.cancel_reason,
-            lease_expires_at=record.lease_expires_at,
             failure_code=record.failure_code,
             failure_summary=record.failure_summary,
+            rerun_of_job_id=record.rerun_of_job_id,
         )
 
 
 class JobDetail(JobSummary):
+    lease_expires_at: datetime | None
     task_snapshots: list[TaskSnapshotResponse]
     agent_snapshots: list[AgentSnapshotResponse]
     limit_snapshot: dict[str, int]
@@ -133,6 +134,7 @@ class JobDetail(JobSummary):
         agents = {run.agent.agent_configuration_id: run.agent for run in record.runs}
         return cls(
             **summary,
+            lease_expires_at=record.lease_expires_at,
             task_snapshots=[
                 TaskSnapshotResponse.model_validate(item) for item in tasks.values()
             ],

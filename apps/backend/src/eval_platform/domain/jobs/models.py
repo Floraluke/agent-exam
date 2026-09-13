@@ -159,6 +159,7 @@ class EvaluationJob:
     cancel_requested_by: str | None = None
     cancel_requested_at: datetime | None = None
     cancel_reason: str | None = None
+    rerun_of_job_id: str | None = None
 
     @property
     def trial_count(self) -> int:

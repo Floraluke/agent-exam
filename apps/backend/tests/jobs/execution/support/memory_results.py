@@ -133,7 +133,7 @@ def finish(repository, lease, now, failure_code=None):
         completed = sum(run.status == "COMPLETED" for run in job.runs)
         canceling = job.cancel_requested_by is not None
         code = None if canceling else failure_code
-        if code is None and failed:
+        if not canceling and code is None and failed:
             code = "BATCH_PARTIAL_FAILURE" if completed else "BATCH_FAILED"
         target = (
             "CANCELED"

@@ -131,7 +131,7 @@ def job_api(result_scope="internal_test", scope_visible=None):
         OwnerApproval(job_repository, clock),
         reporting,
         JobCancellation(job_repository, clock),
-        JobRecovery(job_repository, clock),
+        JobRecovery(job_repository, jobs, clock),
     )
     with TestClient(app, base_url=ORIGIN, raise_server_exceptions=False) as client:
         yield JobAPI(client, clock, job_repository, jobs, run_artifacts)

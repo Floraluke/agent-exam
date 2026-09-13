@@ -23,6 +23,7 @@ CREATE TABLE evaluation_jobs (
     row_version bigint NOT NULL DEFAULT 0 CHECK (row_version >= 0),
     idempotency_key_hash char(64) NOT NULL CHECK (idempotency_key_hash ~ '^[0-9a-f]{64}$'),
     request_sha256 char(64) NOT NULL CHECK (request_sha256 ~ '^[0-9a-f]{64}$'),
+    rerun_of_job_id uuid REFERENCES evaluation_jobs(job_id),
     owner_decided_by uuid REFERENCES accounts(user_id),
     owner_decided_at timestamptz,
     owner_decision_reason text CHECK (owner_decision_reason IS NULL OR char_length(owner_decision_reason) BETWEEN 1 AND 500),
@@ -49,6 +50,7 @@ CREATE TABLE evaluation_jobs (
     CHECK ((status IN ('FAILED', 'COMPLETED_WITH_ERRORS')) =
            (failure_code IS NOT NULL AND failure_summary IS NOT NULL)),
     CHECK (num_nonnulls(failure_code, failure_summary) IN (0, 2)),
+    CHECK (rerun_of_job_id IS NULL OR rerun_of_job_id <> job_id),
     UNIQUE (created_by, idempotency_key_hash)
 );
 

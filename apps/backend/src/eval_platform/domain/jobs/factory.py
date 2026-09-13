@@ -24,7 +24,11 @@ def build_job(
     limits: LimitSnapshot,
     policy: SubmissionPolicy,
     now: datetime,
+    *,
+    created_by: str | None = None,
+    rerun_of_job_id: str | None = None,
 ) -> EvaluationJob:
+    creator = created_by or actor.user_id
     job_id = str(uuid4())
     event = StateEvent(
         str(uuid4()),
@@ -63,7 +67,7 @@ def build_job(
     )
     return EvaluationJob(
         job_id,
-        actor.user_id,
+        creator,
         now,
         "AWAITING_OWNER_APPROVAL",
         "closed_book",
@@ -80,4 +84,5 @@ def build_job(
         policy.swe_bench_fork_revision,
         runs,
         (event,),
+        rerun_of_job_id=rerun_of_job_id,
     )
