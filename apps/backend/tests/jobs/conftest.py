@@ -17,6 +17,7 @@ from membership.memory import MemoryMembershipRepository
 from eval_platform.adapters.identity.passwords import Argon2Passwords
 from eval_platform.application.agent_registry import AgentRegistry
 from eval_platform.application.identity import IdentityService
+from eval_platform.application.job_lifecycle.cancellation import JobCancellation
 from eval_platform.application.job_submission import JobSubmission
 from eval_platform.application.membership import MembershipService
 from eval_platform.application.owner_approval import OwnerApproval
@@ -128,6 +129,7 @@ def job_api(result_scope="internal_test", scope_visible=None):
         jobs,
         OwnerApproval(job_repository, clock),
         reporting,
+        JobCancellation(job_repository, clock),
     )
     with TestClient(app, base_url=ORIGIN, raise_server_exceptions=False) as client:
         yield JobAPI(client, clock, job_repository, jobs, run_artifacts)

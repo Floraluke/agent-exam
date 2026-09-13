@@ -3,12 +3,15 @@ from typing import Any
 
 import psycopg
 
+from eval_platform.adapters.persistence.jobs.execution.cancellation import (
+    stop_unstarted,
+)
 from eval_platform.adapters.persistence.jobs.execution.common import (
     current,
     event,
     expiry,
 )
-from eval_platform.domain.jobs.execution import JobLease, JobLeaseConflict
+from eval_platform.domain.jobs.execution import JobLease, JobLeaseConflict, TrialStart
 from eval_platform.domain.result import ExecutionTrialResult
 
 Connection = psycopg.Connection[Any]
@@ -16,8 +19,10 @@ Connection = psycopg.Connection[Any]
 
 def start_run(
     connection: Connection, lease: JobLease, run_id: str, now: datetime
-) -> JobLease:
+) -> TrialStart:
     job = current(connection, lease, now, "EXECUTING")
+    if job["status"] == "CANCEL_REQUESTED":
+        return stop_unstarted(connection, lease, now, job)
     run = _next_pending(connection, lease.job_id)
     if (
         run is None
@@ -54,7 +59,9 @@ def start_run(
         "row_version=%s,started_at=COALESCE(started_at,%s) WHERE run_id=%s",
         (run_version, now, run_id),
     )
-    return _touch_job(connection, lease, job, run_id, run_version, now)
+    return TrialStart(
+        _touch_job(connection, lease, job, run_id, run_version, now), True
+    )
 
 
 def finish_run_execution(
@@ -147,7 +154,7 @@ def _touch_job(
     now: datetime,
 ) -> JobLease:
     expires = expiry(job["limit_snapshot"], now, job["trial_count"])
-    version = lease.job_version + 1
+    version = job["row_version"] + 1
     connection.execute(
         "UPDATE evaluation_jobs SET row_version=%s,heartbeat_at=%s,"
         "lease_expires_at=%s WHERE job_id=%s",

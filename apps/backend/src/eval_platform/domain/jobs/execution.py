@@ -30,6 +30,12 @@ class JobLease:
 
 
 @dataclass(frozen=True, slots=True)
+class TrialStart:
+    lease: JobLease
+    started: bool
+
+
+@dataclass(frozen=True, slots=True)
 class ClaimedJob:
     job: EvaluationJob
     lease: JobLease

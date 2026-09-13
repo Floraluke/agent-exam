@@ -79,6 +79,9 @@ class JobSummary(BaseModel):
     owner_decided_by: str | None
     owner_decided_at: datetime | None
     owner_decision_reason: str | None
+    cancel_requested_by: str | None
+    cancel_requested_at: datetime | None
+    cancel_reason: str | None
 
     @classmethod
     def from_record(cls, record: EvaluationJob) -> "JobSummary":
@@ -95,6 +98,9 @@ class JobSummary(BaseModel):
             owner_decided_by=record.owner_decided_by,
             owner_decided_at=record.owner_decided_at,
             owner_decision_reason=record.owner_decision_reason,
+            cancel_requested_by=record.cancel_requested_by,
+            cancel_requested_at=record.cancel_requested_at,
+            cancel_reason=record.cancel_reason,
         )
 
 

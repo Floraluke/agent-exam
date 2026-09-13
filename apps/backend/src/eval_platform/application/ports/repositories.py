@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Protocol
 
 from eval_platform.domain.catalog import CatalogTask, RegisteredAgent
+from eval_platform.domain.jobs.cancellation import CancellationRequest
 from eval_platform.domain.jobs.decisions import OwnerDecision
 from eval_platform.domain.jobs.execution import (
     ClaimedJob,
@@ -9,6 +10,7 @@ from eval_platform.domain.jobs.execution import (
     JobReport,
     RunCompletion,
     RunReport,
+    TrialStart,
 )
 from eval_platform.domain.jobs.models import EvaluationJob
 from eval_platform.domain.result import ExecutionTrialResult
@@ -70,11 +72,13 @@ class JobRepository(Protocol):
 
     def decide(self, decision: OwnerDecision) -> EvaluationJob: ...
 
+    def cancel(self, request: CancellationRequest) -> EvaluationJob: ...
+
     def claim(self, worker_id: str, now: datetime) -> ClaimedJob | None: ...
 
     def start_execution(self, lease: JobLease, now: datetime) -> JobLease: ...
 
-    def start_run(self, lease: JobLease, run_id: str, now: datetime) -> JobLease: ...
+    def start_run(self, lease: JobLease, run_id: str, now: datetime) -> TrialStart: ...
 
     def finish_run_execution(
         self, lease: JobLease, run_id: str, now: datetime

@@ -30,6 +30,8 @@ JobStatus = Literal[
     "COMPLETED_WITH_ERRORS",
     "FAILED",
     "REJECTED",
+    "CANCEL_REQUESTED",
+    "CANCELED",
 ]
 RunStatus = Literal[
     "PENDING",
@@ -154,6 +156,9 @@ class EvaluationJob:
     failure_summary: str | None = None
     started_at: datetime | None = None
     finished_at: datetime | None = None
+    cancel_requested_by: str | None = None
+    cancel_requested_at: datetime | None = None
+    cancel_reason: str | None = None
 
     @property
     def trial_count(self) -> int:

@@ -25,6 +25,7 @@ from eval_platform.application.agent_registry import AgentRegistry
 from eval_platform.application.execute_job import JobExecutor
 from eval_platform.application.identity import IdentityService
 from eval_platform.application.job_submission import JobSubmission
+from eval_platform.application.job_lifecycle.cancellation import JobCancellation
 from eval_platform.application.membership import MembershipService
 from eval_platform.application.owner_approval import OwnerApproval
 from eval_platform.application.reporting import JobReporting
@@ -99,7 +100,11 @@ worker = WorkerShell(
     JobExecutor(
         job_repository,
         run_artifacts,
-        Backend(run_artifacts, b"diff --git a/a.py b/a.py\n--- a/a.py\n+++ b/a.py\n"),
+        Backend(
+            run_artifacts,
+            b"diff --git a/a.py b/a.py\n--- a/a.py\n+++ b/a.py\n",
+            trial_delay_sec=0.75,
+        ),
         Evaluator(run_artifacts),
         tasks.source,
         browser_clock,
@@ -119,6 +124,7 @@ app = create_app(
         run_artifacts,
         lambda scope: scope == "internal_test",
     ),
+    JobCancellation(job_repository, browser_clock),
 )
 
 

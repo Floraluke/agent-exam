@@ -90,7 +90,9 @@ def test_batch_progress_rejects_stale_wrong_and_duplicate_worker_updates(
         assert claimed.lease.lease_expires_at == now + timedelta(seconds=7_380)
         lease = repository.start_execution(claimed.lease, now)
         run_id = min(created.runs, key=run_order_key).run_id
-        running = repository.start_run(lease, run_id, now)
+        start = repository.start_run(lease, run_id, now)
+        assert start.started
+        running = start.lease
         collecting = repository.finish_run_execution(running, run_id, now)
 
         invalid = (

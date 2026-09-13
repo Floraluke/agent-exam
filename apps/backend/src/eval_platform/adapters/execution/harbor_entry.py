@@ -40,13 +40,15 @@ _FIXED_CODEX = {
 }
 
 
-def harbor_command(executable: Path, config: Path) -> list[str]:
+def harbor_command(
+    executable: Path, config: Path, control_dir: Path | None = None
+) -> list[str]:
     interpreter = executable.with_name(
         "python.exe" if executable.suffix == ".exe" else "python"
     )
     if not interpreter.is_file():
         raise FileNotFoundError("The configured Harbor Python is unavailable")
-    return [
+    command = [
         str(interpreter.resolve()),
         str(Path(__file__).resolve()),
         "--config",
@@ -54,6 +56,9 @@ def harbor_command(executable: Path, config: Path) -> list[str]:
         "--harbor-root",
         str(executable.resolve().parents[2]),
     ]
+    if control_dir is not None:
+        command.extend(("--control-dir", str(control_dir.resolve())))
+    return command
 
 
 def harbor_environment(
@@ -159,6 +164,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--harbor-root", type=Path, required=True)
+    parser.add_argument("--control-dir", type=Path)
     args = parser.parse_args()
     config = json.loads(args.config.read_text(encoding="utf-8"))
     runtime = pop_runtime_inputs(os.environ)
@@ -178,6 +184,19 @@ def main() -> None:
     if mode == "codex":
         assert runtime is not None
         register_guarded_codex(*runtime)
+    if args.control_dir is not None:
+        control = args.control_dir.resolve()
+        if (
+            control != (args.config.parent / "trial-control").resolve()
+            or args.control_dir.is_symlink()
+            or not control.is_dir()
+        ):
+            raise ValueError("HARBOR_TRIAL_CONTROL_INVALID")
+        from eval_platform.adapters.execution.harbor.lifecycle.control import (
+            install_controlled_runner,
+        )
+
+        install_controlled_runner(control)
     cli = importlib.import_module("harbor.cli.main")
     sys.argv = ["harbor", "run", "--config", str(args.config), "--yes"]
     cli.app()

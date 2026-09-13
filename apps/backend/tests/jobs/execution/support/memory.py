@@ -3,7 +3,7 @@
 import re
 from dataclasses import replace
 
-from eval_platform.domain.jobs.execution import ClaimedJob, JobLeaseConflict
+from eval_platform.domain.jobs.execution import ClaimedJob, JobLeaseConflict, TrialStart
 from eval_platform.domain.jobs.models import run_order_key
 from jobs.execution.support import memory_results
 from jobs.execution.support.memory_state import (
@@ -19,6 +19,7 @@ from jobs.execution.support.memory_state import (
     lease as make_lease,
 )
 from jobs.memory import MemoryJobs
+from jobs.support.cancellation import cancel_runs
 
 _ACTIVE = {"PREPARING", "EXECUTING", "FINALIZING"}
 
@@ -83,6 +84,21 @@ class ExecutableMemoryJobs(MemoryJobs):
 
     def start_run(self, lease, run_id, now):
         with self.lock:
+            current = self.records[lease.job_id]
+            if current.status == "CANCEL_REQUESTED":
+                job, _anchor = self._current(lease, now, "EXECUTING", None)
+                job = replace(
+                    job,
+                    runs=cancel_runs(job.runs, now, lease.worker_id),
+                    row_version=job.row_version + 1,
+                    heartbeat_at=now,
+                    lease_expires_at=expiry(job, now),
+                )
+                anchor = next(
+                    run for run in job.runs if run.run_id == lease.run_id
+                )
+                self.records[job.job_id] = job
+                return TrialStart(make_lease(job, anchor), False)
             job, _anchor = self._current(lease, now, "EXECUTING", None)
             run = next_pending(job)
             if (
@@ -101,7 +117,7 @@ class ExecutableMemoryJobs(MemoryJobs):
             run = replace(run, stage="running_agent", started_at=run.started_at or now)
             job = touch(job, run, now)
             self.records[job.job_id] = job
-            return make_lease(job, run)
+            return TrialStart(make_lease(job, run), True)
 
     def finish_run_execution(self, lease, run_id, now):
         with self.lock:
@@ -164,13 +180,26 @@ class ExecutableMemoryJobs(MemoryJobs):
     def _current(self, lease, now, job_status, run_status):
         job = self.records[lease.job_id]
         run = next(item for item in job.runs if item.run_id == lease.run_id)
+        cancellation_continuation = (
+            job_status == "EXECUTING"
+            and job.status == "CANCEL_REQUESTED"
+            and job.cancel_requested_by is not None
+            and job.cancel_requested_at is not None
+        )
+        version_matches = job.row_version == lease.job_version or (
+            cancellation_continuation and job.row_version == lease.job_version + 1
+        )
         if (
             job.claimed_by != lease.worker_id
-            or job.row_version != lease.job_version
+            or not version_matches
             or run.row_version != lease.run_version
             or job.lease_expires_at != lease.lease_expires_at
             or now >= lease.lease_expires_at
-            or (job_status is not None and job.status != job_status)
+            or (
+                job_status is not None
+                and job.status != job_status
+                and not cancellation_continuation
+            )
             or (run_status is not None and run.status != run_status)
         ):
             raise JobLeaseConflict

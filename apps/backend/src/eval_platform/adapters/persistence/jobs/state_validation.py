@@ -13,9 +13,24 @@ def stored_job_valid(record: EvaluationJob) -> bool:
     decided = (
         record.owner_decided_by is not None and record.owner_decided_at is not None
     )
+    cancel_requested = (
+        record.cancel_requested_by is not None
+        and record.cancel_requested_at is not None
+    )
     if record.status == "AWAITING_OWNER_APPROVAL":
-        return not decided and all(pending_run_valid(run) for run in record.runs)
-    if not decided or record.state_events[-1].to_status != record.status:
+        return (
+            not decided
+            and not cancel_requested
+            and all(pending_run_valid(run) for run in record.runs)
+        )
+    if record.state_events[-1].to_status != record.status:
+        return False
+    if record.status == "CANCELED":
+        return cancel_requested and all(
+            run.status in {"COMPLETED", "FAILED", "CANCELED"}
+            for run in record.runs
+        )
+    if not decided:
         return False
     if record.status == "QUEUED":
         return len(record.state_events) == 2 and all(
@@ -40,6 +55,14 @@ def stored_job_valid(record: EvaluationJob) -> bool:
         )
     if record.status == "EXECUTING":
         return statuses <= {
+            "PENDING",
+            "PREPARING",
+            "RUNNING_AGENT",
+            "VERIFYING",
+            *terminal,
+        }
+    if record.status == "CANCEL_REQUESTED":
+        return cancel_requested and statuses <= {
             "PENDING",
             "PREPARING",
             "RUNNING_AGENT",

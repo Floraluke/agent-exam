@@ -89,6 +89,7 @@ class ExecutionBackend(Protocol):
 class ExecutionProgressObserver(Protocol):
     """Accept normalized Trial identities; it never trusts backend log text."""
 
-    def trial_started(self, run_id: str) -> None: ...
+    def trial_started(self, run_id: str) -> bool:
+        """Atomically permit a Trial; false means it must not be started."""
 
     def trial_finished(self, run_id: str) -> None: ...

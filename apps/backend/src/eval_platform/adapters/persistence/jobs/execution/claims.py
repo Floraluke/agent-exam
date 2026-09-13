@@ -20,7 +20,7 @@ def claim(connection: Connection, worker: str, now: datetime) -> JobLease | None
     connection.execute("SELECT pg_advisory_xact_lock(%s)", (_CLAIM_LOCK,))
     active = connection.execute(
         "SELECT 1 FROM evaluation_jobs WHERE status IN "
-        "('PREPARING','EXECUTING','FINALIZING') LIMIT 1"
+        "('PREPARING','EXECUTING','CANCEL_REQUESTED','FINALIZING') LIMIT 1"
     ).fetchone()
     if active is not None:
         return None

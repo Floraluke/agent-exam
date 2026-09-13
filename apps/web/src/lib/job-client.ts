@@ -38,6 +38,17 @@ export async function decideJob(
   );
 }
 
+export async function cancelJob(
+  id: string, reason: string, key: string,
+): Promise<JobSummary> {
+  const body = reason === "" ? {} : { reason };
+  return parseJobSummary(
+    await request(`jobs/${encodeURIComponent(id)}/cancel`, body, {
+      "Idempotency-Key": key,
+    }),
+  );
+}
+
 export async function jobs(): Promise<Page<JobSummary>> {
   return parseJobPage(await request("jobs?limit=20"));
 }

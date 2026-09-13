@@ -19,6 +19,7 @@ from eval_platform.adapters.persistence.jobs import initialize_schema as init_jo
 from eval_platform.adapters.persistence.jobs.repository import PostgresJobRepository
 from eval_platform.application.agent_registry import AgentRegistry
 from eval_platform.application.identity import IdentityService
+from eval_platform.application.job_lifecycle.cancellation import JobCancellation
 from eval_platform.application.job_submission import JobSubmission
 from eval_platform.application.owner_approval import OwnerApproval
 from eval_platform.application.reporting import JobReporting
@@ -81,6 +82,7 @@ def postgres_api(sandbox, *, initialize=True, report_store=None):
         agents=agents,
         jobs=jobs,
         approvals=approvals,
+        cancellations=JobCancellation(repository),
         reporting=(
             JobReporting(
                 repository,

@@ -141,10 +141,10 @@ def test_unknown_or_repeated_job_query_is_rejected(jobs_api):
         assert response.status_code == 400
 
 
-def test_future_cancel_route_is_not_prebuilt(jobs_api):
+def test_cancel_route_requires_a_valid_idempotency_header(jobs_api):
     jobs_api.login()
     missing = "00000000-0000-0000-0000-000000000099"
     response = jobs_api.client.post(
         f"/api/v1/jobs/{missing}/cancel", json={}, headers=WRITE_HEADERS
     )
-    assert response.status_code == 404
+    assert response.status_code == 422

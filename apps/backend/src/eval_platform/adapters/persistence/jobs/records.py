@@ -122,6 +122,13 @@ def read_job(connection: psycopg.Connection[Any], job_id: str) -> EvaluationJob 
             ),
             owner_decided_at=row["owner_decided_at"],
             owner_decision_reason=row["owner_decision_reason"],
+            cancel_requested_by=(
+                None
+                if row["cancel_requested_by"] is None
+                else str(row["cancel_requested_by"])
+            ),
+            cancel_requested_at=row["cancel_requested_at"],
+            cancel_reason=row["cancel_reason"],
             row_version=row["row_version"],
             claimed_by=row["claimed_by"],
             claimed_at=row["claimed_at"],

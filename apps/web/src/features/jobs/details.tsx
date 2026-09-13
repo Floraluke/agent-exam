@@ -11,10 +11,14 @@ export default function JobDetails({ job }: { job: JobDetail }) {
     COMPLETED_WITH_ERRORS: "执行完成，但部分组合出错",
     FAILED: "运行失败",
     REJECTED: "已拒绝",
+    CANCEL_REQUESTED: "已请求取消，当前运行仍在收束",
+    CANCELED: "已取消",
   }[job.status];
   return <article aria-label="评测批次详情">
     <h3>{title}</h3>
     <p>冻结运行数：{job.trial_count}</p>
+    {job.status === "CANCEL_REQUESTED" &&
+      <p>取消请求已受理；当前 Trial 不会被强制终止，真实结果仍会保存。</p>}
     {job.trial_count > 1 && <p>同一 Harbor Job 按顺序执行每个冻结组合，并发固定为 1。</p>}
     <p>批次：{job.batch_preset} · 赛道：闭卷</p>
     <p>结果范围：{job.result_scope === "official" ? "正式" : "内部测试"}</p>
@@ -44,6 +48,11 @@ export default function JobDetails({ job }: { job: JobDetail }) {
       <p>决定者：{job.owner_decided_by}</p>
       <p>决定时间：{new Date(job.owner_decided_at).toLocaleString("zh-CN")}</p>
       {job.owner_decision_reason && <p>决定说明：{job.owner_decision_reason}</p>}
+    </>}
+    {job.cancel_requested_at && <>
+      <p>取消请求人：{job.cancel_requested_by}</p>
+      <p>取消请求时间：{new Date(job.cancel_requested_at).toLocaleString("zh-CN")}</p>
+      {job.cancel_reason && <p>取消说明：{job.cancel_reason}</p>}
     </>}
   </article>;
 }

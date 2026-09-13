@@ -47,7 +47,9 @@ def test_http_report_exposes_each_persisted_batch_stage(internal_reports_api):
 
     lease = jobs_api.repository.start_execution(claimed.lease, now)
     assert _report(jobs_api, job_id)["status"] == "EXECUTING"
-    lease = jobs_api.repository.start_run(lease, run_id, now)
+    start = jobs_api.repository.start_run(lease, run_id, now)
+    assert start.started
+    lease = start.lease
     running = _report(jobs_api, job_id)
     assert running["runs"][0]["stage"] == "running_agent"
     lease = jobs_api.repository.finish_run_execution(lease, run_id, now)

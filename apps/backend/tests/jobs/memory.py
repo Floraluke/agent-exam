@@ -10,6 +10,7 @@ from eval_platform.domain.jobs.models import (
     JobNotFound,
     StateEvent,
 )
+from jobs.support.cancellation import cancel as cancel_job
 
 
 class MemoryJobs:
@@ -17,6 +18,7 @@ class MemoryJobs:
         self.records = {}
         self.keys = {}
         self.decisions = {}
+        self.cancellations = {}
         self.lock = Lock()
 
     def resolve_idempotency(self, created_by, key_hash, request_sha256):
@@ -116,3 +118,6 @@ class MemoryJobs:
                 decision.request_sha256,
             )
             return decided
+
+    def cancel(self, request):
+        return cancel_job(self, request)

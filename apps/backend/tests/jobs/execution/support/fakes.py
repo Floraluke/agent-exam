@@ -1,5 +1,6 @@
 import json
 from hashlib import sha256
+from time import sleep
 
 from eval_platform.application.ports.evaluator import EvaluationError
 from eval_platform.domain.catalog import ArtifactUnavailable
@@ -49,15 +50,19 @@ def artifact(store, run_id, kind, content, content_type):
 
 
 class Backend:
-    def __init__(self, store, patch):
+    def __init__(self, store, patch, trial_delay_sec=0):
         self.store, self.patch, self.requests = store, patch, []
+        self.trial_delay_sec = trial_delay_sec
 
     def execute(self, request, progress=None):
         self.requests.append(request)
         results = []
         for index, run in enumerate(request.runs, 1):
             if progress is not None:
-                progress.trial_started(run.run_id)
+                if not progress.trial_started(run.run_id):
+                    break
+            if self.trial_delay_sec:
+                sleep(self.trial_delay_sec)
             patch = artifact(
                 self.store, run.run_id, "agent_patch", self.patch, "text/x-diff"
             )

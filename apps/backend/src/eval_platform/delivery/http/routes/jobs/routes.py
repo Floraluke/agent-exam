@@ -4,9 +4,11 @@ from uuid import UUID
 from fastapi import APIRouter, Header, Query, Request
 
 from eval_platform.application.identity import IdentityService
+from eval_platform.application.job_lifecycle.cancellation import JobCancellation
 from eval_platform.application.job_submission import JobSubmission
 from eval_platform.application.owner_approval import OwnerApproval
 from eval_platform.delivery.http.config import HttpConfig
+from eval_platform.delivery.http.routes.jobs.cancel_schemas import CancelRequest
 from eval_platform.delivery.http.routes.jobs.decision_schemas import (
     OwnerDecisionRequest,
 )
@@ -32,6 +34,7 @@ def jobs_router(
     jobs: JobSubmission,
     config: HttpConfig,
     approvals: OwnerApproval | None = None,
+    cancellations: JobCancellation | None = None,
 ) -> APIRouter:
     router = APIRouter(
         prefix="/api/v1",
@@ -140,5 +143,21 @@ def jobs_router(
             idempotency_key: IdempotencyKey,
         ) -> JobSummary:
             return decide(job_id, request, body, idempotency_key, "reject")
+
+    if cancellations is not None:
+
+        @router.post(
+            "/jobs/{job_id}/cancel", status_code=202, response_model=JobSummary
+        )
+        def cancel(
+            job_id: UUID,
+            request: Request,
+            body: CancelRequest,
+            idempotency_key: IdempotencyKey,
+        ) -> JobSummary:
+            record = cancellations.cancel(
+                actor(request), str(job_id), body.reason, idempotency_key
+            )
+            return JobSummary.from_record(record)
 
     return router

@@ -7,10 +7,11 @@ import type {
   CatalogAgent, CatalogTask, JobDetail, JobOptions, JobReport, RunReport,
 } from "../../lib/contracts";
 import {
-  decideJob, jobDetail, jobOptions, jobReport, jobs, runReport, submitJob,
+  cancelJob, decideJob, jobDetail, jobOptions, jobReport, jobs, runReport, submitJob,
 } from "../../lib/job-client";
 import OwnerApprovalPanel from "./approval";
 import BatchReportView from "./batch-report";
+import CancellationPanel from "./cancellation";
 import JobControls from "./controls";
 import JobDetails from "./details";
 import RunReportView from "./report";
@@ -31,6 +32,7 @@ export default function JobsPanel({ owner }: { owner: boolean }) {
   const decisionAttempt = useRef<{
     job: string; kind: "approve" | "reject"; reason: string; key: string;
   } | null>(null);
+  const cancelAttempt = useRef<{ job: string; reason: string; key: string } | null>(null);
 
   function explain(value: unknown) {
     setError(value instanceof ApiError ? value.message : "暂时无法读取评测批次。");
@@ -137,6 +139,25 @@ export default function JobsPanel({ owner }: { owner: boolean }) {
     }
     finally { setBusy(false); }
   }
+  async function cancel(reason: string) {
+    if (!current) return;
+    setBusy(true); setError("");
+    const previous = cancelAttempt.current;
+    const attempt = previous && previous.job === current.job_id &&
+      previous.reason === reason ? previous
+      : { job: current.job_id, reason, key: crypto.randomUUID() };
+    cancelAttempt.current = attempt;
+    try {
+      await cancelJob(current.job_id, reason, attempt.key);
+      setCurrent(await jobDetail(current.job_id));
+      cancelAttempt.current = null;
+    } catch (value) {
+      if (value instanceof ApiError && value.code === "JOB_STATE_CONFLICT") {
+        try { setCurrent(await jobDetail(current.job_id)); } catch { /* keep error */ }
+      }
+      explain(value);
+    } finally { setBusy(false); }
+  }
   const count = selectedTasks.length * selectedAgents.length;
   return <section aria-label="提交评测">
     <h2>提交评测</h2>
@@ -157,6 +178,8 @@ export default function JobsPanel({ owner }: { owner: boolean }) {
       <JobDetails job={current} />
       {owner && current.status === "AWAITING_OWNER_APPROVAL" &&
         <OwnerApprovalPanel busy={busy} decide={decide} />}
+      {["AWAITING_OWNER_APPROVAL", "QUEUED", "PREPARING", "EXECUTING"]
+        .includes(current.status) && <CancellationPanel busy={busy} cancel={cancel} />}
       <button disabled={busy} onClick={refresh}>刷新当前批次</button>
       <button disabled={busy} onClick={openBatchReport}>查看批次进度</button>
       {["COMPLETED", "COMPLETED_WITH_ERRORS", "FAILED"].includes(current.status) &&

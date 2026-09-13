@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from eval_platform.adapters.persistence.jobs import job_transaction
+from eval_platform.adapters.persistence.jobs import cancellations, job_transaction
 from eval_platform.adapters.persistence.jobs.decisions import decide
 from eval_platform.adapters.persistence.jobs.execution import (
     batch,
@@ -13,6 +13,7 @@ from eval_platform.adapters.persistence.jobs.execution import (
 )
 from eval_platform.adapters.persistence.jobs.publication import publish
 from eval_platform.adapters.persistence.jobs.records import read_job
+from eval_platform.domain.jobs.cancellation import CancellationRequest
 from eval_platform.domain.jobs.decisions import OwnerDecision
 from eval_platform.domain.jobs.execution import (
     ClaimedJob,
@@ -20,6 +21,7 @@ from eval_platform.domain.jobs.execution import (
     JobReport,
     RunCompletion,
     RunReport,
+    TrialStart,
 )
 from eval_platform.domain.jobs.models import (
     EvaluationJob,
@@ -77,6 +79,14 @@ class PostgresJobRepository:
             raise JobUnavailable
         return record
 
+    def cancel(self, request: CancellationRequest) -> EvaluationJob:
+        with job_transaction(self.dsn) as connection:
+            job_id = cancellations.cancel(connection, request)
+            record = read_job(connection, job_id)
+        if record is None:
+            raise JobUnavailable
+        return record
+
     def claim(self, worker_id: str, now: datetime) -> ClaimedJob | None:
         with job_transaction(self.dsn) as connection:
             lease = claims.claim(connection, worker_id, now)
@@ -91,7 +101,7 @@ class PostgresJobRepository:
         with job_transaction(self.dsn) as connection:
             return claims.start_execution(connection, lease, now)
 
-    def start_run(self, lease: JobLease, run_id: str, now: datetime) -> JobLease:
+    def start_run(self, lease: JobLease, run_id: str, now: datetime) -> TrialStart:
         with job_transaction(self.dsn) as connection:
             return batch.start_run(connection, lease, run_id, now)
 

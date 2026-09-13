@@ -58,6 +58,7 @@ export type JobOptions = {
 export const JOB_STATUSES = [
   "AWAITING_OWNER_APPROVAL", "QUEUED", "PREPARING", "EXECUTING",
   "FINALIZING", "COMPLETED", "COMPLETED_WITH_ERRORS", "FAILED", "REJECTED",
+  "CANCEL_REQUESTED", "CANCELED",
 ] as const;
 export type JobStatus = typeof JOB_STATUSES[number];
 export const RUN_STATUSES = [
@@ -78,6 +79,8 @@ export type JobSummary = {
   run_ids: string[]; estimated_finish_at: null; created_at: string;
   owner_decided_by: string | null; owner_decided_at: string | null;
   owner_decision_reason: string | null;
+  cancel_requested_by: string | null; cancel_requested_at: string | null;
+  cancel_reason: string | null;
 };
 export type JobDetail = JobSummary & {
   task_snapshots: Array<{

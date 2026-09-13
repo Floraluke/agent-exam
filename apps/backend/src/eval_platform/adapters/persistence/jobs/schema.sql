@@ -4,7 +4,8 @@ CREATE TABLE evaluation_jobs (
     created_at timestamptz NOT NULL,
     status text NOT NULL CHECK (status IN (
         'AWAITING_OWNER_APPROVAL', 'QUEUED', 'PREPARING', 'EXECUTING',
-        'FINALIZING', 'COMPLETED', 'COMPLETED_WITH_ERRORS', 'FAILED', 'REJECTED'
+        'FINALIZING', 'COMPLETED', 'COMPLETED_WITH_ERRORS', 'FAILED', 'REJECTED',
+        'CANCEL_REQUESTED', 'CANCELED'
     )),
     evaluation_track text NOT NULL CHECK (evaluation_track = 'closed_book'),
     result_scope text NOT NULL CHECK (result_scope IN ('official', 'internal_test')),
@@ -27,6 +28,11 @@ CREATE TABLE evaluation_jobs (
     owner_decision_reason text CHECK (owner_decision_reason IS NULL OR char_length(owner_decision_reason) BETWEEN 1 AND 500),
     owner_decision_key_hash char(64) CHECK (owner_decision_key_hash IS NULL OR owner_decision_key_hash ~ '^[0-9a-f]{64}$'),
     owner_decision_request_sha256 char(64) CHECK (owner_decision_request_sha256 IS NULL OR owner_decision_request_sha256 ~ '^[0-9a-f]{64}$'),
+    cancel_requested_by uuid REFERENCES accounts(user_id),
+    cancel_requested_at timestamptz,
+    cancel_reason text CHECK (cancel_reason IS NULL OR char_length(cancel_reason) BETWEEN 1 AND 500),
+    cancel_request_key_hash char(64) CHECK (cancel_request_key_hash IS NULL OR cancel_request_key_hash ~ '^[0-9a-f]{64}$'),
+    cancel_request_sha256 char(64) CHECK (cancel_request_sha256 IS NULL OR cancel_request_sha256 ~ '^[0-9a-f]{64}$'),
     claimed_by varchar(64) CHECK (claimed_by IS NULL OR claimed_by ~ '^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$'),
     claimed_at timestamptz,
     heartbeat_at timestamptz,
@@ -36,9 +42,10 @@ CREATE TABLE evaluation_jobs (
     started_at timestamptz,
     finished_at timestamptz,
     CHECK (num_nonnulls(owner_decided_by, owner_decided_at, owner_decision_key_hash, owner_decision_request_sha256) IN (0, 4)),
-    CHECK ((status = 'AWAITING_OWNER_APPROVAL' AND owner_decided_by IS NULL) OR (status <> 'AWAITING_OWNER_APPROVAL' AND owner_decided_by IS NOT NULL)),
+    CHECK (num_nonnulls(cancel_requested_by, cancel_requested_at, cancel_request_key_hash, cancel_request_sha256) IN (0, 4)),
+    CHECK ((status = 'AWAITING_OWNER_APPROVAL' AND owner_decided_by IS NULL) OR (status = 'CANCELED') OR (status <> 'AWAITING_OWNER_APPROVAL' AND owner_decided_by IS NOT NULL)),
     CHECK (num_nonnulls(claimed_by, claimed_at, heartbeat_at, lease_expires_at, started_at) IN (0, 5)),
-    CHECK ((status IN ('AWAITING_OWNER_APPROVAL', 'QUEUED', 'REJECTED') AND claimed_by IS NULL) OR (status NOT IN ('AWAITING_OWNER_APPROVAL', 'QUEUED', 'REJECTED') AND claimed_by IS NOT NULL)),
+    CHECK ((status IN ('AWAITING_OWNER_APPROVAL', 'QUEUED', 'REJECTED') AND claimed_by IS NULL) OR status = 'CANCELED' OR (status NOT IN ('AWAITING_OWNER_APPROVAL', 'QUEUED', 'REJECTED', 'CANCELED') AND claimed_by IS NOT NULL)),
     CHECK ((status IN ('FAILED', 'COMPLETED_WITH_ERRORS')) =
            (failure_code IS NOT NULL AND failure_summary IS NOT NULL)),
     CHECK (num_nonnulls(failure_code, failure_summary) IN (0, 2)),
@@ -72,7 +79,7 @@ CREATE TABLE evaluation_runs (
     created_at timestamptz NOT NULL,
     started_at timestamptz,
     finished_at timestamptz,
-    CHECK ((status IN ('PENDING', 'CANCELED') AND started_at IS NULL) OR (status NOT IN ('PENDING', 'CANCELED') AND started_at IS NOT NULL)),
+    CHECK ((status = 'PENDING' AND started_at IS NULL) OR status = 'CANCELED' OR started_at IS NOT NULL),
     CHECK ((status = 'FAILED') = (failure_code IS NOT NULL AND failure_summary IS NOT NULL)),
     CHECK ((status = 'COMPLETED') = (resolved_summary IS NOT NULL)),
     UNIQUE (job_id, task_id, agent_configuration_id, attempt_index)
@@ -107,7 +114,7 @@ CREATE TABLE run_state_events (
     worker_id varchar(64),
     occurred_at timestamptz NOT NULL,
     CHECK (
-        (worker_id IS NULL AND (sequence = 1 OR reason_code = 'JOB_REJECTED')) OR
+        (worker_id IS NULL AND (sequence = 1 OR reason_code IN ('JOB_REJECTED','JOB_CANCELED'))) OR
         (worker_id IS NOT NULL AND sequence > 1 AND reason_code <> 'JOB_REJECTED')
     ),
     UNIQUE (run_id, sequence)

@@ -142,3 +142,49 @@ test("malformed nested job options fail closed", async ({ page }) => {
   await expect(page.getByRole("region", { name: "提交评测" }))
     .not.toContainText("undefined");
 });
+
+test("executing cancellation stays requested until the current run settles", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByLabel("账号", { exact: true }).fill("owner");
+  await page.getByLabel("密码", { exact: true }).fill("synthetic browser password");
+  await page.getByRole("button", { name: "登录", exact: true }).click();
+  await page.getByRole("button", { name: "登记已核验题目" }).click();
+  await page.evaluate(async () => {
+    const response = await fetch("/api/v1/tasks/register", {
+      method: "POST", credentials: "same-origin",
+      headers: { "Content-Type": "application/json", "X-AgentExam-Request": "1" },
+      body: JSON.stringify({ preset_id: "swe-gym-lite-example-2" }),
+    });
+    if (!response.ok) throw new Error("second task registration failed");
+  });
+  await page.getByRole("button", { name: "登记固定 Codex 配置" }).click();
+  const jobs = page.getByRole("region", { name: "提交评测" });
+  await jobs.getByRole("button", { name: "刷新可提交选项" }).click();
+  await jobs.getByLabel("任务 example__repo-1").check();
+  await jobs.getByLabel("任务 example__repo-2").check();
+  await jobs.getByLabel("配置 Synthetic Codex").check();
+  await jobs.getByRole("button", { name: "提交等待批准" }).click();
+  await jobs.getByRole("button", { name: "批准并排队" }).click();
+  const refresh = jobs.getByRole("button", { name: "刷新当前批次" });
+  await expect.poll(async () => {
+    await refresh.click();
+    return jobs.getByText("Agent 正在执行", { exact: true }).count();
+  }).toBe(1);
+  await jobs.getByLabel("取消说明（可选）").fill("当前项结束后停止");
+  const cancel = page.waitForResponse((candidate) =>
+    candidate.request().method() === "POST" &&
+    new URL(candidate.url()).pathname.endsWith("/cancel"),
+  );
+  await jobs.getByRole("button", { name: "取消批次" }).click();
+  expect(await (await cancel).json()).toMatchObject({ status: "CANCEL_REQUESTED" });
+  await expect(jobs.getByText("已请求取消，当前运行仍在收束", { exact: true }))
+    .toBeVisible();
+  await expect(jobs).toContainText("当前 Trial 不会被强制终止");
+  await expect.poll(async () => {
+    await refresh.click();
+    return jobs.getByText("已取消", { exact: true }).count();
+  }).toBe(1);
+  await expect(jobs).toContainText("取消说明：当前项结束后停止");
+});

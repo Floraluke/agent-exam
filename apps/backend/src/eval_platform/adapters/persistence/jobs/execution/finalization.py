@@ -19,7 +19,7 @@ def start(connection: Connection, lease: JobLease, now: datetime) -> JobLease:
     if _has_open_run(connection, lease.job_id):
         raise JobLeaseConflict
     expires = expiry(job["limit_snapshot"], now, job["trial_count"])
-    version = lease.job_version + 1
+    version = job["row_version"] + 1
     connection.execute(
         "UPDATE evaluation_jobs SET status='FINALIZING',row_version=%s,"
         "heartbeat_at=%s,lease_expires_at=%s WHERE job_id=%s",
@@ -29,7 +29,7 @@ def start(connection: Connection, lease: JobLease, now: datetime) -> JobLease:
         connection,
         "job",
         lease.job_id,
-        "EXECUTING",
+        job["status"],
         "FINALIZING",
         "FINALIZATION_STARTED",
         lease.worker_id,
@@ -51,7 +51,7 @@ def finish(
     now: datetime,
     failure_code: str | None = None,
 ) -> None:
-    current(connection, lease, now, "FINALIZING")
+    job = current(connection, lease, now, "FINALIZING")
     counts = connection.execute(
         "SELECT count(*) FILTER (WHERE status='COMPLETED') AS completed,"
         "count(*) FILTER (WHERE status<>'COMPLETED') AS failed "
@@ -63,10 +63,11 @@ def finish(
     ):
         raise JobUnavailable
     completed, failed = counts["completed"], counts["failed"]
-    code = failure_code
-    if code is None and failed:
+    canceling = job["cancel_requested_by"] is not None
+    code = None if canceling else failure_code
+    if not canceling and code is None and failed:
         code = "BATCH_PARTIAL_FAILURE" if completed else "BATCH_FAILED"
-    target = _target_status(code, completed)
+    target = _target_status(code, completed, canceling)
     summary = None
     if code is not None:
         summary = (
@@ -85,13 +86,15 @@ def finish(
         lease.job_id,
         "FINALIZING",
         target,
-        code or "JOB_COMPLETED",
+        "JOB_CANCELED" if canceling else code or "JOB_COMPLETED",
         lease.worker_id,
         now,
     )
 
 
-def _target_status(code: str | None, completed: int) -> str:
+def _target_status(code: str | None, completed: int, canceling: bool = False) -> str:
+    if canceling:
+        return "CANCELED"
     if code is None:
         return "COMPLETED"
     return "COMPLETED_WITH_ERRORS" if completed else "FAILED"

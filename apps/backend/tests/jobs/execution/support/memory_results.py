@@ -127,11 +127,14 @@ def finish(repository, lease, now, failure_code=None):
         job, _anchor = repository._current(lease, now, "FINALIZING", None)
         failed = sum(run.status != "COMPLETED" for run in job.runs)
         completed = sum(run.status == "COMPLETED" for run in job.runs)
-        code = failure_code
+        canceling = job.cancel_requested_by is not None
+        code = None if canceling else failure_code
         if code is None and failed:
             code = "BATCH_PARTIAL_FAILURE" if completed else "BATCH_FAILED"
         target = (
-            "COMPLETED"
+            "CANCELED"
+            if canceling
+            else "COMPLETED"
             if code is None
             else "COMPLETED_WITH_ERRORS"
             if completed
@@ -155,7 +158,7 @@ def finish(repository, lease, now, failure_code=None):
                 event(
                     job,
                     target,
-                    code or "JOB_COMPLETED",
+                    "JOB_CANCELED" if canceling else code or "JOB_COMPLETED",
                     now,
                     lease.worker_id,
                 ),

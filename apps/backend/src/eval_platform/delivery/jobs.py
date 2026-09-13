@@ -6,6 +6,7 @@ import sys
 from eval_platform.adapters.persistence.jobs import initialize_schema
 from eval_platform.adapters.persistence.jobs.repository import PostgresJobRepository
 from eval_platform.application.agent_registry import AgentRegistry
+from eval_platform.application.job_lifecycle.cancellation import JobCancellation
 from eval_platform.application.job_submission import JobSubmission
 from eval_platform.application.owner_approval import OwnerApproval
 from eval_platform.application.task_catalog import TaskCatalog
@@ -16,14 +17,15 @@ from eval_platform.domain.jobs.models import JobError
 
 def create_jobs(
     dsn: str, tasks: TaskCatalog, agents: AgentRegistry
-) -> tuple[JobSubmission, OwnerApproval]:
+) -> tuple[JobSubmission, OwnerApproval, JobCancellation]:
     repository = PostgresJobRepository(dsn)
-    return JobSubmission(
+    submission = JobSubmission(
         tasks,
         agents,
         repository,
         submission_policy(),
-    ), OwnerApproval(repository)
+    )
+    return submission, OwnerApproval(repository), JobCancellation(repository)
 
 
 def main(argv: list[str] | None = None) -> int:

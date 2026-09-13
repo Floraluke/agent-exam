@@ -24,14 +24,32 @@ def current(
         "WHERE j.job_id=%s AND r.run_id=%s FOR UPDATE OF j,r",
         (lease.job_id, lease.run_id),
     ).fetchone()
+    cancellation_continuation = (
+        job_status == "EXECUTING"
+        and row is not None
+        and row["status"] == "CANCEL_REQUESTED"
+        and row["cancel_requested_by"] is not None
+        and row["cancel_requested_at"] is not None
+    )
+    version_matches = row is not None and (
+        row["row_version"] == lease.job_version
+        or (
+            cancellation_continuation
+            and row["row_version"] == lease.job_version + 1
+        )
+    )
     if (
         row is None
         or row["claimed_by"] != lease.worker_id
-        or row["row_version"] != lease.job_version
+        or not version_matches
         or row["run_version"] != lease.run_version
         or row["lease_expires_at"] != lease.lease_expires_at
         or now >= lease.lease_expires_at
-        or (job_status is not None and row["status"] != job_status)
+        or (
+            job_status is not None
+            and row["status"] != job_status
+            and not cancellation_continuation
+        )
         or (run_status is not None and row["run_status"] != run_status)
     ):
         raise JobLeaseConflict

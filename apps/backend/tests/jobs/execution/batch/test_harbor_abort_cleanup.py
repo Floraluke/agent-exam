@@ -1,4 +1,3 @@
-import json
 from pathlib import Path
 
 import pytest
@@ -76,11 +75,8 @@ def test_public_execute_cleans_compose_when_progress_storage_fails(
     cleaned = []
 
     def fail_during_poll(command, **kwargs):
-        config = json.loads(Path(command[3]).read_text(encoding="utf-8"))
-        trial_dir = job_dir / "trial-one"
-        trial_dir.mkdir(parents=True)
-        trial = {"task": config["tasks"][0], "agent": config["agents"][0]}
-        (trial_dir / "config.json").write_text(json.dumps(trial), encoding="utf-8")
+        control = Path(command[command.index("--control-dir") + 1])
+        (control / "ready-0000").touch()
         kwargs["on_poll"]()
         raise AssertionError("observer should stop the process call")
 

@@ -15,6 +15,7 @@ from eval_platform.adapters.execution.harbor.config_mapper import (
 from eval_platform.adapters.execution.harbor.lifecycle.cleanup import (
     cleanup_timed_out_projects,
 )
+from eval_platform.adapters.execution.harbor.lifecycle.control import stop_path
 from eval_platform.adapters.execution.harbor.lifecycle.monitor import (
     HarborProgressMonitor,
 )
@@ -86,7 +87,13 @@ class HarborExecutionAdapter:
             encoding="utf-8",
             newline="\n",
         )
-        return self._run(plan, request, run_root, config_path, bundle_root, progress)
+        control = None
+        if progress is not None:
+            control = run_root / "trial-control"
+            control.mkdir(mode=0o700)
+        return self._run(
+            plan, request, run_root, config_path, bundle_root, progress, control
+        )
 
     def _render_tasks(
         self,
@@ -114,13 +121,14 @@ class HarborExecutionAdapter:
         config_path: Path,
         bundle_root: Path | None,
         progress: ExecutionProgressObserver | None,
+        control_dir: Path | None,
     ) -> tuple[ExecutionTrialResult, ...]:
         env = harbor_environment(
             auth_path=self.codex_auth_path, bundle_root=bundle_root
         )
-        command = harbor_command(self.harbor_executable, config_path)
+        command = harbor_command(self.harbor_executable, config_path, control_dir)
         job_dir = _job_dir(plan, request.job_id)
-        monitor = HarborProgressMonitor(plan, job_dir, progress)
+        monitor = HarborProgressMonitor(plan, job_dir, progress, control_dir)
         try:
             outcome = run_bounded_process(
                 command,
@@ -139,7 +147,7 @@ class HarborExecutionAdapter:
         process_warnings = outcome.warnings
         if outcome.timed_out:
             process_warnings += cleanup_timed_out_projects(job_dir)
-        return map_job_results(
+        results = map_job_results(
             plan,
             job_dir,
             process_returncode=outcome.returncode,
@@ -148,6 +156,11 @@ class HarborExecutionAdapter:
             ),
             process_warnings=process_warnings,
         )
+        if control_dir is not None and stop_path(control_dir).is_file():
+            return tuple(
+                result for result in results if result.run_id in monitor.finished
+            )
+        return results
 
 
 def _job_dir(plan: HarborJobPlan, job_id: str) -> Path:
