@@ -45,6 +45,7 @@ test("owner closes an expired job and creates a separately approved retry", asyn
     status: "FAILED", failure_code: "INFRASTRUCTURE_INTERRUPTED",
   });
   await expect(recovery).toContainText("已完成 Run 的结果保持不变");
+  await expect(recovery).toContainText("阶段中断");
   await expect(recovery).not.toContainText("internal-browser-interrupted");
 
   const retried = page.waitForResponse((candidate) =>

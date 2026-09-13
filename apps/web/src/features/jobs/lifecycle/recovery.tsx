@@ -52,6 +52,10 @@ export default function RecoveryPanel({
     {expired && <p>执行租约已过期，系统不会自动续跑。请由所有者按已保存证据收束。</p>}
     {recovered && <p>旧批次已安全收束。已完成 Run 的结果保持不变；未完成 Run
       已记录为基础设施中断，系统没有自动续跑。</p>}
+    {recovered && <ul>{job.runs.map((run, index) => <li key={run.run_id}>
+      Run {index + 1}：{run.status === "COMPLETED" ? "已完成结果已保留" :
+        run.failure_summary ?? "未开始，已取消"}
+    </li>)}</ul>}
     {job.failure_summary && <p>安全原因：{job.failure_summary}</p>}
     {error && <p role="alert">{error}</p>}
     {owner && expired && <button disabled={busy} onClick={recover}>检查并收束中断</button>}

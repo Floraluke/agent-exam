@@ -90,6 +90,7 @@ docs/{architecture,interfaces}/                          # 当前恢复契约和
 - 完整后端回归为 `348 passed, 70 skipped, 2 warnings in 45.25s`。70 项跳过均有显式环境门禁，其中任务 10 的 PostgreSQL/MinIO 项已由上一条专属套件实际通过；未运行真实 Codex、Harbor、网络、真实凭据或其他未授权探针。全仓 Ruff 通过，mypy 为 `Success: no issues found in 136 source files`。
 - Web 首次 `next build` 未进入编译，因沙箱拒绝写系统用户 `AppData` 的 Next.js 配置临时文件；把本次进程的 `APPDATA` 指向仓库内 `runtime/tests/next-appdata` 并关闭遥测后，生产构建成功，4 个静态页面生成完成。现有 `%USERPROFILE%` 缓存未删除，机器设置未改变。
 - 完整浏览器回归递归执行 8 个规格文件，共 `18 passed`。每份规格使用新合成后端；新增中断恢复动线通过，既有目录、身份安全、登录、成员、提交/批准/取消、多 Run 报告和安全证据流程也全部通过。没有真实模型或 Harbor 调用。
+- 双轴评审前自查补强页面的逐 Run 解释：已完成项明确显示结果保留，失败项显示后端安全摘要中的中断阶段，未开始项显示已取消；不展示 Worker 身份。补强后 Web typecheck 再次通过，单项浏览器复验为 `1 passed (10.0s)`。
 - 规模复核覆盖相对固定基准 `2137e08` 的全部 Python/TypeScript/JavaScript 变更：动态源码均不超过 200 行，最高为 PostgreSQL Repository 199 行、共享 PostgreSQL 测试夹具 200 行和 Web 提交页 195 行；所有受影响目录直属文件均不超过 8 个，新恢复实现/测试/页面均位于已批准的必要子目录。为恢复注入增加 8 行后，共享 PG 测试曾达到 205 行，已仅压缩现有夹具排版降回 200 行，不拆新职责。
 - 源码事务核对确认：`results.complete()` 在同一 PostgreSQL 事务中写入制品索引、`deterministic_results` 和 Run 的 `COMPLETED`/事件；事务失败会整体回滚。因此一致存储中“可信结果已落盘”必然对应终态 Run，恢复只需验证这些既有记录并收束 Job，不得重新调用 Evaluator。
 - `RUNNING_AGENT`、`VERIFYING` 或其他活跃 Run 若没有上述完整事务结果，即使存在进程内返回值、孤立对象或 Harbor 残留也不能证明确定性结果；候选恢复会明确写 `INFRASTRUCTURE_INTERRUPTED`，不猜测或补造结果。
