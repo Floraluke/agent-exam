@@ -10,11 +10,13 @@ from eval_platform.adapters.execution.harbor.config_mapper import (
     HARBOR_REVISION,
     build_job_plan,
 )
+from eval_platform.adapters.execution.harbor_entry import validate_agent_mode
 from eval_platform.application.ports.execution import (
     ExecutionJobRequest,
     ExecutionRunRequest,
     RunLimits,
 )
+from eval_platform.delivery.catalog_presets import AGENT_PRESETS
 from eval_platform.domain.agent import AgentConfiguration
 from eval_platform.domain.task import EvaluationTask
 
@@ -78,6 +80,26 @@ def test_job_plan_freezes_harbor_safety_settings(tmp_path: Path) -> None:
         "reasoning_effort": "medium",
         "web_search": "disabled",
     }
+
+
+def test_registered_catalog_agent_matches_fixed_runtime(tmp_path: Path) -> None:
+    task = _task()
+    _, agent = AGENT_PRESETS["codex-0153-terra-medium"]
+    request = ExecutionJobRequest(
+        job_id="m1-platform-job",
+        runs=(ExecutionRunRequest("m1-platform-run", task, agent),),
+        limits=RunLimits(900, 1, 4096, 8192),
+        backend_revision=HARBOR_REVISION,
+        artifact_contract_version=ARTIFACT_CONTRACT_VERSION,
+    )
+    plan = build_job_plan(
+        request,
+        jobs_dir=tmp_path / "jobs",
+        task_dirs={task.instance_id: tmp_path / "task"},
+        network_hosts=("auth.openai.com", "chatgpt.com"),
+    )
+
+    assert validate_agent_mode(plan.config, runtime_bound=True) == "codex"
 
 
 def test_job_plan_contains_no_credential_identity_or_secret_path(

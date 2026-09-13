@@ -108,9 +108,12 @@ def _map_agent(agent: AgentConfiguration) -> dict[str, Any]:
     effort = agent.critical_config.get("reasoning_effort")
     if effort not in {"low", "medium", "high", "xhigh"}:
         raise ValueError("Codex reasoning_effort must be explicitly registered")
+    provider = (
+        "openai" if agent.model_provider == "openai_chatgpt" else agent.model_provider
+    )
     return {
         "name": "codex",
-        "model_name": f"{agent.model_provider}/{agent.model_name}",
+        "model_name": f"{provider}/{agent.model_name}",
         "n_concurrent": 1,
         "kwargs": {
             "version": agent.agent_version,

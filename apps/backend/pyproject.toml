@@ -19,6 +19,7 @@ dependencies = [
 [project.scripts]
 agentexam-owner = "eval_platform.delivery.owner:main"
 agentexam-jobs = "eval_platform.delivery.jobs:main"
+agentexam-worker = "eval_platform.delivery.worker.runtime:main"
 
 [dependency-groups]
 dev = [
