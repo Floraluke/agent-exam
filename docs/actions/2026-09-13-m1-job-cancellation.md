@@ -2,7 +2,7 @@
 
 ## 状态
 
-In progress（首轮评审修复已实现，复审进行中）。用户已确认通俗方案；主实现、分层验证和首轮双轴评审已完成，两项规格竞态及工程规范问题已修复并复验。本任务以任务 08 关闭提交 `c8a5957` 为固定评审基准。
+Completed。用户已确认的取消方案、主实现、分层验证、两轮双轴评审及八项验收均已完成。本任务以任务 08 关闭提交 `c8a5957` 为固定评审基准；评审修复提交为 `02eb391`。
 
 ## 情况说明
 
@@ -79,7 +79,7 @@ docs/{architecture,interfaces}/                       # 当前状态机、Module
 - 默认完整后端首轮为 `1 failed, 337 passed, 66 skipped, 2 warnings`：旧上传测试按 `_run` 私有位置参数索引取 bundle 路径，新增 control 参数使索引漂移。测试改为通过公开 `execute()` 可观察的暂存目的地验证，定向 `1 passed`；完整复验为 `338 passed, 66 skipped, 2 warnings in 32.82s`。66 项是未启用的外部 PG/MinIO/Docker/Harbor/Fork 门控；任务 09 的 PG 已由专属脚本覆盖。
 - 权威 `ARCHITECTURE.md`、`DATA_MODEL.md`、`MODULE_CONTRACTS.md`、`HTTP_API.md` 和 `HARBOR_EXECUTION.md` 已按现场同步取消状态、审计/幂等字段、Repository/Observer Interface、Harbor ready/permit/stop 协议及固定 revision 私有绑定风险；过期租约恢复仍明确留给任务 10。由于这些文件含此前未提交增量，终审必须读取整个现场，最终提交也只暂存可明确归属任务 09 的补丁。
 - 最终静态复核中，mypy 对 130 个源码文件通过、Web typecheck 通过、动态源码无超过 200 行；Ruff 首次发现浏览器合成服务 1 处导入排序和 7 个任务文件未格式化，机械修正后 `ruff check src tests` 与 `ruff format --check src tests` 均通过（221 文件已格式化）。旧“取消未落地/取消路由未注册”文字检索无命中。目录检查发现 `tests/jobs` 因新增取消主测试达到 9 个直接文件，已把该文件移入既有 `tests/jobs/cancellation/` 并改为唯一 basename，使父目录恢复为 8 个；移动后回归待执行。
-- 尚未完成：Standards 最终确认、任务单八项验收回填与范围清晰的收尾提交。
+- 收尾状态：Spec 与 Standards 最终复审均 PASS；任务单八项验收已回填。评审修复已提交为 `02eb391`，本行动记录和任务单的关闭事实由后续文档提交保存。
 - 首轮双轴评审已完成但未通过。Spec 发现两项 P1：执行态取消在 Job 收束后以同键重放会错误返回当前 `CANCELED`，而非首次 `CANCEL_REQUESTED`；取消若在结果对账首次状态采样后提交，未启动 Run 可能被结果缺失分支写成 `FAILED`。Standards 发现恢复文档/接口页头仍是旧快照、3 个 Python 文件超过 200 行，并指出用户取消与 Worker 停止的持久化更新重复；两个单文件子目录属于父目录 8 文件上限下的必要分层，须补充设计理由而非扁平化。
 - 评审修复采用测试先行：新增“执行态首次受理状态在最终收束后仍原样重放”和“结果对账采样后取消仍只取消未启动 Run”两条红灯；随后让 Repository 原子区分失败与协作式停止，统一未启动 Run 取消写入，并把 Harbor control 配置下沉到既有生命周期模块。修复后重新执行全部分层验证和 Standards/Spec 复审。
 - 两条新增回归首次运行均失败：重放得到 `CANCELED` 而非 `CANCEL_REQUESTED`，竞争窗口中的 Run 全部变为 `FAILED`；修复后定向复验为 `4 passed, 2 warnings`。生产 Repository 由第一条取消事件恢复首次受理状态；结果缺失事务在行锁内观察 `CANCEL_REQUESTED` 时复用统一的未启动 Run 取消写入，应用层按真实落盘状态区分失败与停止。
@@ -94,4 +94,5 @@ docs/{architecture,interfaces}/                       # 当前状态机、Module
 - 恢复验证与文档同步后额度为已用 99%、剩余约 1%；先保存本地重要节点，再兑换已授权的一张重置。
 - 已提交实现检查点 `d0cf278`（`feat: add cooperative job cancellation`）。该提交不是任务 09 验收完成点；其后只修正了 PostgreSQL 竞争测试契约和测试文件末尾空行，并更新本记录。
 - 恢复时先核对 `git status/log/diff` 与额度，不 pull/reset/push；继续保留未暂存的混合旧文档、缓存与 framework/runtime。
-- 首轮评审修复、真实 PostgreSQL/MinIO、Web build/浏览器和权威文档同步已完成；当前正在以 `c8a5957` 为固定基准执行 Standards/Spec 复审。复审通过后再跑最终完整计数、回填任务单与行动状态并做范围清晰的本地提交；任务 09 全部完成前不进入任务 10。
+- 以 `c8a5957` 为固定基准的 Spec 复审与 Standards 最终复审均 PASS。Standards 最后一轮只要求移除本记录的一处过期“尚未完成”描述，修正后定点确认通过，未发现新的高置信问题。
+- 任务 09 已完成并停止在清晰提交边界；下一步按用户已授权的顺序进入任务 10，另建同任务唯一行动记录。
