@@ -160,19 +160,34 @@ def _insert_artifact(connection: Connection, item: RunArtifact, now: datetime) -
         raise JobUnavailable
     connection.execute(
         "INSERT INTO artifact_records (artifact_id,run_id,artifact_type,object_key,"
-        "sha256,size_bytes,content_type,retention_class,redaction_status,truncated,"
-        "created_at) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+        "original_filename,sha256,size_bytes,original_size_bytes,content_type,"
+        "retention_class,expires_at,redaction_status,truncated,created_at) "
+        "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
         (
             item.artifact_id,
             item.run_id,
             reference.artifact_type,
             reference.object_key,
+            reference.original_filename or _filename(reference.artifact_type),
             reference.sha256,
             reference.size_bytes,
+            reference.original_size_bytes or reference.size_bytes,
             reference.content_type,
             reference.retention_class,
+            reference.expires_at,
             item.redaction_status,
             reference.truncated,
             reference.created_at or now,
         ),
     )
+
+
+def _filename(kind: str) -> str:
+    return {
+        "agent_patch": "agent.patch",
+        "harness_report": "harness-report.json",
+        "harness_summary": "harness-summary.json",
+        "harness_test_output": "test-output.txt",
+        "public_test_summary": "test-summary.json",
+        "public_trajectory": "trajectory.jsonl",
+    }.get(kind, "artifact.bin")

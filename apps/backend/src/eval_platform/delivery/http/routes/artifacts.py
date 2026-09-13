@@ -1,7 +1,6 @@
 """Authorized public-evidence delivery; MinIO identities never cross this boundary."""
 
 from datetime import datetime
-from typing import Literal, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Query, Request, Response
@@ -9,51 +8,13 @@ from pydantic import BaseModel
 
 from eval_platform.application.identity import IdentityService
 from eval_platform.application.reporting import JobReporting
-from eval_platform.application.reporting.evidence import ArtifactPage, TrajectoryPage
+from eval_platform.application.reporting.evidence import TrajectoryPage
 from eval_platform.delivery.http.config import HttpConfig
+from eval_platform.delivery.http.routes.artifact_schemas import (
+    ArtifactPageResponse,
+    ArtifactType,
+)
 from eval_platform.delivery.http.schemas import error_responses
-from eval_platform.domain.jobs.execution import RunArtifact
-
-PublicArtifactType = Literal["agent_patch", "public_test_summary", "public_trajectory"]
-
-
-class ArtifactItemResponse(BaseModel):
-    artifact_id: str
-    artifact_type: PublicArtifactType
-    content_type: str
-    size_bytes: int
-    sha256: str
-    created_at: datetime | None
-    redaction_status: Literal["not_required", "redacted"]
-    warnings: list[str]
-
-    @classmethod
-    def from_record(cls, item: RunArtifact) -> "ArtifactItemResponse":
-        reference = item.reference
-        return cls(
-            artifact_id=item.artifact_id,
-            artifact_type=cast(PublicArtifactType, reference.artifact_type),
-            content_type=reference.content_type,
-            size_bytes=reference.size_bytes,
-            sha256=reference.sha256,
-            created_at=reference.created_at,
-            redaction_status=cast(
-                Literal["not_required", "redacted"], item.redaction_status
-            ),
-            warnings=list(reference.warnings),
-        )
-
-
-class ArtifactPageResponse(BaseModel):
-    items: list[ArtifactItemResponse]
-    next_cursor: str | None
-
-    @classmethod
-    def from_record(cls, page: ArtifactPage) -> "ArtifactPageResponse":
-        return cls(
-            items=[ArtifactItemResponse.from_record(item) for item in page.items],
-            next_cursor=page.next_cursor,
-        )
 
 
 class TrajectoryEventResponse(BaseModel):
@@ -95,7 +56,7 @@ def artifact_router(
     def artifacts(
         run_id: UUID,
         request: Request,
-        artifact_type: PublicArtifactType | None = None,
+        artifact_type: ArtifactType | None = None,
         cursor: UUID | None = None,
         limit: int = Query(100, ge=1, le=100),
     ) -> ArtifactPageResponse:

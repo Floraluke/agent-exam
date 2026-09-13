@@ -22,20 +22,30 @@ CREATE TABLE artifact_records (
     artifact_type text NOT NULL CHECK (artifact_type IN (
         'task_source_snapshot', 'agent_patch', 'harness_report',
         'harness_summary', 'harness_test_output', 'public_test_summary',
-        'public_trajectory'
+        'public_trajectory', 'harbor_trial_config', 'harbor_trial_result',
+        'agent_trajectory', 'harness_report_raw', 'harness_summary_raw',
+        'harness_test_output_raw', 'harness_log_raw'
     )),
     object_key text NOT NULL UNIQUE CHECK (length(object_key) > 0),
+    original_filename varchar(128) NOT NULL CHECK (
+        original_filename ~ '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$'
+    ),
     sha256 char(64) NOT NULL CHECK (sha256 ~ '^[0-9a-f]{64}$'),
     size_bytes bigint NOT NULL CHECK (size_bytes >= 0 AND size_bytes <= 52428800),
+    original_size_bytes bigint NOT NULL CHECK (original_size_bytes >= size_bytes),
     content_type text NOT NULL CHECK (
         content_type IN (
             'application/json', 'application/x-ndjson', 'text/plain', 'text/x-diff'
         )
     ),
-    retention_class text NOT NULL CHECK (retention_class = 'long_term'),
+    retention_class text NOT NULL CHECK (retention_class IN ('long_term', 'raw_30d')),
+    expires_at timestamptz,
     redaction_status text NOT NULL DEFAULT 'not_required'
-        CHECK (redaction_status IN ('not_required', 'redacted')),
-    truncated boolean NOT NULL DEFAULT false CHECK (NOT truncated),
+        CHECK (redaction_status IN ('not_required', 'redacted', 'blocked')),
+    truncated boolean NOT NULL DEFAULT false,
+    deleted_at timestamptz,
+    deleted_by uuid REFERENCES accounts(user_id),
+    deletion_reason varchar(128),
     created_at timestamptz NOT NULL,
     CHECK (num_nonnulls(task_id, run_id) = 1),
     CHECK (
@@ -47,6 +57,31 @@ CREATE TABLE artifact_records (
     ),
     CHECK (artifact_type <> 'agent_patch' OR
         (content_type = 'text/x-diff' AND size_bytes <= 1048576)),
+    CHECK (
+        (retention_class = 'long_term' AND expires_at IS NULL AND NOT truncated
+            AND original_size_bytes = size_bytes)
+        OR
+        (retention_class = 'raw_30d' AND expires_at IS NOT NULL
+            AND expires_at > created_at
+            AND truncated = (original_size_bytes > size_bytes))
+    ),
+    CHECK (num_nonnulls(deleted_at, deleted_by, deletion_reason) IN (0, 3)),
+    CHECK (deleted_at IS NULL OR
+        (retention_class = 'raw_30d' AND deleted_at >= expires_at)),
+    CHECK (
+        (retention_class = 'raw_30d' AND redaction_status = 'blocked'
+            AND artifact_type IN (
+                'harbor_trial_config', 'harbor_trial_result', 'agent_trajectory',
+                'harness_report_raw', 'harness_summary_raw',
+                'harness_test_output_raw', 'harness_log_raw'
+            ))
+        OR
+        (retention_class = 'long_term' AND artifact_type NOT IN (
+            'harbor_trial_config', 'harbor_trial_result', 'agent_trajectory',
+            'harness_report_raw', 'harness_summary_raw',
+            'harness_test_output_raw', 'harness_log_raw'
+        ))
+    ),
     UNIQUE (task_id, artifact_id, sha256)
 );
 

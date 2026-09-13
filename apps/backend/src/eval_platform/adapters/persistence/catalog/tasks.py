@@ -108,15 +108,18 @@ class PostgresTaskRepository:
             source = record.source
             connection.execute(
                 "INSERT INTO artifact_records "
-                "(artifact_id,task_id,artifact_type,object_key,sha256,size_bytes,"
-                "content_type,retention_class,created_at) "
-                "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                "(artifact_id,task_id,artifact_type,object_key,original_filename,"
+                "sha256,size_bytes,original_size_bytes,content_type,"
+                "retention_class,created_at) "
+                "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
                 (
                     record.artifact_id,
                     record.task_id,
                     source.artifact_type,
                     source.object_key,
+                    "task.json",
                     source.sha256,
+                    source.size_bytes,
                     source.size_bytes,
                     source.content_type,
                     source.retention_class,

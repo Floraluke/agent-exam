@@ -144,3 +144,5 @@ CREATE INDEX evaluation_jobs_scope ON evaluation_jobs(created_by, job_id);
 CREATE INDEX evaluation_jobs_queue ON evaluation_jobs(status, created_at, job_id);
 CREATE INDEX evaluation_runs_job ON evaluation_runs(job_id, run_id);
 CREATE INDEX artifact_records_run ON artifact_records(run_id, artifact_type, created_at);
+CREATE INDEX artifact_records_expiry ON artifact_records(expires_at, artifact_id)
+    WHERE retention_class = 'raw_30d' AND deleted_at IS NULL;

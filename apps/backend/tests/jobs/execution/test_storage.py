@@ -1,8 +1,10 @@
+from datetime import UTC, datetime, timedelta
 from hashlib import sha256
 from io import BytesIO
 from uuid import uuid4
 
 import pytest
+from botocore.exceptions import ClientError
 from botocore.response import StreamingBody
 
 from eval_platform.adapters.artifacts.minio import MinioArtifactStore
@@ -49,6 +51,20 @@ class FakeS3:
             "Body": StreamingBody(BytesIO(content), len(content)),
             "ContentLength": len(content),
         }
+
+    def head_object(self, **values):
+        try:
+            content = self.objects[values["Key"]]
+        except KeyError:
+            error = {
+                "Error": {"Code": "NoSuchKey"},
+                "ResponseMetadata": {"HTTPStatusCode": 404},
+            }
+            raise ClientError(error, "HeadObject") from None
+        return {"ContentLength": len(content)}
+
+    def delete_object(self, **values):
+        self.objects.pop(values["Key"], None)
 
 
 class ShortReadS3(FakeS3):
@@ -98,6 +114,35 @@ def test_minio_rejects_a_truncated_public_trajectory():
     client.objects[reference.object_key] = content
     with pytest.raises(ArtifactUnavailable):
         MinioArtifactStore(client, "synthetic-bucket").read_verified(reference)
+
+
+def test_minio_deletes_only_a_live_byte_verified_raw_object():
+    body = b'{"raw":true}'
+    run_id, digest = str(uuid4()), sha256(body).hexdigest()
+    created = datetime(2026, 9, 13, tzinfo=UTC)
+    reference = ArtifactRef(
+        f"runs/{run_id}/agent_trajectory/{digest}",
+        "agent_trajectory",
+        len(body),
+        digest,
+        "application/json",
+        "raw_30d",
+        created_at=created,
+        original_filename="trajectory.json",
+        original_size_bytes=len(body),
+        expires_at=created + timedelta(days=30),
+    )
+    client = FakeS3()
+    client.objects[reference.object_key] = b'{"bad":true}'
+    store = MinioArtifactStore(client, "synthetic-bucket")
+
+    with pytest.raises(ArtifactUnavailable):
+        store.delete_verified(reference)
+    assert reference.object_key in client.objects
+
+    client.objects[reference.object_key] = body
+    assert store.delete_verified(reference) is True
+    assert store.delete_verified(reference) is False
 
 
 @pytest.mark.integration

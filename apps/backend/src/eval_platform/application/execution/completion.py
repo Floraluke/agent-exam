@@ -61,11 +61,29 @@ class CompletionFactory:
             run.agent.agent_type,
             trajectory_time,
         )
+        raw_sources = tuple(
+            item
+            for item in (
+                trial.raw_config_ref,
+                trial.raw_result_ref,
+                trial.trajectory_ref,
+                result.report_ref,
+                *result.log_refs,
+            )
+            if item is not None
+        )
+        raw, raw_warnings = self.evidence.publish_raw(
+            run.run_id,
+            raw_sources,
+            self.job.limit_snapshot.raw_artifact_max_bytes,
+            self.job.limit_snapshot.raw_run_max_bytes,
+        )
         references = (
             patch_ref,
             *self.evidence.publish_evaluation(run.run_id, result),
             public_summary,
             *((public_trajectory,) if public_trajectory is not None else ()),
+            *raw,
         )
         verified = tuple(self._artifact(run.run_id, item) for item in references)
         report = next(
@@ -102,7 +120,7 @@ class CompletionFactory:
             metrics,
             trial.backend_job_ref,
             trial.backend_trial_ref,
-            trial.warnings,
+            tuple(dict.fromkeys((*trial.warnings, *raw_warnings))),
             now,
         )
 
@@ -114,6 +132,9 @@ class CompletionFactory:
         redaction = (
             "redacted"
             if reference.artifact_type in {"public_test_summary", "public_trajectory"}
+            else "blocked"
+            if reference.artifact_type
+            not in {"agent_patch", "public_test_summary", "public_trajectory"}
             else "not_required"
         )
         return RunArtifact(str(uuid4()), run_id, reference, redaction)

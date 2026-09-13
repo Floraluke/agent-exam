@@ -19,12 +19,13 @@ from jobs.execution.support.memory_state import (
 from jobs.execution.support.memory_state import (
     lease as make_lease,
 )
+from jobs.execution.support.retention import MemoryRetention
 from jobs.memory import MemoryJobs
 
 _ACTIVE = {"PREPARING", "EXECUTING", "FINALIZING"}
 
 
-class ExecutableMemoryJobs(MemoryJobs):
+class ExecutableMemoryJobs(MemoryJobs, MemoryRetention):
     def __init__(self, *records):
         super().__init__()
         self.records.update((record.job_id, record) for record in records)

@@ -1,6 +1,7 @@
 """Normalize trusted adapter outputs into durable, public-safe run evidence."""
 
 import json
+from collections.abc import Callable, Iterable
 from datetime import UTC, datetime
 from hashlib import sha256
 
@@ -9,15 +10,39 @@ from eval_platform.application.execution.public_evidence import (
     normalize_trajectory,
     validate_public_text,
 )
+from eval_platform.application.execution.raw_evidence import publish_raw
 from eval_platform.application.ports.artifacts import ArtifactReader, ArtifactStore
 from eval_platform.domain.catalog import ArtifactUnavailable
 from eval_platform.domain.result import ArtifactRef, DeterministicResult
 
 
 class EvidencePublication:
-    def __init__(self, source: ArtifactReader, destination: ArtifactStore) -> None:
+    def __init__(
+        self,
+        source: ArtifactReader,
+        destination: ArtifactStore,
+        clock: Callable[[], datetime] = lambda: datetime.now(UTC),
+    ) -> None:
         self.source = source
         self.destination = destination
+        self.clock = clock
+
+    def publish_raw(
+        self,
+        run_id: str,
+        sources: Iterable[ArtifactRef],
+        artifact_limit: int,
+        run_limit: int,
+    ) -> tuple[tuple[ArtifactRef, ...], tuple[str, ...]]:
+        return publish_raw(
+            self.source,
+            self.destination,
+            self.clock,
+            run_id,
+            sources,
+            artifact_limit,
+            run_limit,
+        )
 
     def prepare_patch(
         self, run_id: str, reference: ArtifactRef
@@ -108,7 +133,7 @@ class EvidencePublication:
             digest,
             content_type,
             "long_term",
-            created_at=datetime.now(UTC),
+            created_at=self.clock(),
         )
         self.persist(reference, content)
         return reference

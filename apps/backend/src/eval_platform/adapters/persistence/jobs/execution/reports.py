@@ -54,6 +54,15 @@ def read_run_report(connection: Connection, run_id: str) -> RunReport:
         result,
         _metrics(metrics_row["process_metrics"]),
         tuple(_artifact(item, metrics_row["warnings"]) for item in artifact_rows),
+        tuple(
+            item
+            for item in (
+                metrics_row["warnings"]
+                if isinstance(metrics_row["warnings"], list)
+                else []
+            )
+            if isinstance(item, str)
+        ),
     )
 
 
@@ -119,8 +128,14 @@ def _artifact(row: dict[str, Any], warnings: object) -> RunArtifact:
         row["content_type"],
         row["retention_class"],
         row["truncated"],
+        row["deleted_at"],
         created_at=row["created_at"],
         warnings=patch_warnings,
+        original_filename=row["original_filename"],
+        original_size_bytes=row["original_size_bytes"],
+        expires_at=row["expires_at"],
+        deleted_by=None if row["deleted_by"] is None else str(row["deleted_by"]),
+        deletion_reason=row["deletion_reason"],
     )
     return RunArtifact(
         str(row["artifact_id"]),

@@ -135,7 +135,8 @@ class JobReporting:
                 or not item.reference.object_key.startswith(prefix)
             ):
                 raise ArtifactUnavailable
-            self.artifact_reader.read_verified(item.reference)
+            if item.reference.deleted_at is None:
+                self.artifact_reader.read_verified(item.reference)
 
     @staticmethod
     def _authorize(actor: AuthenticatedActor, created_by: str) -> None:

@@ -4,14 +4,9 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from eval_platform.delivery.http.routes.artifact_schemas import ArtifactItemResponse
 from eval_platform.domain.jobs.execution import RunReport
 from eval_platform.domain.jobs.models import RunStatus
-
-ArtifactType = Literal[
-    "agent_patch",
-    "public_test_summary",
-    "public_trajectory",
-]
 
 
 class RunIdentityResponse(BaseModel):
@@ -27,6 +22,7 @@ class RunIdentityResponse(BaseModel):
     failure_summary: str | None
     started_at: datetime | None
     finished_at: datetime | None
+    warnings: list[str]
 
 
 class DeterministicResultResponse(BaseModel):
@@ -56,16 +52,6 @@ class ProcessMetricsResponse(BaseModel):
     resources: ResourceResponse
 
 
-class ArtifactLinkResponse(BaseModel):
-    artifact_id: str
-    artifact_type: ArtifactType
-    sha256: str
-    size_bytes: int
-    content_type: str
-    redaction_status: Literal["not_required", "redacted"]
-    warnings: list[str]
-
-
 class RunReportResponse(BaseModel):
     run: RunIdentityResponse
     deterministic_result: DeterministicResultResponse | None
@@ -74,7 +60,7 @@ class RunReportResponse(BaseModel):
     human_review: None = None
     quality_tiebreak: None = None
     review_status: Literal["NOT_REQUIRED"] = "NOT_REQUIRED"
-    artifact_links: list[ArtifactLinkResponse]
+    artifact_links: list[ArtifactItemResponse]
 
     @classmethod
     def from_record(cls, report: RunReport) -> "RunReportResponse":
@@ -94,6 +80,7 @@ class RunReportResponse(BaseModel):
                 failure_summary=run.failure_summary,
                 started_at=run.started_at,
                 finished_at=run.finished_at,
+                warnings=list(report.warnings),
             ),
             deterministic_result=(
                 None
@@ -109,19 +96,6 @@ class RunReportResponse(BaseModel):
                 asdict(report.process_metrics)
             ),
             artifact_links=[
-                ArtifactLinkResponse.model_validate(
-                    {
-                        "artifact_id": item.artifact_id,
-                        "artifact_type": item.reference.artifact_type,
-                        "sha256": item.reference.sha256,
-                        "size_bytes": item.reference.size_bytes,
-                        "content_type": item.reference.content_type,
-                        "redaction_status": item.redaction_status,
-                        "warnings": list(item.reference.warnings),
-                    }
-                )
-                for item in report.artifacts
-                if item.reference.artifact_type
-                in {"agent_patch", "public_test_summary", "public_trajectory"}
+                ArtifactItemResponse.from_record(item) for item in report.artifacts
             ],
         )

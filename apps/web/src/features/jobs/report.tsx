@@ -25,6 +25,8 @@ export default function RunReportView({ report }: { report: RunReport }) {
       {shown(resources.cpu_time_sec, " 秒")}；峰值内存
       {shown(resources.peak_memory_bytes, " 字节")}</p>
     <p>Judge 分析：未启用（0）；人工复核：无；质量决胜：无；复核状态：无需复核</p>
+    {report.run.warnings.includes("RAW_ARTIFACT_RUN_LIMIT_EXCEEDED") &&
+      <p role="alert">单 Run 原始制品达到 200 MiB 上限；超出制品已明确拒绝。</p>}
     <EvidenceView runId={report.run.run_id} artifacts={report.artifact_links} />
   </section>;
 }

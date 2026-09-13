@@ -50,6 +50,7 @@ def complete(repository, lease, completion):
             result,
             completion.process_metrics,
             completion.artifacts,
+            completion.warnings,
         )
         return make_lease(job, run)
 

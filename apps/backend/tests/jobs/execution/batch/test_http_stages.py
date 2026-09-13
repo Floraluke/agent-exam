@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 
 from identity.conftest import WRITE_HEADERS
-from jobs.execution.support.fakes import Backend, Evaluator, artifact
+from jobs.execution.support import fakes
 from jobs.test_http import submission, submit
 from jobs.test_security import invite
 
@@ -61,7 +61,7 @@ def test_http_report_exposes_each_persisted_batch_stage(internal_reports_api):
         "harbor-stage-job",
         "harbor-stage-trial",
         TerminationReason.COMPLETED,
-        artifact(
+        fakes.artifact(
             jobs_api.run_artifacts,
             run_id,
             "agent_patch",
@@ -145,8 +145,8 @@ def test_evidence_http_is_authorized_paginated_and_fail_closed(internal_reports_
     executor = JobExecutor(
         api.repository,
         api.run_artifacts,
-        Backend(api.run_artifacts, b"diff --git a/a b/a\n"),
-        Evaluator(api.run_artifacts),
+        fakes.Backend(api.run_artifacts, b"diff --git a/a b/a\n"),
+        fakes.Evaluator(api.run_artifacts),
         api.jobs.tasks.source,
         lambda: now,
     )
@@ -163,11 +163,7 @@ def test_evidence_http_is_authorized_paginated_and_fail_closed(internal_reports_
         f"/api/v1/runs/{run_id}/artifacts?cursor={first['next_cursor']}"
     ).json()
     public = [*first["items"], *second["items"]]
-    assert {item["artifact_type"] for item in public} == {
-        "agent_patch",
-        "public_test_summary",
-        "public_trajectory",
-    }
+    assert {item["artifact_type"] for item in public} == fakes.DEFAULT_ARTIFACT_TYPES
     trajectory = api.client.get(f"/api/v1/runs/{run_id}/trajectory?limit=1").json()
     assert trajectory["items"][0]["sequence"] == 1
     assert trajectory["items"][0]["payload"] == {}

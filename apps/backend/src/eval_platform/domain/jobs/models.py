@@ -70,6 +70,10 @@ class EvidenceNotReady(JobError):
     pass
 
 
+class EvidenceDeleted(JobError):
+    pass
+
+
 class JobNotFound(JobError):
     pass
 

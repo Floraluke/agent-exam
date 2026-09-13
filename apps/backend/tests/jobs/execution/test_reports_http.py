@@ -5,7 +5,7 @@ from identity.conftest import WRITE_HEADERS
 
 from eval_platform.application.execute_job import JobExecutor
 from eval_platform.delivery.worker.main import WorkerShell
-from jobs.execution.support.fakes import Backend, Evaluator, FailingEvaluator
+from jobs.execution.support import fakes
 from jobs.test_http import submission, submit
 from jobs.test_security import invite
 
@@ -26,8 +26,10 @@ def test_http_submission_approval_worker_and_layered_reports(internal_reports_ap
     )
     assert approved.status_code == 200
     artifacts = jobs_api.run_artifacts
-    backend = Backend(artifacts, b"diff --git a/a.py b/a.py\n--- a/a.py\n+++ b/a.py\n")
-    evaluator = Evaluator(artifacts)
+    backend = fakes.Backend(
+        artifacts, b"diff --git a/a.py b/a.py\n--- a/a.py\n+++ b/a.py\n"
+    )
+    evaluator = fakes.Evaluator(artifacts)
     now = datetime(2026, 9, 12, 12, 0, tzinfo=UTC)
     executor = JobExecutor(
         jobs_api.repository,
@@ -52,11 +54,9 @@ def test_http_submission_approval_worker_and_layered_reports(internal_reports_ap
     assert body["human_review"] is None
     assert body["quality_tiebreak"] is None
     assert body["review_status"] == "NOT_REQUIRED"
-    assert {item["artifact_type"] for item in body["artifact_links"]} == {
-        "agent_patch",
-        "public_test_summary",
-        "public_trajectory",
-    }
+    assert {
+        item["artifact_type"] for item in body["artifact_links"]
+    } == fakes.DEFAULT_ARTIFACT_TYPES
     assert all("object_key" not in item for item in body["artifact_links"])
     report_schema = jobs_api.client.get("/openapi.json").json()["components"][
         "schemas"
@@ -115,8 +115,8 @@ def test_batch_report_exposes_safe_identity_stage_and_partial_matrix(
     executor = JobExecutor(
         jobs_api.repository,
         artifacts,
-        Backend(artifacts, b"diff --git a/a b/a\n"),
-        FailingEvaluator(artifacts, {failed}),
+        fakes.Backend(artifacts, b"diff --git a/a b/a\n"),
+        fakes.FailingEvaluator(artifacts, {failed}),
         jobs_api.jobs.tasks.source,
         lambda: now,
     )
@@ -181,8 +181,8 @@ def test_run_report_uses_the_same_owner_or_creator_scope(internal_reports_api):
     executor = JobExecutor(
         jobs_api.repository,
         artifacts,
-        Backend(artifacts, b"diff --git a/a b/a\n"),
-        Evaluator(artifacts),
+        fakes.Backend(artifacts, b"diff --git a/a b/a\n"),
+        fakes.Evaluator(artifacts),
         jobs_api.jobs.tasks.source,
         lambda: now,
     )

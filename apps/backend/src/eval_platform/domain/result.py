@@ -6,6 +6,7 @@ from datetime import datetime
 from enum import StrEnum
 
 _SAFE_BACKEND_REF = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}")
+_SAFE_FILENAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}")
 
 
 class TerminationReason(StrEnum):
@@ -34,6 +35,11 @@ class ArtifactRef:
     deleted_at: datetime | None = None
     created_at: datetime | None = None
     warnings: tuple[str, ...] = ()
+    original_filename: str | None = None
+    original_size_bytes: int | None = None
+    expires_at: datetime | None = None
+    deleted_by: str | None = None
+    deletion_reason: str | None = None
 
     def __post_init__(self) -> None:
         if not self.object_key or not self.artifact_type:
@@ -44,6 +50,34 @@ class ArtifactRef:
             char not in "0123456789abcdef" for char in self.sha256
         ):
             raise ValueError("Artifact SHA-256 must be lowercase hexadecimal")
+        original = self.original_size_bytes
+        if original is not None and original < self.size_bytes:
+            raise ValueError("Artifact original size must cover retained content")
+        if (
+            self.original_filename is not None
+            and _SAFE_FILENAME.fullmatch(self.original_filename) is None
+        ):
+            raise ValueError("Artifact filename must not contain a path")
+        if self.truncated and (original is None or original == self.size_bytes):
+            raise ValueError("Truncated artifact must record a larger original size")
+        audit = (self.deleted_at, self.deleted_by, self.deletion_reason)
+        if any(item is None for item in audit) and any(
+            item is not None for item in audit
+        ):
+            raise ValueError("Artifact deletion audit must be complete")
+        if self.deleted_at is not None and self.retention_class != "raw_30d":
+            raise ValueError("Only expiring raw artifacts can be deleted")
+        if self.retention_class == "raw_30d":
+            if (
+                self.created_at is None
+                or self.expires_at is None
+                or original is None
+                or self.original_filename is None
+                or self.expires_at <= self.created_at
+                or self.truncated != (original > self.size_bytes)
+                or (self.deleted_at is not None and self.deleted_at < self.expires_at)
+            ):
+                raise ValueError("Raw artifact retention identity is invalid")
 
 
 @dataclass(frozen=True, slots=True)

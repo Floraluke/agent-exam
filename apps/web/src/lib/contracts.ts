@@ -14,6 +14,7 @@ export type ApiErrorCode =
   | "IDEMPOTENCY_CONFLICT" | "IDEMPOTENCY_KEY_INVALID" | "JOB_NOT_FOUND"
   | "OWNER_APPROVAL_REQUIRED" | "JOB_STATE_CONFLICT"
   | "ARTIFACT_NOT_FOUND" | "ARTIFACT_NOT_READY"
+  | "ARTIFACT_DELETED"
   | "EMPTY_JOB_SELECTION" | "BATCH_PRESET_EXCEEDED"
   | "LIMIT_PROFILE_NOT_ALLOWED" | "EVALUATION_TRACK_NOT_ENABLED";
 
@@ -68,10 +69,18 @@ export const RUN_STATUSES = [
 export type RunStatus = typeof RUN_STATUSES[number];
 export const ARTIFACT_TYPES = [
   "agent_patch", "public_test_summary", "public_trajectory",
+  "harness_report", "harness_summary", "harness_test_output",
+  "harbor_trial_config", "harbor_trial_result", "agent_trajectory",
+  "harness_report_raw", "harness_summary_raw", "harness_test_output_raw",
+  "harness_log_raw",
 ] as const;
 export type ArtifactType = typeof ARTIFACT_TYPES[number];
-export const REDACTION_STATUSES = ["not_required", "redacted"] as const;
+export const REDACTION_STATUSES = ["not_required", "redacted", "blocked"] as const;
 export type RedactionStatus = typeof REDACTION_STATUSES[number];
+export const RETENTION_CLASSES = ["long_term", "raw_30d"] as const;
+export type RetentionClass = typeof RETENTION_CLASSES[number];
+export const CONTENT_STATUSES = ["available", "not_ready", "deleted"] as const;
+export type ContentStatus = typeof CONTENT_STATUSES[number];
 export type JobSummary = {
   job_id: string; status: JobStatus;
   evaluation_track: "closed_book"; result_scope: "official" | "internal_test";
@@ -126,6 +135,7 @@ export type RunReport = {
     backend_job_ref: string | null; backend_trial_ref: string | null;
     failure_code: string | null; failure_summary: string | null;
     started_at: string | null; finished_at: string | null;
+    warnings: string[];
   };
   deterministic_result: null | {
     patch_exists: boolean; patch_successfully_applied: boolean; resolved: boolean;
@@ -148,7 +158,12 @@ export type RunReport = {
     artifact_id: string;
     artifact_type: ArtifactType;
     sha256: string; size_bytes: number; content_type: string;
+    created_at: string | null;
     redaction_status: RedactionStatus; warnings: string[];
+    retention_class: RetentionClass; original_size_bytes: number;
+    truncated: boolean; expires_at: string | null; deleted_at: string | null;
+    deleted_by: string | null; deletion_reason: string | null;
+    content_status: ContentStatus;
   }>;
 };
 

@@ -28,6 +28,7 @@ from eval_platform.delivery.http.app import create_app
 from eval_platform.delivery.http.config import HttpConfig
 from eval_platform.delivery.job_presets import submission_policy
 from eval_platform.domain.agent import AgentConfiguration
+from jobs.execution.conftest import job_minio_sandbox  # noqa: F401
 from jobs.execution.support.fakes import MemoryArtifacts as RunArtifacts
 from jobs.execution.support.memory import ExecutableMemoryJobs
 

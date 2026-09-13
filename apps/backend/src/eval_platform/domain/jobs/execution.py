@@ -95,6 +95,7 @@ class RunReport:
     deterministic_result: StoredDeterministicResult | None
     process_metrics: ProcessMetrics
     artifacts: tuple[RunArtifact, ...]
+    warnings: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

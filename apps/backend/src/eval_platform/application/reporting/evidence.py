@@ -7,10 +7,29 @@ from datetime import datetime
 from eval_platform.application.execution.public_evidence import validate_public_text
 from eval_platform.domain.catalog import ArtifactUnavailable
 from eval_platform.domain.jobs.execution import RunArtifact, RunReport
-from eval_platform.domain.jobs.models import EvidenceNotFound, EvidenceNotReady
+from eval_platform.domain.jobs.models import (
+    EvidenceDeleted,
+    EvidenceNotFound,
+    EvidenceNotReady,
+)
 
 PUBLIC_ARTIFACT_TYPES = frozenset(
     {"agent_patch", "public_test_summary", "public_trajectory"}
+)
+INDEXED_ARTIFACT_TYPES = frozenset(
+    {
+        *PUBLIC_ARTIFACT_TYPES,
+        "harness_report",
+        "harness_summary",
+        "harness_test_output",
+        "harbor_trial_config",
+        "harbor_trial_result",
+        "agent_trajectory",
+        "harness_report_raw",
+        "harness_summary_raw",
+        "harness_test_output_raw",
+        "harness_log_raw",
+    }
 )
 
 
@@ -47,13 +66,13 @@ class TrajectoryPage:
 def artifact_page(
     report: RunReport, kind: str | None, cursor: str | None, limit: int
 ) -> ArtifactPage:
-    if kind is not None and kind not in PUBLIC_ARTIFACT_TYPES:
+    if kind is not None and kind not in INDEXED_ARTIFACT_TYPES:
         raise EvidenceNotReady
     items = sorted(
         (
             item
             for item in report.artifacts
-            if item.reference.artifact_type in PUBLIC_ARTIFACT_TYPES
+            if item.reference.artifact_type in INDEXED_ARTIFACT_TYPES
             and (kind is None or item.reference.artifact_type == kind)
             and (cursor is None or item.artifact_id > cursor)
         ),
@@ -69,6 +88,8 @@ def artifact(report: RunReport, artifact_id: str) -> RunArtifact:
     )
     if item is None:
         raise EvidenceNotFound
+    if item.reference.deleted_at is not None:
+        raise EvidenceDeleted
     if item.reference.artifact_type not in PUBLIC_ARTIFACT_TYPES:
         raise EvidenceNotReady
     return item

@@ -1,8 +1,9 @@
 import { ApiError } from "./api-client";
-import { ARTIFACT_TYPES, REDACTION_STATUSES, RUN_STATUSES } from "./contracts";
+import { RUN_STATUSES } from "./contracts";
 import type {
   ArtifactPage, RunReport, RunStatus, TrajectoryPage,
 } from "./contracts";
+import { parseArtifact } from "./reporting/artifact-shape";
 
 function record(value: unknown): Record<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -26,6 +27,14 @@ function nullableText(value: Record<string, unknown>, key: string): string | nul
 function flag(value: Record<string, unknown>, key: string): boolean {
   if (typeof value[key] !== "boolean") throw new ApiError("UNAVAILABLE");
   return value[key];
+}
+
+function texts(value: Record<string, unknown>, key: string): string[] {
+  const item = value[key];
+  if (!Array.isArray(item) || item.some((entry) => typeof entry !== "string")) {
+    throw new ApiError("UNAVAILABLE");
+  }
+  return item;
 }
 
 function nullableNumber(value: Record<string, unknown>, key: string): number | null {
@@ -58,6 +67,7 @@ function runIdentity(value: unknown): RunReport["run"] {
     failure_summary: nullableText(item, "failure_summary"),
     started_at: nullableText(item, "started_at"),
     finished_at: nullableText(item, "finished_at"),
+    warnings: texts(item, "warnings"),
   };
 }
 
@@ -92,29 +102,6 @@ function metrics(value: unknown): RunReport["process_metrics"] {
   };
 }
 
-function artifact(value: unknown): RunReport["artifact_links"][number] {
-  const item = record(value);
-  if (!Array.isArray(item.warnings) ||
-      item.warnings.some((warning) => typeof warning !== "string") ||
-      !/^[0-9a-f]{64}$/.test(String(item.sha256)) ||
-      !ARTIFACT_TYPES.includes(
-        String(item.artifact_type) as typeof ARTIFACT_TYPES[number]
-      ) ||
-      !REDACTION_STATUSES.includes(
-        String(item.redaction_status) as typeof REDACTION_STATUSES[number]
-      )) {
-    throw new ApiError("UNAVAILABLE");
-  }
-  return {
-    artifact_id: text(item, "artifact_id"),
-    artifact_type: item.artifact_type as typeof ARTIFACT_TYPES[number],
-    sha256: text(item, "sha256"),
-    size_bytes: natural(item, "size_bytes"), content_type: text(item, "content_type"),
-    redaction_status: item.redaction_status as typeof REDACTION_STATUSES[number],
-    warnings: item.warnings,
-  };
-}
-
 export function parseRunReport(value: unknown): RunReport {
   const item = record(value);
   if (!Array.isArray(item.judge_analyses) || item.judge_analyses.length !== 0 ||
@@ -126,7 +113,7 @@ export function parseRunReport(value: unknown): RunReport {
     run: runIdentity(item.run), deterministic_result: result(item.deterministic_result),
     process_metrics: metrics(item.process_metrics), judge_analyses: [],
     human_review: null, quality_tiebreak: null, review_status: "NOT_REQUIRED",
-    artifact_links: item.artifact_links.map(artifact),
+    artifact_links: item.artifact_links.map(parseArtifact),
   };
 }
 
@@ -137,7 +124,7 @@ export function parseArtifactPage(value: unknown): ArtifactPage {
     throw new ApiError("UNAVAILABLE");
   }
   return {
-    items: item.items.map(artifact),
+    items: item.items.map(parseArtifact),
     next_cursor: item.next_cursor as string | null,
   };
 }

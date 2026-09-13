@@ -12,6 +12,7 @@ from eval_platform.domain.jobs.execution import (
     JobLease,
     JobReport,
     RecoveryRequest,
+    RunArtifact,
     RunCompletion,
     RunReport,
     TrialStart,
@@ -120,3 +121,15 @@ class JobRepository(Protocol):
     def get_artifact_report(self, artifact_id: str) -> RunReport: ...
 
     def get_job_report(self, job_id: str) -> JobReport: ...
+
+    def expired_artifacts(
+        self, now: datetime, limit: int
+    ) -> tuple[RunArtifact, ...]: ...
+
+    def mark_artifact_deleted(
+        self,
+        item: RunArtifact,
+        actor_user_id: str,
+        occurred_at: datetime,
+        reason: str,
+    ) -> None: ...

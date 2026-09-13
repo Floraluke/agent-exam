@@ -28,6 +28,7 @@ from eval_platform.application.execute_job import JobExecutor
 from eval_platform.application.identity import IdentityService
 from eval_platform.application.job_lifecycle.cancellation import JobCancellation
 from eval_platform.application.job_lifecycle.recovery import JobRecovery
+from eval_platform.application.job_lifecycle.retention import ArtifactRetention
 from eval_platform.application.job_submission import JobSubmission
 from eval_platform.application.membership import MembershipService
 from eval_platform.application.owner_approval import OwnerApproval
@@ -70,7 +71,7 @@ def browser_clock():
 repository = MemoryMembershipRepository()
 passwords = Argon2Passwords()
 service = IdentityService(repository, passwords, browser_clock)
-service.bootstrap_owner("owner", "synthetic browser password")
+browser_owner = service.bootstrap_owner("owner", "synthetic browser password")
 task_source = FixedSource(task_bundle())
 task_source.bundles["example__repo-2"] = task_bundle("example__repo-2")
 task_repository = MemoryTasks()
@@ -172,6 +173,19 @@ def interrupt_next_job():
             claimed.job, lease_expires_at=browser_clock()
         )
     return {"job_id": claimed.job.job_id}
+
+
+@app.post("/__test__/artifacts/expire-and-clean")
+def expire_and_clean_artifacts():
+    result = ArtifactRetention(job_repository, run_artifacts).cleanup(
+        browser_owner,
+        browser_clock() + timedelta(days=31),
+    )
+    return {
+        "scanned": result.scanned,
+        "deleted": result.deleted,
+        "recovered": result.recovered,
+    }
 
 
 def run_synthetic_worker() -> None:

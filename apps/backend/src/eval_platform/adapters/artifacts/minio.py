@@ -1,18 +1,18 @@
 from base64 import b64encode
 from hashlib import md5, sha256
 from typing import Any
-from uuid import UUID
 
 from botocore.exceptions import (  # type: ignore[import-untyped]
     BotoCoreError,
     ClientError,
 )
 
+from eval_platform.adapters.artifacts.bounded import read_bounded
 from eval_platform.adapters.artifacts.config import MinioConfig, create_client
+from eval_platform.adapters.artifacts.policy import validate_reference
+from eval_platform.application.ports.artifacts import VerifiedArtifactBody
 from eval_platform.domain.catalog import ArtifactUnavailable
 from eval_platform.domain.result import ArtifactRef
-
-_MAX_SNAPSHOT = 50 * 1024 * 1024
 
 
 class MinioArtifactStore:
@@ -88,46 +88,58 @@ class MinioArtifactStore:
             if stream is not None:
                 stream.close()
 
+    def read_bounded_verified(
+        self, reference: ArtifactRef, maximum: int
+    ) -> VerifiedArtifactBody:
+        self._validate(reference)
+        stream = None
+        try:
+            response = self._client().get_object(
+                Bucket=self.bucket, Key=reference.object_key
+            )
+            stream = response["Body"]
+            if response["ContentLength"] != reference.size_bytes:
+                raise ArtifactUnavailable
+            return read_bounded(stream, reference.size_bytes, reference.sha256, maximum)
+        except (ClientError, BotoCoreError, OSError, ValueError, KeyError, TypeError):
+            raise ArtifactUnavailable from None
+        finally:
+            if stream is not None:
+                stream.close()
+
+    def delete_verified(self, reference: ArtifactRef) -> bool:
+        self._validate(reference)
+        if reference.retention_class != "raw_30d":
+            raise ArtifactUnavailable
+        try:
+            self._client().head_object(Bucket=self.bucket, Key=reference.object_key)
+        except ClientError as exc:
+            if _missing(exc):
+                return False
+            raise ArtifactUnavailable from None
+        except (BotoCoreError, OSError, ValueError):
+            raise ArtifactUnavailable from None
+        self.read_verified(reference)
+        try:
+            self._client().delete_object(
+                Bucket=self.bucket,
+                Key=reference.object_key,
+            )
+            self._client().head_object(Bucket=self.bucket, Key=reference.object_key)
+        except ClientError as exc:
+            if _missing(exc):
+                return True
+            raise ArtifactUnavailable from None
+        except (BotoCoreError, OSError, ValueError):
+            raise ArtifactUnavailable from None
+        raise ArtifactUnavailable
+
     @staticmethod
     def _validate(reference: ArtifactRef) -> None:
-        task_snapshot = (
-            reference.artifact_type == "task_source_snapshot"
-            and reference.content_type == "application/json"
-            and reference.object_key.startswith("tasks/")
-        )
-        run_types = {
-            "agent_patch": ("text/x-diff", 1024 * 1024),
-            "harness_report": ("application/json", _MAX_SNAPSHOT),
-            "harness_summary": ("application/json", _MAX_SNAPSHOT),
-            "harness_test_output": ("text/plain", _MAX_SNAPSHOT),
-            "public_test_summary": ("application/json", _MAX_SNAPSHOT),
-            "public_trajectory": ("application/x-ndjson", _MAX_SNAPSHOT),
-        }
-        run_artifact = _valid_run_reference(reference, run_types)
-        if (
-            (not task_snapshot and not run_artifact)
-            or reference.retention_class != "long_term"
-            or reference.deleted_at is not None
-            or reference.truncated
-            or not 0 <= reference.size_bytes <= _MAX_SNAPSHOT
-        ):
-            raise ArtifactUnavailable
+        validate_reference(reference)
 
 
-def _valid_run_reference(
-    reference: ArtifactRef, types: dict[str, tuple[str, int]]
-) -> bool:
-    contract = types.get(reference.artifact_type)
-    parts = reference.object_key.split("/")
-    if contract is None or len(parts) != 4:
-        return False
-    try:
-        run_id = str(UUID(parts[1]))
-    except ValueError:
-        return False
-    content_type, maximum = contract
-    return (
-        parts == ["runs", run_id, reference.artifact_type, reference.sha256]
-        and reference.content_type == content_type
-        and reference.size_bytes <= maximum
-    )
+def _missing(error: ClientError) -> bool:
+    code = error.response.get("Error", {}).get("Code")
+    status = error.response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+    return status == 404 or code in {"404", "NoSuchKey", "NotFound"}

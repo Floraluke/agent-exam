@@ -41,7 +41,9 @@ class JobExecutor:
         self.evaluator = evaluator
         self.tasks = tasks
         self.clock = clock
-        self.evidence = EvidencePublication(source_artifacts or artifacts, artifacts)
+        self.evidence = EvidencePublication(
+            source_artifacts or artifacts, artifacts, clock
+        )
 
     def execute(self, claimed: ClaimedJob) -> bool:
         job = claimed.job

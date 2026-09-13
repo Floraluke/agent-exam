@@ -14,6 +14,11 @@ from eval_platform.adapters.persistence.jobs.execution import (
 from eval_platform.adapters.persistence.jobs.publication import publish
 from eval_platform.adapters.persistence.jobs.records import read_job
 from eval_platform.adapters.persistence.jobs.recovery.actions import recover
+from eval_platform.adapters.persistence.jobs.reporting.listings import list_jobs
+from eval_platform.adapters.persistence.jobs.retention import (
+    expired_artifacts,
+    mark_artifact_deleted,
+)
 from eval_platform.domain.jobs.cancellation import (
     CancellationRequest,
     CancellationResult,
@@ -24,6 +29,7 @@ from eval_platform.domain.jobs.execution import (
     JobLease,
     JobReport,
     RecoveryRequest,
+    RunArtifact,
     RunCompletion,
     RunReport,
     TrialStart,
@@ -164,6 +170,20 @@ class PostgresJobRepository:
         with job_transaction(self.dsn) as connection:
             return reports.read_artifact_report(connection, artifact_id)
 
+    def expired_artifacts(self, now: datetime, limit: int) -> tuple[RunArtifact, ...]:
+        with job_transaction(self.dsn) as connection:
+            return expired_artifacts(connection, now, limit)
+
+    def mark_artifact_deleted(
+        self,
+        item: RunArtifact,
+        actor_user_id: str,
+        occurred_at: datetime,
+        reason: str,
+    ) -> None:
+        with job_transaction(self.dsn) as connection:
+            mark_artifact_deleted(connection, item, actor_user_id, occurred_at, reason)
+
     def list(
         self,
         created_by: str | None,
@@ -171,29 +191,5 @@ class PostgresJobRepository:
         cursor: str | None,
         limit: int,
     ) -> list[EvaluationJob]:
-        if not 1 <= limit <= 101 or filters.keys() - {
-            "status",
-            "evaluation_track",
-            "result_scope",
-        }:
-            raise ValueError("Invalid repository page size")
-        conditions, values = [], []
-        if created_by is not None:
-            conditions.append("created_by=%s")
-            values.append(created_by)
-        for field, value in filters.items():
-            conditions.append(field + "=%s")
-            values.append(value)
-        if cursor is not None:
-            conditions.append("job_id>%s")
-            values.append(cursor)
-        statement = "SELECT job_id FROM evaluation_jobs"
-        if conditions:
-            statement += " WHERE " + " AND ".join(conditions)
-        statement += " ORDER BY job_id LIMIT %s"
         with job_transaction(self.dsn) as connection:
-            rows = connection.execute(statement, [*values, limit]).fetchall()
-            records = [read_job(connection, str(row["job_id"])) for row in rows]
-        if any(item is None for item in records):
-            raise JobUnavailable
-        return [item for item in records if item is not None]
+            return list_jobs(connection, created_by, filters, cursor, limit)

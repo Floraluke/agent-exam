@@ -1,7 +1,9 @@
 import json
 from hashlib import sha256
+from io import BytesIO
 from time import sleep
 
+from eval_platform.adapters.artifacts.bounded import read_bounded
 from eval_platform.application.ports.evaluator import EvaluationError
 from eval_platform.domain.catalog import ArtifactUnavailable
 from eval_platform.domain.result import (
@@ -11,6 +13,19 @@ from eval_platform.domain.result import (
     ResourceSummary,
     TerminationReason,
     UsageSummary,
+)
+
+DEFAULT_ARTIFACT_TYPES = frozenset(
+    {
+        "agent_patch",
+        "public_test_summary",
+        "public_trajectory",
+        "harness_report",
+        "harness_test_output",
+        "agent_trajectory",
+        "harness_report_raw",
+        "harness_test_output_raw",
+    }
 )
 
 
@@ -33,6 +48,22 @@ class MemoryArtifacts:
         assert len(content) == reference.size_bytes
         assert sha256(content).hexdigest() == reference.sha256
         return content
+
+    def read_bounded_verified(self, reference, maximum):
+        content = self.content.get(reference.object_key)
+        if content is None:
+            raise ArtifactUnavailable
+        return read_bounded(
+            BytesIO(content), reference.size_bytes, reference.sha256, maximum
+        )
+
+    def delete_verified(self, reference):
+        content = self.content.get(reference.object_key)
+        if content is None:
+            return False
+        self.read_verified(reference)
+        del self.content[reference.object_key]
+        return True
 
 
 def artifact(store, run_id, kind, content, content_type):

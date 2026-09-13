@@ -94,7 +94,7 @@ def test_postgres_result_transaction_restores_complete_report(postgres_sandbox):
         assert report.deterministic_result is not None
         assert report.deterministic_result.resolved is True
         assert report.process_metrics.resources.peak_memory_bytes == 4096
-        assert len(report.artifacts) == 5
+        assert len(report.artifacts) == 8
         patch_artifact = next(
             item
             for item in report.artifacts
@@ -150,8 +150,11 @@ def test_real_pg_minio_database_failure_never_publishes_partial_result(
         assert report.deterministic_result is None and report.artifacts == ()
         assert sorted(item["Key"].split("/")[2] for item in objects) == [
             "agent_patch",
+            "agent_trajectory",
             "harness_report",
+            "harness_report_raw",
             "harness_test_output",
+            "harness_test_output_raw",
             "public_test_summary",
             "public_trajectory",
         ]
