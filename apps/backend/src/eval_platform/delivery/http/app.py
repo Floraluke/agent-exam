@@ -6,6 +6,9 @@ from starlette.exceptions import HTTPException
 
 from eval_platform.adapters.identity.passwords import Argon2Passwords
 from eval_platform.adapters.persistence.identity import PostgresIdentityRepository
+from eval_platform.adapters.persistence.jobs.reporting import (
+    PostgresLeaderboardRepository,
+)
 from eval_platform.adapters.persistence.membership import PostgresMembershipRepository
 from eval_platform.application.agent_registry import AgentRegistry
 from eval_platform.application.identity import IdentityService
@@ -14,7 +17,7 @@ from eval_platform.application.job_lifecycle.recovery import JobRecovery
 from eval_platform.application.job_submission import JobSubmission
 from eval_platform.application.membership import MembershipService
 from eval_platform.application.owner_approval import OwnerApproval
-from eval_platform.application.reporting import JobReporting
+from eval_platform.application.reporting import JobReporting, LeaderboardReporting
 from eval_platform.application.task_catalog import TaskCatalog
 from eval_platform.delivery.catalog_presets import create_catalog
 from eval_platform.delivery.http.config import HttpConfig, database_url
@@ -33,6 +36,7 @@ from eval_platform.delivery.http.routes.catalog import catalog_router
 from eval_platform.delivery.http.routes.identity import identity_router
 from eval_platform.delivery.http.routes.jobs import jobs_router
 from eval_platform.delivery.http.routes.jobs.report_routes import report_router
+from eval_platform.delivery.http.routes.leaderboard import leaderboard_router
 from eval_platform.delivery.http.routes.membership import membership_router
 from eval_platform.delivery.http.security import LoginLimiter, trusted_write
 from eval_platform.delivery.jobs import create_jobs
@@ -61,6 +65,7 @@ def create_app(
     reporting: JobReporting | None = None,
     cancellations: JobCancellation | None = None,
     recovery: JobRecovery | None = None,
+    leaderboard: LeaderboardReporting | None = None,
 ) -> FastAPI:
     app = FastAPI(title="AgentExam", version="0.1.0")
     limiters = {
@@ -114,6 +119,8 @@ def create_app(
     if reporting is not None:
         app.include_router(report_router(service, reporting, config))
         app.include_router(artifact_router(service, reporting, config))
+    if leaderboard is not None:
+        app.include_router(leaderboard_router(service, leaderboard, config))
     return app
 
 
@@ -126,6 +133,7 @@ def create_runtime_app() -> FastAPI:
     tasks, agents = create_catalog(dsn)
     jobs, approvals, cancellations, recovery = create_jobs(dsn, tasks, agents)
     reporting = JobReporting(jobs.repository, tasks.artifacts)
+    leaderboard = LeaderboardReporting(PostgresLeaderboardRepository(dsn))
     return create_app(
         identity,
         config,
@@ -137,4 +145,5 @@ def create_runtime_app() -> FastAPI:
         reporting,
         cancellations,
         recovery,
+        leaderboard,
     )

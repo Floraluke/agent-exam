@@ -8,6 +8,7 @@ import MembersPanel from "./members";
 import TasksPanel from "../catalog/tasks";
 import AgentsPanel from "../catalog/agents";
 import JobsPanel from "../jobs/submit";
+import LeaderboardView from "../leaderboard/view";
 
 export default function SessionPanel() {
   const [actor, setActor] = useState<Actor | null>(null);
@@ -62,6 +63,7 @@ export default function SessionPanel() {
       <TasksPanel owner={actor.role === "owner"} />
       <AgentsPanel owner={actor.role === "owner"} />
       <JobsPanel owner={actor.role === "owner"} />
+      <LeaderboardView />
     </> : <>
       {joined && <p role="status">加入成功，请使用新账号登录。</p>}
       {joining ? <>

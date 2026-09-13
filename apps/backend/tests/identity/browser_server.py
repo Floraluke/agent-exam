@@ -19,6 +19,7 @@ from catalog.memory import (
 from jobs.execution.support.fakes import Backend, Evaluator
 from jobs.execution.support.fakes import MemoryArtifacts as RunArtifacts
 from jobs.execution.support.memory import ExecutableMemoryJobs
+from leaderboard.browser_repository import BrowserLeaderboardRepository
 from membership.memory import MemoryMembershipRepository
 
 from eval_platform.adapters.identity.passwords import Argon2Passwords
@@ -30,7 +31,7 @@ from eval_platform.application.job_lifecycle.recovery import JobRecovery
 from eval_platform.application.job_submission import JobSubmission
 from eval_platform.application.membership import MembershipService
 from eval_platform.application.owner_approval import OwnerApproval
-from eval_platform.application.reporting import JobReporting
+from eval_platform.application.reporting import JobReporting, LeaderboardReporting
 from eval_platform.application.task_catalog import TaskCatalog
 from eval_platform.delivery.http.app import create_app
 from eval_platform.delivery.http.config import HttpConfig
@@ -40,6 +41,17 @@ from eval_platform.domain.agent import AgentConfiguration
 
 if os.environ.get("AGENTEXAM_IDENTITY_BROWSER_TEST") != "1":
     raise RuntimeError("Synthetic identity server requires the browser-test gate")
+
+
+class BrowserBackend(Backend):
+    def execute(self, request, progress=None):
+        results = super().execute(request, progress)
+        return tuple(
+            replace(item, usage=replace(item.usage, n_cache_tokens=None))
+            if item.usage is not None
+            else item
+            for item in results
+        )
 
 
 def browser_clock():
@@ -61,8 +73,9 @@ service = IdentityService(repository, passwords, browser_clock)
 service.bootstrap_owner("owner", "synthetic browser password")
 task_source = FixedSource(task_bundle())
 task_source.bundles["example__repo-2"] = task_bundle("example__repo-2")
+task_repository = MemoryTasks()
 tasks = TaskCatalog(
-    MemoryTasks(),
+    task_repository,
     CatalogArtifacts(),
     task_source,
     {
@@ -102,7 +115,7 @@ worker = WorkerShell(
     JobExecutor(
         job_repository,
         run_artifacts,
-        Backend(
+        BrowserBackend(
             run_artifacts,
             b"diff --git a/a.py b/a.py\n--- a/a.py\n+++ b/a.py\n",
             trial_delay_sec=0.75,
@@ -128,6 +141,9 @@ app = create_app(
     ),
     JobCancellation(job_repository, browser_clock),
     JobRecovery(job_repository, jobs, browser_clock),
+    LeaderboardReporting(
+        BrowserLeaderboardRepository(task_repository, job_repository, browser_clock)
+    ),
 )
 
 worker_enabled = Event()

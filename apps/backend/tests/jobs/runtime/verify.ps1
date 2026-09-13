@@ -103,11 +103,12 @@ try {
     $driverArgs = $limits + @("--network=$network",
         '--tmpfs=/tmp:rw,nosuid,size=256m,uid=65534,gid=65534',
         '--env=AGENTEXAM_RUN_IDENTITY_POSTGRES=1',
-        '--env=AGENTEXAM_RUN_JOB_MINIO=1')
+        '--env=AGENTEXAM_RUN_JOB_MINIO=1',
+        '--env=AGENTEXAM_RUN_LEADERBOARD_POSTGRES=1')
     foreach ($key in $environment.Keys | Where-Object { $_ -like 'AGENTEXAM_*' }) {
         $driverArgs += "--env=$key"
     }
-    $driverArgs += @($driverImage, 'tests/jobs')
+    $driverArgs += @($driverImage, 'tests/jobs', 'tests/leaderboard')
     $driver = New-TestContainer $names[2] $driverArgs
     Check-Isolation $driver $network
     & docker start --attach $driver
@@ -118,8 +119,11 @@ try {
 }
 finally {
     foreach ($name in @($names[2], $names[1], $names[0])) {
-        $raw = @(& docker inspect $name 2>$null)
-        if ($LASTEXITCODE -eq 0) {
+        $candidate = @(& docker ps -aq --filter "name=^/$name$")
+        if ($LASTEXITCODE -ne 0) { throw 'Unable to inspect dedicated containers' }
+        if ($candidate) {
+            $raw = @(& docker inspect $candidate[0])
+            if ($LASTEXITCODE -ne 0) { throw 'Unable to verify cleanup target' }
             $item = (($raw -join [Environment]::NewLine) | ConvertFrom-Json)[0]
             if ($item.Id -notmatch '^[0-9a-f]{64}$' -or
                 $item.Config.Labels.'agentexam.jobs-test' -ne $scope) {

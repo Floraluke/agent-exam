@@ -8,7 +8,7 @@ export default defineConfig({
   reporter: "list",
   use: {
     baseURL: "https://127.0.0.1:3100", ignoreHTTPSErrors: true,
-    trace: "retain-on-failure",
+    channel: "chrome", trace: "retain-on-failure",
   },
   webServer: [
     {
