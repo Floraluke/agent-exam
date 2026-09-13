@@ -34,7 +34,7 @@ M1 任务 01–12 已验收。当前需要证明同一个正式平台 Job 能从
 apps/backend/
 ├─ src/eval_platform/delivery/worker/
 │  ├─ main.py                         # 既有 Worker 外部 Interface；保持 run_once 语义
-│  └─ runtime.py                      # 候选：集中组合正式 PG/MinIO/Harbor/Fork 依赖
+│  └─ runtime.py                      # 已实现：集中组合正式 PG/MinIO/Harbor/Fork 依赖
 ├─ tests/jobs/runtime/
 │  └─ test_worker_runtime.py          # 通过组合入口验证显式绑定与安全失败
 └─ pyproject.toml                     # 仅在需要稳定本机命令时注册既有 Worker 入口
@@ -49,9 +49,22 @@ docs/
 .scratch/m1-platform/issues/
 └─ 13-local-real-acceptance.md         # 九项验收、状态和证据指针
 HANDOFF.md                            # 最新真实状态与下一任务入口
+runtime/acceptance/m1-task13-20260913-01/  # Git 忽略的一次性本机验收证据与编排器
+├─ runtime_support.py                 # 临时身份、环境、HTTP/Web 生命周期
+├─ runtime_parts/
+│  ├─ config.py                       # 专属作用域和清理标签
+│  ├─ storage.py                      # 固定 PG/MinIO 身份、受限启动和就绪核对
+│  └─ cleanup.py                      # 尽力清理全部专属资源并核验终态
+├─ platform_flow.py                   # HTTP 提交、批准和唯一 Worker 领取
+├─ platform_verify.py                 # 固定身份、失败终态、正文哈希和发布保护核对
+├─ platform_identity.py               # 冻结 Task/Agent/策略/执行身份核对
+├─ platform_acceptance.py             # preflight/run 模式及保守摘要收束
+├─ verify-browser.mjs                 # 少量真实页面验收
+└─ tests/
+   └─ test_acceptance_harness.py       # 忽略态编排器的失败摘要/清理/哈希红绿测试
 ```
 
-文件树会随红绿循环收敛；若无需 `runtime.py` 或脚本注册将删除候选项。设计模式保持 Ports & Adapters：`ExecutionBackend` / `PatchEvaluator` 是既有 ports，Harbor / SWE-Bench 是 Adapters，Worker runtime 是 composition root；它只隐藏依赖组装，不形成第二条执行链。
+文件树已随红绿循环收敛，`runtime.py` 与 `agentexam-worker` 脚本注册均已采用。设计模式保持 Ports & Adapters：`ExecutionBackend` / `PatchEvaluator` 是既有 ports，Harbor / SWE-Bench 是 Adapters，Worker runtime 是 composition root；它只隐藏依赖组装，不形成第二条执行链。
 
 ## 修改后自验证方式与成功标准
 
@@ -81,3 +94,8 @@ HANDOFF.md                            # 最新真实状态与下一任务入口
 - 原始零模型预检复跑通过：`storage=ready`、`http=ready`、`jobs_created=0`、`model_called=false`、`auth_read=false`、`cleanup=verified`。临时诊断文件和全部 `[DEBUG-task13-*]` 标记已删除；任务专属容器、网络与 tmpfs 数据没有残留。存储容器所在临时 bridge 理论上具备出站能力，但其固定命令只监听服务、端口仅发布到回环且不持有真实凭据；模型网络仍由 Harbor 单独 allowlist 控制。
 - 代码回归复跑通过：后端 `379 passed, 77 skipped, 2 warnings in 49.36s`；77 项均为未设置专属 PG/MinIO、Docker/Fork/网络/真实 Codex 开关的显式外部门禁跳过，不冒称已覆盖。`ruff check`、`ruff format --check`、`compileall` 和 strict mypy 全部通过，mypy 覆盖 161 个源文件；web `typecheck` 通过。
 - web 生产构建首次因沙箱/用户级 Next.js 配置缓存跨设备重命名失败（`EXDEV`），不是源码编译失败。改用只对该命令进程生效的任务工作区 `APPDATA` / `LOCALAPPDATA` 与禁用遥测、更新提醒后，`next build` 编译、类型核对、4 个静态页面生成和 build trace 全部成功；没有更改机器设置。工作区缓存目录预创建被拒但构建仍成功，故只把最终退出码 0 和完整构建阶段作为通过证据，不把缓存创建描述为成功。
+- 相对固定基准 `5e39632` 的首轮双轴评审各有 4 项：Standards 指出清理过程未逐项核验、失败摘要可误报通过、行动文件树仍写候选/遗漏忽略态编排器、HANDOFF 超前数过期；Spec 同样指出摘要与清理问题，并指出基础设施失败时丢失已持久化 Job/Run 终态、未完整核对冻结 Agent/限制/backend 身份、未重算下载 patch 哈希及未明确断言私有原始制品不可下载/兼容空值。修复先以忽略态单元测试取得红灯，再拆出清理与验证 helper，要求任一业务、浏览器或清理失败都强制 `status=failed`，清理尽力遍历全部专属资源后再汇总失败；真实 Run 仍受单独授权门禁。
+- 评审修复红灯为测试收集期 `ImportError: cannot import name 'finalize_result'`。实现最终摘要收束、全部专属资源尽力清理后统一判定、已持久化失败终态安全快照、完整 Task/Agent/限制/策略/backend identity、下载正文 SHA-256 重算、受限原始正文非 200、Judge 兼容空值和唯一 Harbor config 后，忽略态测试 `3 passed`。首次结构检查又发现格式化后的 `runtime_support.py` 为 232 行；没有压行规避，而是拆到 `runtime_parts/{storage,cleanup,config}.py`，最终各 Python 文件均不超过 200 行，根目录 7 个文件；ruff、format check、compileall 均通过。
+- 修复后零模型 `preflight` 复跑为 `status=passed`、`storage=ready`、`http=ready`、`jobs_created=0`、`model_called=false`、`auth_read=false`、`cleanup=verified`；随后按 `agentexam.task13=m1-task13-20260913-01` 和精确网络名查询均为空。该证据只证明编排与清理，不替代真实 Run。
+- 第二轮双轴复审确认首轮摘要误报、失败快照、文件树和主要清理问题已关闭，但继续发现：Worker 外层超时未纳入统一进程树清理，清理终态只查 API/Web 而漏查 PostgreSQL/MinIO 端口，成功报告未核对 `backend_job_ref/backend_trial_ref`，行动中仍残留一句旧“候选”。新增测试先在收集期因缺少 `validate_backend_refs` 红灯；修复把 Worker handle 纳入 Runtime、Worker/Web 均执行 taskkill 后 wait/poll、四个回环端口全部等待关闭，并要求成功报告的 Harbor Job ref 等于平台 Job、Trial ref 非空。忽略态测试最终 `4 passed`，ruff/format/compileall 通过，所有 Python 文件不超过 200 行；再次零模型预检得到同一通过摘要并验证清理。
+- 第三轮终审继续以 `5e39632` 为固定基准并读取未提交权威文档及全部忽略态验收源码：Standards 为 0 findings/PASS，Spec 为 0 findings/PASS；首轮与第二轮问题均确认关闭，未发现范围蔓延或新 smell。真实 Run 尚未获得安全审批器所需的逐项明确授权，仍是验收未完成状态而非代码 finding，九项任务验收不能据此提前关闭。
