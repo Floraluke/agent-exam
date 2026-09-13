@@ -62,6 +62,8 @@ runtime/acceptance/m1-task13-20260913-01/  # Git 忽略的一次性本机验收�
 ├─ verify-browser.mjs                 # 少量真实页面验收
 └─ tests/
    └─ test_acceptance_harness.py       # 忽略态编排器的失败摘要/清理/哈希红绿测试
+runtime/acceptance/m1-task13-20260913-02/  # 第二次 Run 的源码等价专属作用域；不复制首次私有证据
+└─ 与上方 10 个编排源码/测试路径同构        # 仅 scope/容器/网络测试身份改为 -02；零模型 preflight 已通过
 ```
 
 文件树已随红绿循环收敛，`runtime.py` 与 `agentexam-worker` 脚本注册均已采用。设计模式保持 Ports & Adapters：`ExecutionBackend` / `PatchEvaluator` 是既有 ports，Harbor / SWE-Bench 是 Adapters，Worker runtime 是 composition root；它只隐藏依赖组装，不形成第二条执行链。
@@ -112,3 +114,6 @@ runtime/acceptance/m1-task13-20260913-01/  # Git 忽略的一次性本机验收�
 - `3d66230` 后复审结果：Spec 为 0 findings/PASS，确认既有 `ArtifactReader` Interface、专属根限制及任务未完成表述正确；Standards 确认前两项均关闭，但给出 1 项 P3 判断性 `Duplicated Code`：`read_verified` 与 `read_bounded_verified` 重复同一套类型、路径解释、符号链接、根约束和文件/大小校验。下一步只在 `LocalArtifactReader` Implementation 内提取一个私有受限路径 helper，由现有两种公开读取行为共同复用；Interface、错误模式与调用方不变，使用现有 17 项行为回归验证。
 - P3 重构把共享规则集中到私有 `_verified_path`，`read_verified` 只保留 50 MiB 整体读取上限与最终哈希，`read_bounded_verified` 只保留流式有界读取；安全路径、类型、retention、普通文件和声明大小验证只维护一份。定向回归仍为 `17 passed`，完整后端仍为 `381 passed, 77 skipped, 2 warnings in 49.86s`，ruff、format check、compileall、strict mypy 均通过；提交 `1b8e9ba` 仅含该 Implementation 文件。下一步重做最终双轴评审，未取得第二次真实 Run 授权前继续停在无模型状态。
 - 最终双轴评审继续固定 `5e39632` 并读取 live 权威文档与全部忽略态任务 13 验收源码：Standards 为 0 findings/PASS，确认 P3 重复安全校验已集中且无新增 smell；Spec 为 0 findings/PASS，确认 `ArtifactReader` Interface、M0 seams、任务范围、失败与未重跑表述均未改变。评审只关闭实现发现；任务仍为 `in-progress`，首次私有证据保持原样，剩余七项验收必须由新专属作用域中的第二次且最后一次获批真实 Run 证明。
+- 等待第二次真实 Run 授权期间先做无模型准备：从 `m1-task13-20260913-01` 只复制编排源码和测试到新作用域 `m1-task13-20260913-02`，明确排除首次 `evidence/`、`safe-summary.json`、`__pycache__` 和其他运行产物；只把 scope、专属容器/网络身份及合成测试期望改为 `-02`。先运行编排器单元/静态检查和 `preflight`，成功标准仍为零 Job、零认证读取、零模型调用与精确清理；这不构成第二次真实 Run，也不消耗其一次模型尝试。
+- 新作用域源码对账为 `files=10`、`unexpected_differences=0`：除 `m1-task13-20260913-01` 精确替换为 `-02` 外没有漂移，复制前后的首次 `evidence/` 与摘要均未带入。编排器测试 `4 passed`，ruff 通过、9 个 Python 文件 format check 通过、compileall 通过；没有修改首次作用域。
+- `m1-task13-20260913-02` 零模型 preflight 实际结果为 `status=passed`、`storage=ready`、`http=ready`、`jobs_created=0`、`model_called=false`、`auth_read=false`、`cleanup=verified`。随后按 `agentexam.task13=m1-task13-20260913-02` 分别查询全部容器与网络均为空。preflight 只生成新作用域的安全摘要，没有创建正式 Job、读取认证或访问模型；下一步仍须取得第二次且最后一次真实 Run 授权。
