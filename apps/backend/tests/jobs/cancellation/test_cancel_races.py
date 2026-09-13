@@ -26,7 +26,7 @@ def _submitted(jobs, owner, key):
     )
 
 
-def test_postgres_cancel_and_approval_choose_one_waiting_state(postgres_sandbox):
+def test_postgres_cancel_and_approval_serialize_to_canceled(postgres_sandbox):
     with postgres_api(postgres_sandbox) as (_client, jobs, repository, owner):
         created = _submitted(jobs, owner, "cancel-approval-race-source-0001")
         cancellation = JobCancellation(repository)
@@ -55,12 +55,16 @@ def test_postgres_cancel_and_approval_choose_one_waiting_state(postgres_sandbox)
             outcomes = (pool.submit(cancel), pool.submit(approve))
             results = tuple(future.result() for future in outcomes)
 
-        assert sum(result is not None for result in results) == 1
+        assert results[0] is not None
         stored = repository.get(created.job_id)
-        assert stored.status in {"QUEUED", "CANCELED"}
-        expected = "PENDING" if stored.status == "QUEUED" else "CANCELED"
-        assert {run.status for run in stored.runs} == {expected}
-        assert len(stored.state_events) == 2
+        assert stored.status == "CANCELED"
+        assert {run.status for run in stored.runs} == {"CANCELED"}
+        reasons = [event.reason_code for event in stored.state_events]
+        assert reasons in [
+            ["JOB_SUBMITTED", "JOB_CANCELED"],
+            ["JOB_SUBMITTED", "OWNER_APPROVED", "JOB_CANCELED"],
+        ]
+        assert (results[1] is not None) == ("OWNER_APPROVED" in reasons)
 
 
 def test_postgres_cancel_claim_race_never_leaves_an_executable_trial(

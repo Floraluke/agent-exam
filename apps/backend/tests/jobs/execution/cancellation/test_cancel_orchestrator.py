@@ -84,4 +84,3 @@ def test_executing_cancel_preserves_current_result_and_cancels_later_runs():
         "FINALIZATION_STARTED",
         "JOB_CANCELED",
     ]
-
