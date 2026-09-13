@@ -113,8 +113,7 @@ def login(client):
 
 def register(client, endpoint, preset):
     return client.post(
-        endpoint, json={"preset_id": preset}, headers=WRITE_HEADERS
-    ).json()
+        endpoint, json={"preset_id": preset}, headers=WRITE_HEADERS).json()
 
 
 def test_explicit_upgrade_and_recreated_http_restore_frozen_job(postgres_sandbox):
@@ -135,16 +134,12 @@ def test_explicit_upgrade_and_recreated_http_restore_frozen_job(postgres_sandbox
         assert len(stored.state_events) == len(stored.runs[0].state_events) == 1
     identity = IdentityService(postgres_sandbox.repository, Argon2Passwords())
     empty_tasks = TaskCatalog(
-        PostgresTaskRepository(postgres_sandbox.dsn),
-        MemoryArtifacts(),
-        FixedSource(task_bundle()),
-        {},
+        PostgresTaskRepository(postgres_sandbox.dsn), MemoryArtifacts(),
+        FixedSource(task_bundle()), {},
     )
     empty_agents = AgentRegistry(PostgresAgentRepository(postgres_sandbox.dsn), {})
     restored_jobs = JobSubmission(
-        empty_tasks,
-        empty_agents,
-        PostgresJobRepository(postgres_sandbox.dsn),
+        empty_tasks, empty_agents, PostgresJobRepository(postgres_sandbox.dsn),
         submission_policy("internal_test"),
     )
     app = create_app(identity, HttpConfig(public_origin=ORIGIN), jobs=restored_jobs)

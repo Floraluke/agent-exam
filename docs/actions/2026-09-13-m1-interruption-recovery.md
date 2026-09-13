@@ -85,6 +85,12 @@ docs/{architecture,interfaces}/                          # 当前恢复契约和
 - 浏览器红灯先经历两项测试设施修正：原测试运行器不发现子目录且嵌套输出目录创建失败，已改为递归发现并使用扁平结果目录；测试控制请求最初因缺少同源/写请求头被拒绝，已按真实 HTTP 安全边界补齐。设施就绪后的产品红灯为 `1 failed`：页面找不到“中断恢复”区域和“不自动续跑”提示。
 - 页面绿灯为 `1 passed (10.8s)`，Web `tsc --noEmit` 通过。环境门控的浏览器替身只在 `AGENTEXAM_IDENTITY_BROWSER_TEST=1` 时提供暂停/合成过期能力；真实页面经后端 HTTP 完成 owner 收束和新建重试，验证不同 Job ID、旧 Job 关联、URL 切换和重新等待批准，且不显示 Worker 身份。
 - 本片 Ruff 已通过；源代码和测试文件均未超过项目的 200 行指标，`submit.tsx` 为 195 行。真实 PostgreSQL 新增的并发恢复和损坏证据回滚用例尚待下一次隔离套件执行，因此当前不记为通过。
+- 第二轮真实隔离套件为 `97 passed, 1 failed, 2 warnings in 36.16s`，三个专属容器和 tmpfs 已精确清理。并发恢复测试已通过；失败发生在损坏证据夹具的目标断言前：夹具把 Job 改回 `FINALIZING` 并删除结果行，却保留了原 `COMPLETED` Job 事件，通用读取门禁先因状态/事件不一致返回 `JobUnavailable`。下一轮只修正夹具，使唯一损坏点为“COMPLETED Run 缺少确定性结果”，不放宽生产读取或恢复校验。
+- 修正夹具后的真实隔离套件为 `98 passed, 2 warnings in 35.41s`。两个并发恢复事务均读回同一 `FAILED` 结果且只有一条 `INTERRUPTION_RECOVERED` 事件；过期 Worker 更新仍被拒绝。单一损坏点测试确认 `COMPLETED` Run 缺少 `deterministic_results` 时 HTTP 返回 503，Job 保持 `FINALIZING`、事件数不变，没有部分收束。三个专属容器均无宿主端口/挂载，结束后已精确删除并移除 tmpfs；镜像和构建缓存保留。
+- 完整后端回归为 `348 passed, 70 skipped, 2 warnings in 45.25s`。70 项跳过均有显式环境门禁，其中任务 10 的 PostgreSQL/MinIO 项已由上一条专属套件实际通过；未运行真实 Codex、Harbor、网络、真实凭据或其他未授权探针。全仓 Ruff 通过，mypy 为 `Success: no issues found in 136 source files`。
+- Web 首次 `next build` 未进入编译，因沙箱拒绝写系统用户 `AppData` 的 Next.js 配置临时文件；把本次进程的 `APPDATA` 指向仓库内 `runtime/tests/next-appdata` 并关闭遥测后，生产构建成功，4 个静态页面生成完成。现有 `%USERPROFILE%` 缓存未删除，机器设置未改变。
+- 完整浏览器回归递归执行 8 个规格文件，共 `18 passed`。每份规格使用新合成后端；新增中断恢复动线通过，既有目录、身份安全、登录、成员、提交/批准/取消、多 Run 报告和安全证据流程也全部通过。没有真实模型或 Harbor 调用。
+- 规模复核覆盖相对固定基准 `2137e08` 的全部 Python/TypeScript/JavaScript 变更：动态源码均不超过 200 行，最高为 PostgreSQL Repository 199 行、共享 PostgreSQL 测试夹具 200 行和 Web 提交页 195 行；所有受影响目录直属文件均不超过 8 个，新恢复实现/测试/页面均位于已批准的必要子目录。为恢复注入增加 8 行后，共享 PG 测试曾达到 205 行，已仅压缩现有夹具排版降回 200 行，不拆新职责。
 - 源码事务核对确认：`results.complete()` 在同一 PostgreSQL 事务中写入制品索引、`deterministic_results` 和 Run 的 `COMPLETED`/事件；事务失败会整体回滚。因此一致存储中“可信结果已落盘”必然对应终态 Run，恢复只需验证这些既有记录并收束 Job，不得重新调用 Evaluator。
 - `RUNNING_AGENT`、`VERIFYING` 或其他活跃 Run 若没有上述完整事务结果，即使存在进程内返回值、孤立对象或 Harbor 残留也不能证明确定性结果；候选恢复会明确写 `INFRASTRUCTURE_INTERRUPTED`，不猜测或补造结果。
 - `execution.common.current()` 明确拒绝 `now >= lease_expires_at`、Worker/版本/租约错配；现有 `fail()`、`start_finalizing()`、`finish()` 均依赖该检查，证明确需独立且受限的过期租约恢复事务，而不是复用正常执行入口。

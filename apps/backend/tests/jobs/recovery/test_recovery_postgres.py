@@ -163,6 +163,11 @@ def test_postgres_corrupt_result_evidence_rolls_back_recovery(postgres_sandbox):
                 (clock(), created.job_id),
             )
             connection.execute(
+                "DELETE FROM job_state_events WHERE job_id=%s "
+                "AND to_status='COMPLETED'",
+                (created.job_id,),
+            )
+            connection.execute(
                 "DELETE FROM deterministic_results WHERE run_id=%s",
                 (created.runs[0].run_id,),
             )
