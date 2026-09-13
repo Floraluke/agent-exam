@@ -2,7 +2,7 @@
 
 ## 状态
 
-In progress。用户已于 2026-09-13 明确批准本记录的最小统计口径、只读 Repository Interface 与必要子目录；当前进入 TDD 实施，不再重复询问同一授权。
+Completed。用户已于 2026-09-13 明确批准本记录的最小统计口径、只读 Repository Interface 与必要子目录；实现、分层验证及以 `6ccbd18` 为固定基准的 Standards/Spec 双轴终审均已完成。
 
 ## 情况说明
 
@@ -92,7 +92,7 @@ docs/interfaces/HTTP_API.md                               # 已批准口径与�
 - PostgreSQL Adapter 已接线并通过定向静态检查；未启用外部门禁的本机组当前为 `5 passed, 1 skipped, 2 warnings`，其中跳过项正是待专属 PostgreSQL 环境执行的用例，不记为通过。首次专属脚本在进入测试前暴露清理设施问题：Windows PowerShell 把 `docker inspect` 一个尚未创建的名称当成终止错误，掩盖了原始失败；随机标签下只读复核无残留。已把清理改为先按精确名称查询 ID、再核验标签后删除，待重跑。
 - 清理设施修正后用 Windows PowerShell 5.1 重跑，原始问题确认为脚本使用 PowerShell 7 的随机字节 API；仍未创建测试容器，清理检查成功。改用仓库环境可用的 PowerShell 7 后，三个隔离容器均通过无宿主端口/挂载检查，但 pytest 收集发现 `test_http.py`、`test_postgres.py` 与既有 Job 测试同名而 import mismatch，产品断言仍未执行；三个容器和 tmpfs 已精确清理。现将任务 11 测试改为全仓唯一文件名后重跑。
 - 唯一文件名修正后的专属 PostgreSQL/MinIO 套件为 `111 passed, 2 warnings in 42.77s`。任务 11 的真实 PG 用例实际验证两题全分母、正式来源、过程指标和 SQL 解析前排除损坏 `internal_test`；三个容器无宿主端口/挂载，最终均按标签精确删除，tmpfs 数据移除，镜像/构建缓存保留。
-- 页面 TDD 首次运行因结果目录 Windows `EPERM` 未进入测试；沙箱外两次启动又分别发现先前异常留下的 8875 Python 与 3100 Node 合成服务，均先按端口解析 PID、核验命令行为本仓库测试服务后精确终止。服务最终正常启动时发现 Playwright 1243 浏览器缓存不存在；本机已有 Chrome，测试配置改为显式 `channel=chrome`，不下载浏览器或修改机器设置，待取得真正产品红灯。
+- 页面 TDD 首次运行因结果目录 Windows `EPERM` 未进入测试；沙箱外两次启动又分别发现先前异常留下的 8875 Python 与 3100 Node 合成服务，均先按端口解析 PID、核验命令行为本仓库测试服务后精确终止。服务最终正常启动时发现 Playwright 1243 浏览器缓存不存在；本机已有 Chrome，最终以仅测试进程可设置的 `AGENTEXAM_USE_SYSTEM_CHROME=1` 选择系统浏览器，不下载浏览器或修改机器设置，并取得后述产品红灯。
 - 改用已安装 Chrome 后，浏览器测试先发现测试误以为页面有“登记第二道题”按钮；改为通过同源受保护测试请求登记现有第二个 preset。随后完整合成流程创建并完成一个 Job，在 `基础排行榜` 区域不存在处得到真实产品红灯 `1 failed`。页面测试 Adapter 将只在既有 `AGENTEXAM_IDENTITY_BROWSER_TEST=1` 门控进程内读取 `internal_test` 内存 Job；生产 PostgreSQL 仍固定 official，二者不共享数据。
 - 页面接线后 Web typecheck、后端门控 Adapter Ruff 与 5 项定向测试通过。浏览器首次产品复验已实际显示 1/2、50%、未知 1、完整冻结条件和真实 Run 来源；失败仅因 JSX 中点后空格与断言不一致，且当时的合成执行真实持久化缓存 token 为 2。先按真实值修正空格和断言；随后为补齐缺失指标页面验收，门控 BrowserBackend 改为在执行结果中实际持久化该字段为 `null`，再由同一投影展示 unknown。
 - 单个主流程页面在空格修正并展开来源后为 `1 passed (13.2s)`。随后补充 HTTP 游标分页、空结果、未知游标和依赖错误，补充不同冻结范围独立分母/排名；浏览器合成 Backend 实际把 cache token 持久化为缺失值，页面据此显示 `unknown（覆盖 0/1）`，不是前端伪造。当前排行榜后端组为 `8 passed, 1 skipped, 2 warnings`；跳过的唯一 PG 用例已由专属套件实际通过。
@@ -100,12 +100,15 @@ docs/interfaces/HTTP_API.md                               # 已批准口径与�
 - 评审前完整后端回归为 `358 passed, 76 skipped, 2 warnings in 37.50s`；76 项均为显式外部环境门禁，其中任务 11 的真实 PG 已由专属 111 项套件通过。全仓 Ruff check 通过，256 个文件 format-check 通过，mypy 为 `Success: no issues found in 148 source files`。
 - Web 生产构建第一次在沙箱内因用户配置写入 `EPERM` 未进入编译，沙箱外又因虚拟文件系统原子重命名 `EXDEV` 未进入编译；仅为本次进程设置 `NEXT_TELEMETRY_DISABLED=1` 后构建成功，4 个静态页面生成完成。没有改 APPDATA、机器设置或下载依赖。
 - 规模检查发现 application 根目录因新增用例达到 9 个直属文件；已将其移入既有 `application/reporting/leaderboard.py` 并由包导出。最终新增/受影响动态源码均不超过 200 行，受影响目录均不超过 8 个直属文件。
-- 终审等待期间补充了页面可核验性红灯：要求展开比较条件后显示冻结网络、工具和资源快照的关键实际值；真实浏览器结果为 `1 failed, 1 passed`，失败点是页面只显示策略 ID、未显示快照内容。现已增加强类型快照解析与完整限制展示，避免把后端任意对象静默当成可信比较条件；同时把本机 Chrome 改为仅由 `AGENTEXAM_USE_SYSTEM_CHROME=1` 的测试进程选择，保持默认 Playwright 配置的可移植性，待绿灯复验。
-- Standards 首轮评审发现生产查询未把 `evaluation_runs.agent_configuration_id` 与冻结 Agent 快照中的配置 ID 交叉核对；配置 ID 不参与 fingerprint，因此损坏快照可能把正式成绩归到错误配置。已先追加真实 PostgreSQL 失败关闭用例，下一步取得红灯后在查询/行解析边界补齐外键一致性校验。
-- Spec 与 Standards 均发现成功查询 A 后查询 B 遇到 503 时会残留 A 的旧榜单。新增浏览器回归取得真实红灯 `1 failed, 1 passed`，旧 `article.leaderboard-row` 数量为 1；现已让每次新的非分页查询在发出请求时清空旧行、游标和完成态，分页失败仍可保留同一范围的已有行，待绿灯复验。
+- 终审等待期间补充了页面可核验性红灯：要求展开比较条件后显示冻结网络、工具和资源快照的关键实际值；真实浏览器结果为 `1 failed, 1 passed`，失败点是页面只显示策略 ID、未显示快照内容。现已增加共享强类型快照解析与完整限制展示，避免把后端任意对象静默当成可信比较条件；后续任务 11 浏览器绿灯及完整浏览器回归均通过。
+- Standards 首轮评审发现生产查询未把 `evaluation_runs.agent_configuration_id` 与冻结 Agent 快照中的配置 ID 交叉核对；配置 ID 不参与 fingerprint，因此损坏快照可能把正式成绩归到错误配置。追加真实 PostgreSQL 失败关闭用例并取得后述红灯后，已在查询/行解析边界补齐目录 Agent 全字段一致性校验。
+- Spec 与 Standards 均发现成功查询 A 后查询 B 遇到 503 时会残留 A 的旧榜单。新增浏览器回归取得真实红灯 `1 failed, 1 passed`，旧 `article.leaderboard-row` 数量为 1；每次新的非分页查询现会在发出请求时清空旧行、游标和完成态，分页失败仍保留同一范围的已有行；后续定向及完整浏览器回归均通过。
 - 配置外键损坏用例已在专属 PostgreSQL/MinIO 套件取得真实红灯：`1 failed, 113 passed, 2 warnings in 42.16s`，正是预期的 `JobUnavailable` 未抛出；随机标签下三个容器与 tmpfs 均已精确清理，镜像/构建缓存保留。
 - Spec 的未执行参赛者问题已通过领域红灯固定：仅含 `started_at=null` 的取消 Run 时旧实现仍生成一行，结果为 `1 failed, 3 passed, 2 warnings`；修复后只把真正开始的正式 Run 纳入候选，同配置其他未执行题仍由完整分母计为 unknown，但不产生来源或过程指标。
 - Standards 完整性修复把正式尝试查询改为先联结 `evaluation_tasks` 与题目源 Artifact，以目录字段筛选后逐项核对完整冻结 Task；同时核对 Run 配置外键与 Agent 快照、`backend_kind=harbor`、Run backend revision 与 Job Harbor revision，并严格校验冻结 Agent、网络、工具和限制字段。真实 PG 用例依次损坏配置 ID、冻结数据集、网络布尔、CPU 限制、backend kind/revision，均须统一失败关闭。
-- 终审修复后的专属 PostgreSQL/MinIO 套件为 `115 passed, 2 warnings in 41.37s`；三个容器仍满足无宿主端口/挂载和只读/限额检查，结束后按随机标签精确清理，tmpfs 数据已移除。任务 11 浏览器复验为 `2 passed (11.1s)`，同时证明冻结快照实际值可见、成功后新查询 503 不残留旧行、空结果和安全错误状态正确。Web typecheck 与任务 11 定向 Ruff 通过；完整回归及终审复审待执行。
-- Standards 末轮发现显示名不参与配置 fingerprint、却参与排行榜分组；仅损坏冻结 `display_name` 时旧实现仍未失败关闭。新增真实 PG 用例已取得 `1 failed, 114 passed, 2 warnings in 41.44s` 的预期红灯，三个隔离容器/tmpfs 精确清理。生产查询现联结 `agent_configurations` 并交叉核对配置 ID、显示名、Agent/模型/认证类型、凭据引用、reasoning effort 与 fingerprint；这些内部核验字段不会进入公开响应，待绿灯复验。
+- 首轮终审修复后的专属 PostgreSQL/MinIO 套件为 `115 passed, 2 warnings in 41.37s`；三个容器仍满足无宿主端口/挂载和只读/限额检查，结束后按随机标签精确清理，tmpfs 数据已移除。任务 11 浏览器复验为 `2 passed (11.1s)`，同时证明冻结快照实际值可见、成功后新查询 503 不残留旧行、空结果和安全错误状态正确。
+- Standards 末轮发现显示名不参与配置 fingerprint、却参与排行榜分组；仅损坏冻结 `display_name` 时旧实现仍未失败关闭。新增真实 PG 用例取得 `1 failed, 114 passed, 2 warnings in 41.44s` 的预期红灯，三个隔离容器/tmpfs 精确清理。生产查询现联结 `agent_configurations` 并交叉核对配置 ID、显示名、Agent/模型/认证类型、凭据引用、reasoning effort 与 fingerprint；这些内部核验字段不进入公开响应，后续专属绿灯已通过。
 - Agent 目录全字段交叉核对后的专属 PostgreSQL/MinIO 绿灯为 `115 passed, 2 warnings in 41.97s`；显示名损坏与其余六类损坏均统一抛依赖不可用。三个随机容器与 tmpfs 已再次精确清理，未运行真实模型、Harbor 或 Judge。
+- 最终完整后端回归为 `359 passed, 76 skipped, 2 warnings in 33.94s`；76 项均为需显式外部环境/真实执行开关的门禁，任务 11 真实 PG 已由专属 115 项套件覆盖。全仓 Ruff check 通过，257 个文件 format-check 通过，mypy 为 `Success: no issues found in 149 source files`。
+- 最终 Web typecheck 与生产 build 通过，4 个静态页面生成；完整浏览器套件逐规格使用全新合成状态，共 `20 passed`，其中任务 11 为 `2 passed (11.7s)`。所有任务相关动态源码不超过 200 行，受影响直属目录不超过 8 个文件，`git diff --check` 无空白错误。
+- 以任务 10 关闭提交 `6ccbd18` 为固定基准的 Spec 与 Standards 终审均 PASS、无残留 finding。实现检查点为 `83c29d8`，评审修复检查点为 `e802aa4`；未推送，未连接现有数据库，未运行真实模型、Harbor 或 Judge。
