@@ -2,7 +2,7 @@
 
 ## 状态
 
-In progress。用户已明确批准最小 `JobRepository.recover(RecoveryRequest)` Interface 及本记录中的收束、重试和访问语义。任务 09 已验收关闭；本任务对应 [10-interruption-recovery.md](../../.scratch/m1-platform/issues/10-interruption-recovery.md)，现在从 HTTP/内存 Repository 红灯开始。
+In progress。用户已明确批准最小 `JobRepository.recover(RecoveryRequest)` Interface 及本记录中的收束、重试和访问语义。实现、分层验证和首轮双轴评审修复已完成；当前以 `2137e08` 为固定基准做最终 Standards/Spec 复审，尚未提前勾选任务验收。
 
 ## 情况说明
 
@@ -27,7 +27,7 @@ In progress。用户已明确批准最小 `JobRepository.recover(RecoveryRequest
 
 ```text
 apps/backend/src/eval_platform/
-├─ domain/jobs/{models,execution,policy,factory}.py       # 重试关联、恢复请求与幂等请求身份
+├─ domain/jobs/{models,execution,policy,factory}.py       # 重试关联、恢复请求、共享恢复判定与请求身份
 ├─ application/
 │  ├─ job_lifecycle/recovery.py                           # owner 授权、恢复与手动重试用例
 │  ├─ job_submission.py                                   # 复用目录校验并为原提交者重新冻结
@@ -35,7 +35,6 @@ apps/backend/src/eval_platform/
 ├─ adapters/persistence/jobs/
 │  ├─ recovery/{__init__,actions}.py                      # 过期租约原子收束及事件
 │  ├─ {schema,publication,records,repository}.py          # 自引用字段、写入/读回与 Adapter 委托
-│  └─ execution/{common,finalization}.py                  # 复用终态分类，不开放旧租约推进
 ├─ delivery/
 │  ├─ jobs.py                                             # 运行时装配
 │  └─ http/
@@ -45,9 +44,11 @@ apps/backend/src/eval_platform/
 │        ├─ schemas.py                                    # 安全摘要字段
 │        └─ lifecycle/{routes,schemas}.py                 # 空正文恢复/重试 HTTP
 apps/backend/tests/jobs/
-├─ recovery/{test_recovery_http,test_recovery_postgres,test_retry,test_states}.py
+├─ recovery/{test_recovery_http,test_recovery_postgres,test_recovery_postgres_edges,test_retry,test_states}.py
 │                                                          # 各阶段、竞争、持久化与幂等
 ├─ support/recovery.py                                    # 内存 Repository 恢复事务替身
+├─ support/postgres_api.py                                # 共享真实 PG HTTP/Repository 装配
+├─ test_postgres.py                                       # 复用装配后的既有 PG 提交/恢复回归
 └─ {conftest,memory}.py                                   # 测试装配与端口实现
 apps/backend/tests/identity/browser_server.py             # 环境门控的中断浏览器替身
 apps/web/src/
@@ -91,8 +92,14 @@ docs/{architecture,interfaces}/                          # 当前恢复契约和
 - Web 首次 `next build` 未进入编译，因沙箱拒绝写系统用户 `AppData` 的 Next.js 配置临时文件；把本次进程的 `APPDATA` 指向仓库内 `runtime/tests/next-appdata` 并关闭遥测后，生产构建成功，4 个静态页面生成完成。现有 `%USERPROFILE%` 缓存未删除，机器设置未改变。
 - 完整浏览器回归递归执行 8 个规格文件，共 `18 passed`。每份规格使用新合成后端；新增中断恢复动线通过，既有目录、身份安全、登录、成员、提交/批准/取消、多 Run 报告和安全证据流程也全部通过。没有真实模型或 Harbor 调用。
 - 双轴评审前自查补强页面的逐 Run 解释：已完成项明确显示结果保留，失败项显示后端安全摘要中的中断阶段，未开始项显示已取消；不展示 Worker 身份。补强后 Web typecheck 再次通过，单项浏览器复验为 `1 passed (10.0s)`。
-- 规模复核覆盖相对固定基准 `2137e08` 的全部 Python/TypeScript/JavaScript 变更：动态源码均不超过 200 行，最高为 PostgreSQL Repository 199 行、共享 PostgreSQL 测试夹具 200 行和 Web 提交页 195 行；所有受影响目录直属文件均不超过 8 个，新恢复实现/测试/页面均位于已批准的必要子目录。为恢复注入增加 8 行后，共享 PG 测试曾达到 205 行，已仅压缩现有夹具排版降回 200 行，不拆新职责。
+- 规模复核覆盖相对固定基准 `2137e08` 的全部 Python/TypeScript/JavaScript 变更：动态源码均不超过 200 行，所有受影响目录直属文件均不超过 8 个。共享 PG 测试夹具在格式化后达到 205 行，已把可复用的 HTTP/Repository 装配下沉到既有 `tests/jobs/support/postgres_api.py`；最终辅助文件 103 行、原测试 118 行，support 目录 3 个直属文件。全仓 Ruff check 和 format-check 均通过。
 - 源码事务核对确认：`results.complete()` 在同一 PostgreSQL 事务中写入制品索引、`deterministic_results` 和 Run 的 `COMPLETED`/事件；事务失败会整体回滚。因此一致存储中“可信结果已落盘”必然对应终态 Run，恢复只需验证这些既有记录并收束 Job，不得重新调用 Evaluator。
 - `RUNNING_AGENT`、`VERIFYING` 或其他活跃 Run 若没有上述完整事务结果，即使存在进程内返回值、孤立对象或 Harbor 残留也不能证明确定性结果；候选恢复会明确写 `INFRASTRUCTURE_INTERRUPTED`，不猜测或补造结果。
 - `execution.common.current()` 明确拒绝 `now >= lease_expires_at`、Worker/版本/租约错配；现有 `fail()`、`start_finalizing()`、`finish()` 均依赖该检查，证明确需独立且受限的过期租约恢复事务，而不是复用正常执行入口。
-- 用户已明确批准唯一新增 Interface 及上述最小语义。下一步补齐多 Run、取消交叉和损坏证据回滚边界，再接入页面/浏览器流程并同步权威契约；当前尚未宣称任务 10 验收完成。
+- Standards 首轮指出生产 PostgreSQL 恢复与内存测试替身重复维护状态集合、Run 转换和 Job 汇总；Spec 首轮指出 `COMPLETED_WITH_ERRORS` 不能幂等重放、取消已进入 `FINALIZING` 后会丢失取消意图、结果证据只检查“有无行”以及缺少恢复与旧 Worker 的真实并发。均属于已批准边界，无需新增业务选择。
+- 评审修复先形成可复现红灯：纯领域恢复函数尚未存在时测试收集报 ImportError；接线前状态测试为 `2 failed, 2 passed`，分别证明部分成功重放返回 409、FINALIZING 取消被误收束为 FAILED。随后把租约资格、Run 转换和 Job 汇总下沉到既有 `domain/jobs/policy.py`，生产 Adapter 与内存替身共用；取消判断读取持久化 `cancel_requested_by`，部分成功终态纳入幂等读回。定向组转为 `10 passed, 2 warnings`。
+- 新增真实 PostgreSQL 边界第一次为 `101 passed, 4 failed`：摘要错配、Harness revision 错配和不可能的结果布尔组合都被错误返回 200；取消用例本身还未让 Worker 持久化协作停止，无法合法进入 FINALIZING。生产查询随后核对 `resolved_summary`、冻结 `swe_bench_fork_revision` 及 `resolved ⇒ patch_successfully_applied ⇒ patch_exists`；测试夹具改为通过 `start_run` 的取消准入结果收束 Run，没有绕过生产状态机。
+- 修复后的专属 PostgreSQL/MinIO 套件为 `105 passed, 2 warnings in 38.72s`：三类错配都返回 503 且事务无部分写入，FINALIZING 保留取消意图，恢复与持旧租约 Worker 同时争锁时只有恢复成功。容器无宿主端口/挂载，三个专属容器与 tmpfs 已精确清理，镜像/构建缓存保留。
+- 评审修复后的完整后端为 `350 passed, 75 skipped, 2 warnings in 44.24s`；新增 5 个跳过均为已由专属环境通过的 PG 边界，其他跳过仍是显式外部探针门禁。mypy 再次覆盖 136 个源码文件并通过，Web typecheck 通过，Ruff check/format-check 通过。
+- 最终浏览器单项首次因旧结果目录 `.last-run.json` 的 Windows EPERM 未进入产品断言；精确删除该任务结果目录后，第二次又因沙箱无法重建目录退出，沙箱外首次运行再发现前一次异常留下的 3100 端口进程。仅终止该合成测试 Node 进程并重建精确目录后，`interruption-recovery.spec.ts` 为 `1 passed (10.2s)`；没有真实模型、Harbor 或凭据调用。
+- 当前实现和权威契约已同步，下一步只做双轴最终复审、回填八项任务验收并提交关闭记录；复审通过前不进入任务 11，也不提前宣称任务 10 完成。

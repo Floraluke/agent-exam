@@ -10,10 +10,14 @@ from eval_platform.adapters.persistence.jobs.records import read_job
 from eval_platform.domain.jobs.decisions import JobStateConflict
 from eval_platform.domain.jobs.execution import RecoveryRequest
 from eval_platform.domain.jobs.models import EvaluationJob, JobNotFound, JobUnavailable
+from eval_platform.domain.jobs.policy import (
+    RECOVERY_JOB_TERMINAL_STATUSES,
+    recovery_is_due,
+    recovery_job_outcome,
+    recovery_run_outcome,
+)
 
 Connection = psycopg.Connection[Any]
-_ACTIVE = {"PREPARING", "EXECUTING", "CANCEL_REQUESTED", "FINALIZING"}
-_TERMINAL = {"COMPLETED", "FAILED", "CANCELED"}
 
 
 def recover(connection: Connection, request: RecoveryRequest) -> EvaluationJob:
@@ -23,19 +27,20 @@ def recover(connection: Connection, request: RecoveryRequest) -> EvaluationJob:
     ).fetchone()
     if job is None:
         raise JobNotFound
-    if job["status"] in _TERMINAL and _was_recovered(connection, request.job_id):
-        return _read(connection, request.job_id)
-    if (
-        job["status"] not in _ACTIVE
-        or job["lease_expires_at"] is None
-        or request.occurred_at < job["lease_expires_at"]
+    if job["status"] in RECOVERY_JOB_TERMINAL_STATUSES and _was_recovered(
+        connection, request.job_id
     ):
+        return _read(connection, request.job_id)
+    if not recovery_is_due(job["status"], job["lease_expires_at"], request.occurred_at):
         raise JobStateConflict
     statuses, interrupted = _recover_runs(
-        connection, request.job_id, request.occurred_at
+        connection,
+        request.job_id,
+        job["swe_bench_fork_revision"],
+        request.occurred_at,
     )
-    target, code, summary = _outcome(
-        job["status"] == "CANCEL_REQUESTED", interrupted, statuses
+    target, code, summary = recovery_job_outcome(
+        job["cancel_requested_by"] is not None, statuses, interrupted
     )
     connection.execute(
         "UPDATE evaluation_jobs SET status=%s,row_version=row_version+1,"
@@ -63,10 +68,13 @@ def recover(connection: Connection, request: RecoveryRequest) -> EvaluationJob:
 
 
 def _recover_runs(
-    connection: Connection, job_id: str, now: datetime
+    connection: Connection, job_id: str, harness_revision: str, now: datetime
 ) -> tuple[list[str], bool]:
     rows = connection.execute(
-        "SELECT r.*,d.run_id AS result_run_id FROM evaluation_runs r "
+        "SELECT r.*,d.run_id AS result_run_id,d.patch_exists AS result_patch_exists,"
+        "d.patch_successfully_applied AS result_patch_applied,"
+        "d.resolved AS result_resolved,d.harness_revision AS result_revision "
+        "FROM evaluation_runs r "
         "LEFT JOIN deterministic_results d ON d.run_id=r.run_id "
         "WHERE r.job_id=%s ORDER BY r.run_id FOR UPDATE OF r",
         (job_id,),
@@ -76,18 +84,15 @@ def _recover_runs(
     statuses, interrupted = [], False
     for row in rows:
         has_result = row["result_run_id"] is not None
-        if (row["status"] == "COMPLETED") != has_result:
+        if (row["status"] == "COMPLETED") != has_result or (
+            has_result and not _result_evidence_valid(row, harness_revision)
+        ):
             raise JobUnavailable
-        if row["status"] in _TERMINAL:
+        outcome = recovery_run_outcome(row["status"], row["stage"])
+        if outcome is None:
             statuses.append(row["status"])
             continue
-        target = "CANCELED" if row["status"] == "PENDING" else "FAILED"
-        code = None if target == "CANCELED" else "INFRASTRUCTURE_INTERRUPTED"
-        summary = (
-            None
-            if code is None
-            else f"运行在 {row['stage'] or row['status']} 阶段中断。"
-        )
+        target, stage, code, summary = outcome
         interrupted = interrupted or code is not None
         connection.execute(
             "UPDATE evaluation_runs SET status=%s,stage=%s,row_version=row_version+1,"
@@ -96,7 +101,7 @@ def _recover_runs(
             "WHERE run_id=%s",
             (
                 target,
-                "canceled" if target == "CANCELED" else "interrupted",
+                stage,
                 code,
                 summary,
                 target,
@@ -108,6 +113,15 @@ def _recover_runs(
         _run_event(connection, row, target, code, now)
         statuses.append(target)
     return statuses, interrupted
+
+
+def _result_evidence_valid(row: dict[str, Any], expected_revision: str) -> bool:
+    return (
+        row["resolved_summary"] == row["result_resolved"]
+        and row["result_revision"] == expected_revision
+        and (not row["result_patch_applied"] or row["result_patch_exists"])
+        and (not row["result_resolved"] or row["result_patch_applied"])
+    )
 
 
 def _run_event(
@@ -133,22 +147,6 @@ def _run_event(
             row["run_id"],
         ),
     )
-
-
-def _outcome(
-    canceling: bool, interrupted: bool, statuses: list[str]
-) -> tuple[str, str | None, str | None]:
-    completed = statuses.count("COMPLETED")
-    if canceling:
-        return "CANCELED", None, None
-    if interrupted:
-        target = "COMPLETED_WITH_ERRORS" if completed else "FAILED"
-        return target, "INFRASTRUCTURE_INTERRUPTED", "执行租约过期，批次已安全收束。"
-    if completed == len(statuses):
-        return "COMPLETED", None, None
-    code = "BATCH_PARTIAL_FAILURE" if completed else "BATCH_FAILED"
-    target = "COMPLETED_WITH_ERRORS" if completed else "FAILED"
-    return target, code, "批次已按现有终态证据完成收束。"
 
 
 def _was_recovered(connection: Connection, job_id: str) -> bool:
