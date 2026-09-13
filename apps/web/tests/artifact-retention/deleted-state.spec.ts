@@ -68,5 +68,5 @@ test("run report keeps audit metadata after owner-only local cleanup", async ({
     `/api/v1/artifacts/${raw[0].artifact_id}/content`,
   );
   expect(deleted.status()).toBe(410);
-  expect((await deleted.json()).error.code).toBe("ARTIFACT_DELETED");
+  expect((await deleted.json()).error.code).toBe("ARTIFACT_CONTENT_DELETED");
 });

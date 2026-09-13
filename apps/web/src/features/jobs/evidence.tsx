@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ApiError } from "../../lib/api-client";
+import { PUBLIC_ARTIFACT_TYPES } from "../../lib/contracts";
 import type { RunReport, TrajectoryPage } from "../../lib/contracts";
 import { runTrajectory } from "../../lib/job-client";
 
@@ -16,7 +17,7 @@ const filenames = {
   public_trajectory: "trajectory.jsonl",
 };
 
-const publicTypes = new Set(["agent_patch", "public_test_summary", "public_trajectory"]);
+const publicTypes = new Set<string>(PUBLIC_ARTIFACT_TYPES);
 
 export default function EvidenceView({
   runId, artifacts,

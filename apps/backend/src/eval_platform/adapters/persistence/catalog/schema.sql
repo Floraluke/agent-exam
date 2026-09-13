@@ -43,6 +43,11 @@ CREATE TABLE artifact_records (
     redaction_status text NOT NULL DEFAULT 'not_required'
         CHECK (redaction_status IN ('not_required', 'redacted', 'blocked')),
     truncated boolean NOT NULL DEFAULT false,
+    deletion_intent_id uuid,
+    deletion_intent_at timestamptz,
+    deletion_intent_by uuid REFERENCES accounts(user_id),
+    deletion_intent_reason varchar(128),
+    deletion_verified_at timestamptz,
     deleted_at timestamptz,
     deleted_by uuid REFERENCES accounts(user_id),
     deletion_reason varchar(128),
@@ -66,8 +71,18 @@ CREATE TABLE artifact_records (
             AND truncated = (original_size_bytes > size_bytes))
     ),
     CHECK (num_nonnulls(deleted_at, deleted_by, deletion_reason) IN (0, 3)),
+    CHECK (num_nonnulls(
+        deletion_intent_id, deletion_intent_at,
+        deletion_intent_by, deletion_intent_reason
+    ) IN (0, 4)),
+    CHECK (deletion_verified_at IS NULL OR
+        (deletion_intent_id IS NOT NULL
+            AND deletion_verified_at >= deletion_intent_at)),
     CHECK (deleted_at IS NULL OR
-        (retention_class = 'raw_30d' AND deleted_at >= expires_at)),
+        (retention_class = 'raw_30d' AND deletion_verified_at IS NOT NULL
+            AND deleted_at >= expires_at
+            AND deleted_at >= deletion_verified_at)),
+    CHECK (deletion_intent_id IS NULL OR retention_class = 'raw_30d'),
     CHECK (
         (retention_class = 'raw_30d' AND redaction_status = 'blocked'
             AND artifact_type IN (

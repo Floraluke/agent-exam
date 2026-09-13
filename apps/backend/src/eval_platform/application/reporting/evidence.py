@@ -5,31 +5,18 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from eval_platform.application.execution.public_evidence import validate_public_text
+from eval_platform.domain.artifacts import (
+    ARTIFACT_CONTENT_TYPES,
+    ARTIFACT_FILENAMES,
+    PUBLIC_ARTIFACT_TYPES,
+    RUN_ARTIFACT_TYPES,
+)
 from eval_platform.domain.catalog import ArtifactUnavailable
 from eval_platform.domain.jobs.execution import RunArtifact, RunReport
 from eval_platform.domain.jobs.models import (
     EvidenceDeleted,
     EvidenceNotFound,
     EvidenceNotReady,
-)
-
-PUBLIC_ARTIFACT_TYPES = frozenset(
-    {"agent_patch", "public_test_summary", "public_trajectory"}
-)
-INDEXED_ARTIFACT_TYPES = frozenset(
-    {
-        *PUBLIC_ARTIFACT_TYPES,
-        "harness_report",
-        "harness_summary",
-        "harness_test_output",
-        "harbor_trial_config",
-        "harbor_trial_result",
-        "agent_trajectory",
-        "harness_report_raw",
-        "harness_summary_raw",
-        "harness_test_output_raw",
-        "harness_log_raw",
-    }
 )
 
 
@@ -66,13 +53,13 @@ class TrajectoryPage:
 def artifact_page(
     report: RunReport, kind: str | None, cursor: str | None, limit: int
 ) -> ArtifactPage:
-    if kind is not None and kind not in INDEXED_ARTIFACT_TYPES:
+    if kind is not None and kind not in RUN_ARTIFACT_TYPES:
         raise EvidenceNotReady
     items = sorted(
         (
             item
             for item in report.artifacts
-            if item.reference.artifact_type in INDEXED_ARTIFACT_TYPES
+            if item.reference.artifact_type in RUN_ARTIFACT_TYPES
             and (kind is None or item.reference.artifact_type == kind)
             and (cursor is None or item.artifact_id > cursor)
         ),
@@ -98,11 +85,7 @@ def artifact(report: RunReport, artifact_id: str) -> RunArtifact:
 def content(item: RunArtifact, body: bytes) -> EvidenceContent:
     validate_public_text(body)
     kind = item.reference.artifact_type
-    expected = {
-        "agent_patch": ("text/x-diff", "agent.patch"),
-        "public_test_summary": ("application/json", "test-summary.json"),
-        "public_trajectory": ("application/x-ndjson", "trajectory.jsonl"),
-    }[kind]
+    expected = (ARTIFACT_CONTENT_TYPES[kind], ARTIFACT_FILENAMES[kind])
     if item.reference.content_type != expected[0]:
         raise ArtifactUnavailable
     return EvidenceContent(body, expected[0], expected[1])

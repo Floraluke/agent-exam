@@ -8,6 +8,7 @@ from eval_platform.domain.jobs.cancellation import (
 )
 from eval_platform.domain.jobs.decisions import OwnerDecision
 from eval_platform.domain.jobs.execution import (
+    ArtifactDeletionIntent,
     ClaimedJob,
     JobLease,
     JobReport,
@@ -126,10 +127,21 @@ class JobRepository(Protocol):
         self, now: datetime, limit: int
     ) -> tuple[RunArtifact, ...]: ...
 
-    def mark_artifact_deleted(
+    def begin_artifact_deletion(
         self,
         item: RunArtifact,
         actor_user_id: str,
         occurred_at: datetime,
         reason: str,
+        intent_id: str,
+    ) -> ArtifactDeletionIntent: ...
+
+    def confirm_artifact_deletion(
+        self, intent: ArtifactDeletionIntent, occurred_at: datetime
+    ) -> ArtifactDeletionIntent: ...
+
+    def mark_artifact_deleted(
+        self,
+        intent: ArtifactDeletionIntent,
+        occurred_at: datetime,
     ) -> None: ...

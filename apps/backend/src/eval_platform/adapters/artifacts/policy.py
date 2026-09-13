@@ -2,6 +2,10 @@
 
 from uuid import UUID
 
+from eval_platform.domain.artifacts import (
+    ARTIFACT_CONTENT_TYPES,
+    RAW_ARTIFACT_TYPES,
+)
 from eval_platform.domain.catalog import ArtifactUnavailable
 from eval_platform.domain.result import ArtifactRef
 
@@ -13,15 +17,6 @@ _LONG_TERM_TYPES = {
     "harness_test_output": ("text/plain", MAX_SNAPSHOT_BYTES),
     "public_test_summary": ("application/json", MAX_SNAPSHOT_BYTES),
     "public_trajectory": ("application/x-ndjson", MAX_SNAPSHOT_BYTES),
-}
-_RAW_TYPES = {
-    "harbor_trial_config": "application/json",
-    "harbor_trial_result": "application/json",
-    "agent_trajectory": "application/json",
-    "harness_report_raw": "application/json",
-    "harness_summary_raw": "application/json",
-    "harness_test_output_raw": "text/plain",
-    "harness_log_raw": "text/plain",
 }
 
 
@@ -35,8 +30,8 @@ def validate_reference(reference: ArtifactRef) -> None:
     raw_artifact = _valid_run_reference(
         reference,
         {
-            key: (content_type, MAX_SNAPSHOT_BYTES)
-            for key, content_type in _RAW_TYPES.items()
+            key: (ARTIFACT_CONTENT_TYPES[key], MAX_SNAPSHOT_BYTES)
+            for key in RAW_ARTIFACT_TYPES
         },
     )
     long_term = (

@@ -14,6 +14,12 @@ from jobs.support.postgres_api import login, postgres_api, register
 
 
 class DeleteFailure:
+    def __init__(self, store):
+        self.store = store
+
+    def read_bounded_verified(self, reference, maximum):
+        return self.store.read_bounded_verified(reference, maximum)
+
     def delete_verified(self, reference):
         raise ArtifactUnavailable
 
@@ -25,7 +31,13 @@ class AuditFailure:
     def expired_artifacts(self, now, limit):
         return self.repository.expired_artifacts(now, limit)
 
-    def mark_artifact_deleted(self, item, actor_user_id, occurred_at, reason):
+    def begin_artifact_deletion(self, *args):
+        return self.repository.begin_artifact_deletion(*args)
+
+    def confirm_artifact_deletion(self, *args):
+        return self.repository.confirm_artifact_deletion(*args)
+
+    def mark_artifact_deleted(self, intent, occurred_at):
         raise JobUnavailable
 
 
@@ -93,7 +105,9 @@ def test_real_postgres_and_minio_cleanup_preserves_results_and_audit(
         expired_at = now + timedelta(days=31)
         target = repository.expired_artifacts(expired_at, 1)[0]
         with pytest.raises(ArtifactUnavailable):
-            ArtifactRetention(repository, DeleteFailure()).cleanup(owner, expired_at, 1)
+            ArtifactRetention(repository, DeleteFailure(store)).cleanup(
+                owner, expired_at, 1
+            )
         assert len(repository.expired_artifacts(expired_at, 100)) == 3
         client.head_object(Bucket=bucket, Key=target.reference.object_key)
 

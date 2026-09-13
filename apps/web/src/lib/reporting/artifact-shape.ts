@@ -2,16 +2,13 @@ import { ApiError } from "../api-client";
 import {
   ARTIFACT_TYPES,
   CONTENT_STATUSES,
+  PUBLIC_ARTIFACT_TYPES,
   REDACTION_STATUSES,
   RETENTION_CLASSES,
 } from "../contracts";
 import type { RunReport } from "../contracts";
 
-const PUBLIC_TYPES = new Set([
-  "agent_patch",
-  "public_test_summary",
-  "public_trajectory",
-]);
+const PUBLIC_TYPES = new Set<string>(PUBLIC_ARTIFACT_TYPES);
 
 function record(value: unknown): Record<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {

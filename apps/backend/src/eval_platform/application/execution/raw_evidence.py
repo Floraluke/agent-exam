@@ -5,15 +5,16 @@ from datetime import datetime, timedelta
 from hashlib import sha256
 
 from eval_platform.application.ports.artifacts import ArtifactReader, ArtifactStore
+from eval_platform.domain.artifacts import ARTIFACT_CONTENT_TYPES, ARTIFACT_FILENAMES
 from eval_platform.domain.result import ArtifactRef
 
 _DIRECT_TYPES = {
-    "harbor_trial_config": ("application/json", "trial-config.json"),
-    "harbor_trial_result": ("application/json", "trial-result.json"),
-    "agent_trajectory": ("application/json", "trajectory.json"),
-    "harness_report": ("application/json", "harness-report.json"),
-    "harness_summary": ("application/json", "harness-summary.json"),
-    "harness_test_output": ("text/plain", "test-output.txt"),
+    "harbor_trial_config": "harbor_trial_config",
+    "harbor_trial_result": "harbor_trial_result",
+    "agent_trajectory": "agent_trajectory",
+    "harness_report": "harness_report_raw",
+    "harness_summary": "harness_summary_raw",
+    "harness_test_output": "harness_test_output_raw",
 }
 
 
@@ -63,18 +64,15 @@ def publish_raw(
 
 
 def raw_identity(reference: ArtifactRef) -> tuple[str, str, str]:
-    value = _DIRECT_TYPES.get(reference.artifact_type)
-    if value is None:
+    kind = _DIRECT_TYPES.get(reference.artifact_type)
+    if kind is None:
         if (
             reference.artifact_type != "harness_log"
             or reference.content_type != "text/plain"
         ):
             raise ValueError("Raw evidence has an unsupported type")
-        return "harness_log_raw", "text/plain", "harness.log"
-    kind = reference.artifact_type
-    if kind.startswith("harness_"):
-        kind += "_raw"
-    content_type, filename = value
+        kind = "harness_log_raw"
+    content_type = ARTIFACT_CONTENT_TYPES[kind]
     if reference.content_type != content_type:
         raise ValueError("Raw evidence content type is invalid")
-    return kind, content_type, filename
+    return kind, content_type, ARTIFACT_FILENAMES[kind]

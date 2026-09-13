@@ -80,3 +80,4 @@ def test_completed_run_reports_public_and_restricted_artifact_states(
     openapi = api.client.get("/openapi.json").json()
     content_path = openapi["paths"]["/api/v1/artifacts/{artifact_id}/content"]
     assert "get" in content_path and "delete" not in content_path
+    assert "410" in content_path["get"]["responses"]

@@ -14,7 +14,7 @@ export type ApiErrorCode =
   | "IDEMPOTENCY_CONFLICT" | "IDEMPOTENCY_KEY_INVALID" | "JOB_NOT_FOUND"
   | "OWNER_APPROVAL_REQUIRED" | "JOB_STATE_CONFLICT"
   | "ARTIFACT_NOT_FOUND" | "ARTIFACT_NOT_READY"
-  | "ARTIFACT_DELETED"
+  | "ARTIFACT_CONTENT_DELETED"
   | "EMPTY_JOB_SELECTION" | "BATCH_PRESET_EXCEEDED"
   | "LIMIT_PROFILE_NOT_ALLOWED" | "EVALUATION_TRACK_NOT_ENABLED";
 
@@ -67,8 +67,11 @@ export const RUN_STATUSES = [
   "COMPLETED", "FAILED", "CANCELED",
 ] as const;
 export type RunStatus = typeof RUN_STATUSES[number];
-export const ARTIFACT_TYPES = [
+export const PUBLIC_ARTIFACT_TYPES = [
   "agent_patch", "public_test_summary", "public_trajectory",
+] as const;
+export const ARTIFACT_TYPES = [
+  ...PUBLIC_ARTIFACT_TYPES,
   "harness_report", "harness_summary", "harness_test_output",
   "harbor_trial_config", "harbor_trial_result", "agent_trajectory",
   "harness_report_raw", "harness_summary_raw", "harness_test_output_raw",

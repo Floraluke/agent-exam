@@ -12,9 +12,9 @@ from eval_platform.application.reporting.evidence import TrajectoryPage
 from eval_platform.delivery.http.config import HttpConfig
 from eval_platform.delivery.http.routes.artifact_schemas import (
     ArtifactPageResponse,
-    ArtifactType,
 )
 from eval_platform.delivery.http.schemas import error_responses
+from eval_platform.domain.artifacts import ArtifactType
 
 
 class TrajectoryEventResponse(BaseModel):
@@ -49,7 +49,7 @@ def artifact_router(
     router = APIRouter(
         prefix="/api/v1",
         tags=["evidence"],
-        responses=error_responses(401, 404, 409, 422, 500, 503),
+        responses=error_responses(401, 404, 409, 410, 422, 500, 503),
     )
 
     @router.get("/runs/{run_id}/artifacts", response_model=ArtifactPageResponse)

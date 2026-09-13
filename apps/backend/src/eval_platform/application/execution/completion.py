@@ -4,6 +4,7 @@ from uuid import uuid4
 
 from eval_platform.application.execution.evidence import EvidencePublication
 from eval_platform.application.ports.artifacts import ArtifactStore
+from eval_platform.domain.artifacts import PUBLIC_ARTIFACT_TYPES
 from eval_platform.domain.jobs.execution import (
     ProcessMetrics,
     RunArtifact,
@@ -55,11 +56,20 @@ class CompletionFactory:
         trajectory_time = self.clock()
         if trial.trajectory_ref is not None and trial.trajectory_ref.created_at:
             trajectory_time = trial.trajectory_ref.created_at
-        public_trajectory = self.evidence.publish_trajectory(
-            run.run_id,
-            trial.trajectory_ref,
-            run.agent.agent_type,
-            trajectory_time,
+        trajectory_over_limit = (
+            trial.trajectory_ref is not None
+            and trial.trajectory_ref.size_bytes
+            > self.job.limit_snapshot.raw_artifact_max_bytes
+        )
+        public_trajectory = (
+            None
+            if trajectory_over_limit
+            else self.evidence.publish_trajectory(
+                run.run_id,
+                trial.trajectory_ref,
+                run.agent.agent_type,
+                trajectory_time,
+            )
         )
         raw_sources = tuple(
             item
@@ -80,7 +90,11 @@ class CompletionFactory:
         )
         references = (
             patch_ref,
-            *self.evidence.publish_evaluation(run.run_id, result),
+            *self.evidence.publish_evaluation(
+                run.run_id,
+                result,
+                self.job.limit_snapshot.raw_artifact_max_bytes,
+            ),
             public_summary,
             *((public_trajectory,) if public_trajectory is not None else ()),
             *raw,
@@ -120,7 +134,19 @@ class CompletionFactory:
             metrics,
             trial.backend_job_ref,
             trial.backend_trial_ref,
-            tuple(dict.fromkeys((*trial.warnings, *raw_warnings))),
+            tuple(
+                dict.fromkeys(
+                    (
+                        *trial.warnings,
+                        *(
+                            ("PUBLIC_TRAJECTORY_RAW_LIMIT_EXCEEDED",)
+                            if trajectory_over_limit
+                            else ()
+                        ),
+                        *raw_warnings,
+                    )
+                )
+            ),
             now,
         )
 
@@ -131,10 +157,9 @@ class CompletionFactory:
         self.artifacts.read_verified(reference)
         redaction = (
             "redacted"
-            if reference.artifact_type in {"public_test_summary", "public_trajectory"}
+            if reference.artifact_type in PUBLIC_ARTIFACT_TYPES - {"agent_patch"}
             else "blocked"
-            if reference.artifact_type
-            not in {"agent_patch", "public_test_summary", "public_trajectory"}
+            if reference.artifact_type not in PUBLIC_ARTIFACT_TYPES
             else "not_required"
         )
         return RunArtifact(str(uuid4()), run_id, reference, redaction)

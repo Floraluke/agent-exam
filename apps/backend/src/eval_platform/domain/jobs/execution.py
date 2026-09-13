@@ -57,6 +57,26 @@ class RunArtifact:
 
 
 @dataclass(frozen=True, slots=True)
+class ArtifactDeletionIntent:
+    item: RunArtifact
+    intent_id: str
+    actor_user_id: str
+    reason: str
+    initiated_at: datetime
+    verified_at: datetime | None = None
+
+    def __post_init__(self) -> None:
+        if (
+            not self.intent_id
+            or not self.actor_user_id
+            or self.reason != "raw_retention_expired"
+            or self.item.reference.deleted_at is not None
+            or (self.verified_at is not None and self.verified_at < self.initiated_at)
+        ):
+            raise ValueError("Artifact deletion intent is invalid")
+
+
+@dataclass(frozen=True, slots=True)
 class StoredDeterministicResult:
     run_id: str
     patch_exists: bool

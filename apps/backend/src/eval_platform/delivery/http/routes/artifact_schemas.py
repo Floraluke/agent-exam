@@ -6,23 +6,8 @@ from typing import Literal, cast
 from pydantic import BaseModel
 
 from eval_platform.application.reporting.evidence import ArtifactPage
+from eval_platform.domain.artifacts import PUBLIC_ARTIFACT_TYPES, ArtifactType
 from eval_platform.domain.jobs.execution import RunArtifact
-
-ArtifactType = Literal[
-    "agent_patch",
-    "public_test_summary",
-    "public_trajectory",
-    "harness_report",
-    "harness_summary",
-    "harness_test_output",
-    "harbor_trial_config",
-    "harbor_trial_result",
-    "agent_trajectory",
-    "harness_report_raw",
-    "harness_summary_raw",
-    "harness_test_output_raw",
-    "harness_log_raw",
-]
 
 
 class ArtifactItemResponse(BaseModel):
@@ -48,7 +33,7 @@ class ArtifactItemResponse(BaseModel):
         reference = item.reference
         return cls(
             artifact_id=item.artifact_id,
-            artifact_type=cast(ArtifactType, reference.artifact_type),
+            artifact_type=ArtifactType(reference.artifact_type),
             content_type=reference.content_type,
             size_bytes=reference.size_bytes,
             sha256=reference.sha256,
@@ -71,8 +56,7 @@ class ArtifactItemResponse(BaseModel):
                 "deleted"
                 if reference.deleted_at is not None
                 else "available"
-                if reference.artifact_type
-                in {"agent_patch", "public_test_summary", "public_trajectory"}
+                if reference.artifact_type in PUBLIC_ARTIFACT_TYPES
                 else "not_ready"
             ),
         )

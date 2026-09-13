@@ -96,7 +96,11 @@ async def job_error(request: Request, exc: Exception) -> JSONResponse:
         JobUnavailable: (503, "DEPENDENCY_UNAVAILABLE", "评测批次存储暂不可用"),
         EvidenceNotFound: (404, "ARTIFACT_NOT_FOUND", "证据不存在或无权查看"),
         EvidenceNotReady: (409, "ARTIFACT_NOT_READY", "证据正文尚不可安全发布"),
-        EvidenceDeleted: (410, "ARTIFACT_DELETED", "证据正文已按保留策略清理"),
+        EvidenceDeleted: (
+            410,
+            "ARTIFACT_CONTENT_DELETED",
+            "证据正文已按保留策略清理",
+        ),
     }[type(exc)]
     return error_response(status, code, message)
 

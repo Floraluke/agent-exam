@@ -49,6 +49,7 @@ def test_existing_local_adapter_references_publish_as_durable_run_evidence(tmp_p
             ),
             {"FAIL_TO_PASS": {"success": 1, "failure": 0}},
         ),
+        50 * 1024 * 1024,
     )
 
     assert normalized_patch.artifact_type == "agent_patch"

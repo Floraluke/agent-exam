@@ -30,6 +30,7 @@ class ExecutableMemoryJobs(MemoryJobs, MemoryRetention):
         super().__init__()
         self.records.update((record.job_id, record) for record in records)
         self.reports = {}
+        self.deletion_intents = {}
 
     def claim(self, worker_id, now):
         if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,63}", worker_id):

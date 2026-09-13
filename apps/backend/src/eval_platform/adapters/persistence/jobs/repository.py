@@ -15,10 +15,7 @@ from eval_platform.adapters.persistence.jobs.publication import publish
 from eval_platform.adapters.persistence.jobs.records import read_job
 from eval_platform.adapters.persistence.jobs.recovery.actions import recover
 from eval_platform.adapters.persistence.jobs.reporting.listings import list_jobs
-from eval_platform.adapters.persistence.jobs.retention import (
-    expired_artifacts,
-    mark_artifact_deleted,
-)
+from eval_platform.adapters.persistence.jobs.retention import PostgresArtifactRetention
 from eval_platform.domain.jobs.cancellation import (
     CancellationRequest,
     CancellationResult,
@@ -29,7 +26,6 @@ from eval_platform.domain.jobs.execution import (
     JobLease,
     JobReport,
     RecoveryRequest,
-    RunArtifact,
     RunCompletion,
     RunReport,
     TrialStart,
@@ -43,7 +39,7 @@ from eval_platform.domain.jobs.models import (
 from eval_platform.domain.result import ExecutionTrialResult
 
 
-class PostgresJobRepository:
+class PostgresJobRepository(PostgresArtifactRetention):
     def __init__(self, dsn: str) -> None:
         self.dsn = dsn
 
@@ -169,20 +165,6 @@ class PostgresJobRepository:
     def get_artifact_report(self, artifact_id: str) -> RunReport:
         with job_transaction(self.dsn) as connection:
             return reports.read_artifact_report(connection, artifact_id)
-
-    def expired_artifacts(self, now: datetime, limit: int) -> tuple[RunArtifact, ...]:
-        with job_transaction(self.dsn) as connection:
-            return expired_artifacts(connection, now, limit)
-
-    def mark_artifact_deleted(
-        self,
-        item: RunArtifact,
-        actor_user_id: str,
-        occurred_at: datetime,
-        reason: str,
-    ) -> None:
-        with job_transaction(self.dsn) as connection:
-            mark_artifact_deleted(connection, item, actor_user_id, occurred_at, reason)
 
     def list(
         self,

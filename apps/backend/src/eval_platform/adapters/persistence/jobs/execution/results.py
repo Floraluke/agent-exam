@@ -13,6 +13,7 @@ from eval_platform.adapters.persistence.jobs.execution.cancellation import (
     stop_unstarted,
 )
 from eval_platform.adapters.persistence.jobs.execution.common import current, event
+from eval_platform.domain.artifacts import ARTIFACT_FILENAMES
 from eval_platform.domain.jobs.execution import (
     JobLease,
     JobLeaseConflict,
@@ -183,11 +184,4 @@ def _insert_artifact(connection: Connection, item: RunArtifact, now: datetime) -
 
 
 def _filename(kind: str) -> str:
-    return {
-        "agent_patch": "agent.patch",
-        "harness_report": "harness-report.json",
-        "harness_summary": "harness-summary.json",
-        "harness_test_output": "test-output.txt",
-        "public_test_summary": "test-summary.json",
-        "public_trajectory": "trajectory.jsonl",
-    }.get(kind, "artifact.bin")
+    return ARTIFACT_FILENAMES.get(kind, "artifact.bin")

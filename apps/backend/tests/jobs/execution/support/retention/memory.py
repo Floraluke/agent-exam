@@ -1,5 +1,6 @@
 from dataclasses import replace
 
+from eval_platform.domain.jobs.execution import ArtifactDeletionIntent
 from eval_platform.domain.jobs.models import JobUnavailable
 
 
@@ -22,8 +23,32 @@ class MemoryRetention:
                 )[:limit]
             )
 
-    def mark_artifact_deleted(self, item, actor_user_id, occurred_at, reason):
+    def begin_artifact_deletion(
+        self, item, actor_user_id, occurred_at, reason, intent_id
+    ):
         with self.lock:
+            current = self.deletion_intents.get(item.artifact_id)
+            if current is None:
+                current = ArtifactDeletionIntent(
+                    item, intent_id, actor_user_id, reason, occurred_at
+                )
+                self.deletion_intents[item.artifact_id] = current
+            if current.item != item or current.actor_user_id != actor_user_id:
+                raise JobUnavailable
+            return current
+
+    def confirm_artifact_deletion(self, intent, occurred_at):
+        with self.lock:
+            current = self.deletion_intents.get(intent.item.artifact_id)
+            if current != intent:
+                raise JobUnavailable
+            current = replace(intent, verified_at=occurred_at)
+            self.deletion_intents[intent.item.artifact_id] = current
+            return current
+
+    def mark_artifact_deleted(self, intent, occurred_at):
+        with self.lock:
+            item = intent.item
             report = self.reports.get(item.run_id)
             if report is None:
                 raise JobUnavailable
@@ -40,7 +65,9 @@ class MemoryRetention:
                 or reference.expires_at is None
                 or reference.expires_at > occurred_at
                 or reference.deleted_at is not None
-                or reason != "raw_retention_expired"
+                or intent.reason != "raw_retention_expired"
+                or intent.verified_at is None
+                or self.deletion_intents.get(item.artifact_id) != intent
             ):
                 raise JobUnavailable
             deleted = replace(
@@ -48,8 +75,8 @@ class MemoryRetention:
                 reference=replace(
                     reference,
                     deleted_at=occurred_at,
-                    deleted_by=actor_user_id,
-                    deletion_reason=reason,
+                    deleted_by=intent.actor_user_id,
+                    deletion_reason=intent.reason,
                 ),
             )
             artifacts = tuple(

@@ -63,11 +63,12 @@ class EvidencePublication:
         self,
         run_id: str,
         result: DeterministicResult,
+        verification_limit: int,
     ) -> tuple[ArtifactRef, ...]:
         report, logs = result.report_ref, result.log_refs
         if report.artifact_type not in {"harness_report", "harness_summary"}:
             raise ValueError("Evaluator report evidence has an unsupported type")
-        self.source.read_verified(report)
+        self.source.read_bounded_verified(report, verification_limit)
         summary = normalize_test_summary(result.tests_status_summary or {})
         report_body = json.dumps(
             {
@@ -87,7 +88,7 @@ class EvidencePublication:
         if len(outputs) > 1:
             raise ValueError("Evaluator returned multiple test outputs")
         if outputs:
-            self.source.read_verified(outputs[0])
+            self.source.read_bounded_verified(outputs[0], verification_limit)
             output = b"Deterministic test counts are stored in tests_status_summary.\n"
             published.append(
                 self._publish_derived(
