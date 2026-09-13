@@ -40,22 +40,32 @@ apps/backend/src/eval_platform/
 │  └─ ports/leaderboard.py                                # 新增最小只读 Repository Interface
 ├─ adapters/persistence/jobs/reporting/
 │  ├─ __init__.py                                         # Adapter 导出
-│  └─ leaderboard.py                                      # PostgreSQL 选择、聚合与稳定分页
+│  ├─ leaderboard.py                                      # PostgreSQL 目录联结、选择与稳定分页
+│  ├─ rows.py                                             # 数据库行到领域尝试的解析
+│  └─ validation.py                                       # 冻结 Task/Agent/策略/执行身份失败关闭
 ├─ delivery/
-│  ├─ jobs.py                                             # 在既有运行时装配只读能力
 │  └─ http/
-│     ├─ app.py                                           # 挂载既有 Reporting 路由
-│     └─ routes/leaderboard/{routes,schemas}.py           # GET 参数、响应 Schema 与错误映射
+│     ├─ app.py                                           # 生产运行时注入只读 Repository
+│     └─ routes/leaderboard/{__init__,routes,schemas}.py  # GET 参数、响应 Schema 与错误映射
 apps/backend/tests/leaderboard/
-├─ conftest.py                                            # 内存 HTTP 装配与固定比较范围
-├─ memory.py                                              # 只读 Repository 测试替身
-├─ test_policy.py                                         # 选择、分母、并列与指标语义
+├─ {conftest,memory}.py                                   # 内存 HTTP 装配与只读测试替身
+├─ browser_repository.py                                  # 显式门控的内部浏览器投影
+├─ postgres_support.py                                    # 专属数据库与合成正式数据支持
+├─ test_policy.py                                         # 选择、分母、并列、未启动与指标语义
 ├─ test_leaderboard_http.py                               # 过滤、分页、空结果、错误与隔离
-└─ test_leaderboard_postgres.py                           # 真实 PG 查询与生产隔离
+└─ test_leaderboard_postgres.py                           # 真实 PG 查询、生产隔离与损坏证据
+apps/backend/tests/identity/browser_server.py             # 浏览器测试装配门控 Adapter
+apps/backend/tests/jobs/runtime/verify.ps1                # 专属 PG/MinIO 门禁、隔离和精确清理
 apps/web/src/
-├─ features/leaderboard/view.tsx                          # 排行榜、比较条件与来源入口
-└─ lib/leaderboard/{client,shapes}.ts                     # HTTP 调用、类型与运行时校验
+├─ features/
+│  ├─ leaderboard/view.tsx                                # 排行榜、完整条件、状态与来源入口
+│  └─ identity/session.tsx                                # 登录后挂载排行榜区域
+└─ lib/
+   ├─ leaderboard/{client,shapes}.ts                      # 排行榜 HTTP 调用、类型与响应校验
+   ├─ jobs/snapshots.ts                                   # Job/排行榜共享的冻结策略快照解析
+   └─ job-shapes.ts                                       # 既有 Job 解析器改为复用共享快照契约
 apps/web/tests/leaderboard/base.spec.ts                   # 少量完整浏览器动线
+apps/web/playwright.config.ts                             # 系统 Chrome 仅由测试进程显式选择
 docs/architecture/{ARCHITECTURE,DATA_MODEL,MODULE_CONTRACTS}.md
 docs/interfaces/HTTP_API.md                               # 已批准口径与当前接口事实
 .scratch/m1-platform/issues/11-base-leaderboard.md        # 验收勾选和证据
@@ -90,3 +100,12 @@ docs/interfaces/HTTP_API.md                               # 已批准口径与�
 - 评审前完整后端回归为 `358 passed, 76 skipped, 2 warnings in 37.50s`；76 项均为显式外部环境门禁，其中任务 11 的真实 PG 已由专属 111 项套件通过。全仓 Ruff check 通过，256 个文件 format-check 通过，mypy 为 `Success: no issues found in 148 source files`。
 - Web 生产构建第一次在沙箱内因用户配置写入 `EPERM` 未进入编译，沙箱外又因虚拟文件系统原子重命名 `EXDEV` 未进入编译；仅为本次进程设置 `NEXT_TELEMETRY_DISABLED=1` 后构建成功，4 个静态页面生成完成。没有改 APPDATA、机器设置或下载依赖。
 - 规模检查发现 application 根目录因新增用例达到 9 个直属文件；已将其移入既有 `application/reporting/leaderboard.py` 并由包导出。最终新增/受影响动态源码均不超过 200 行，受影响目录均不超过 8 个直属文件。
+- 终审等待期间补充了页面可核验性红灯：要求展开比较条件后显示冻结网络、工具和资源快照的关键实际值；真实浏览器结果为 `1 failed, 1 passed`，失败点是页面只显示策略 ID、未显示快照内容。现已增加强类型快照解析与完整限制展示，避免把后端任意对象静默当成可信比较条件；同时把本机 Chrome 改为仅由 `AGENTEXAM_USE_SYSTEM_CHROME=1` 的测试进程选择，保持默认 Playwright 配置的可移植性，待绿灯复验。
+- Standards 首轮评审发现生产查询未把 `evaluation_runs.agent_configuration_id` 与冻结 Agent 快照中的配置 ID 交叉核对；配置 ID 不参与 fingerprint，因此损坏快照可能把正式成绩归到错误配置。已先追加真实 PostgreSQL 失败关闭用例，下一步取得红灯后在查询/行解析边界补齐外键一致性校验。
+- Spec 与 Standards 均发现成功查询 A 后查询 B 遇到 503 时会残留 A 的旧榜单。新增浏览器回归取得真实红灯 `1 failed, 1 passed`，旧 `article.leaderboard-row` 数量为 1；现已让每次新的非分页查询在发出请求时清空旧行、游标和完成态，分页失败仍可保留同一范围的已有行，待绿灯复验。
+- 配置外键损坏用例已在专属 PostgreSQL/MinIO 套件取得真实红灯：`1 failed, 113 passed, 2 warnings in 42.16s`，正是预期的 `JobUnavailable` 未抛出；随机标签下三个容器与 tmpfs 均已精确清理，镜像/构建缓存保留。
+- Spec 的未执行参赛者问题已通过领域红灯固定：仅含 `started_at=null` 的取消 Run 时旧实现仍生成一行，结果为 `1 failed, 3 passed, 2 warnings`；修复后只把真正开始的正式 Run 纳入候选，同配置其他未执行题仍由完整分母计为 unknown，但不产生来源或过程指标。
+- Standards 完整性修复把正式尝试查询改为先联结 `evaluation_tasks` 与题目源 Artifact，以目录字段筛选后逐项核对完整冻结 Task；同时核对 Run 配置外键与 Agent 快照、`backend_kind=harbor`、Run backend revision 与 Job Harbor revision，并严格校验冻结 Agent、网络、工具和限制字段。真实 PG 用例依次损坏配置 ID、冻结数据集、网络布尔、CPU 限制、backend kind/revision，均须统一失败关闭。
+- 终审修复后的专属 PostgreSQL/MinIO 套件为 `115 passed, 2 warnings in 41.37s`；三个容器仍满足无宿主端口/挂载和只读/限额检查，结束后按随机标签精确清理，tmpfs 数据已移除。任务 11 浏览器复验为 `2 passed (11.1s)`，同时证明冻结快照实际值可见、成功后新查询 503 不残留旧行、空结果和安全错误状态正确。Web typecheck 与任务 11 定向 Ruff 通过；完整回归及终审复审待执行。
+- Standards 末轮发现显示名不参与配置 fingerprint、却参与排行榜分组；仅损坏冻结 `display_name` 时旧实现仍未失败关闭。新增真实 PG 用例已取得 `1 failed, 114 passed, 2 warnings in 41.44s` 的预期红灯，三个隔离容器/tmpfs 精确清理。生产查询现联结 `agent_configurations` 并交叉核对配置 ID、显示名、Agent/模型/认证类型、凭据引用、reasoning effort 与 fingerprint；这些内部核验字段不会进入公开响应，待绿灯复验。
+- Agent 目录全字段交叉核对后的专属 PostgreSQL/MinIO 绿灯为 `115 passed, 2 warnings in 41.97s`；显示名损坏与其余六类损坏均统一抛依赖不可用。三个随机容器与 tmpfs 已再次精确清理，未运行真实模型、Harbor 或 Judge。

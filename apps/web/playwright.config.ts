@@ -8,7 +8,8 @@ export default defineConfig({
   reporter: "list",
   use: {
     baseURL: "https://127.0.0.1:3100", ignoreHTTPSErrors: true,
-    channel: "chrome", trace: "retain-on-failure",
+    channel: process.env.AGENTEXAM_USE_SYSTEM_CHROME === "1" ? "chrome" : undefined,
+    trace: "retain-on-failure",
   },
   webServer: [
     {

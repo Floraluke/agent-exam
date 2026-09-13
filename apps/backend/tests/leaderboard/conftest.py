@@ -95,6 +95,7 @@ def fixed_rows():
         "44444444-4444-4444-4444-444444444444",
         at,
         at,
+        at,
         "COMPLETED",
         "COMPLETED",
         None,

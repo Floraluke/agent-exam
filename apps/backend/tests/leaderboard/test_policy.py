@@ -59,6 +59,7 @@ def attempt(
     *,
     failure_code: str | None = None,
     metrics: AttemptMetrics | None = None,
+    started: bool = True,
 ) -> LeaderboardAttempt:
     at = NOW + timedelta(minutes=minute)
     return LeaderboardAttempt(
@@ -70,6 +71,7 @@ def attempt(
         None,
         f"run-{configuration_id}-{task_id}-{minute}",
         at,
+        at if started else None,
         at,
         "COMPLETED" if resolved is not None else "FAILED",
         "COMPLETED" if resolved is not None else "FAILED",
@@ -79,6 +81,27 @@ def attempt(
         metrics or AttemptMetrics(),
         "official",
     )
+
+
+def test_unstarted_cancellation_does_not_create_a_competitor_or_metric() -> None:
+    tasks = (
+        LeaderboardTask("task-1", "instance-1", "org/repo"),
+        LeaderboardTask("task-2", "instance-2", "org/repo"),
+    )
+    canceled = replace(
+        attempt("a", "task-1", 1, None, started=False),
+        job_status="CANCELED",
+        run_status="CANCELED",
+        failure_code=None,
+    )
+
+    assert build_rows(tasks, (canceled,), NOW) == ()
+
+    started = attempt("a", "task-1", 2, True)
+    row = build_rows(tasks, (started, canceled), NOW)[0]
+    assert (row.total_tasks, row.resolved_count, row.unknown_count) == (2, 1, 1)
+    assert row.metrics.selected_runs == 1
+    assert [source.task_id for source in row.sources] == ["task-1"]
 
 
 def test_earliest_result_wins_and_retry_only_fills_an_unknown_task() -> None:

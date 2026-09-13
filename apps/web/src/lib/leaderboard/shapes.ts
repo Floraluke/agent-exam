@@ -1,12 +1,16 @@
 import { ApiError } from "../api-client";
+import {
+  limitSnapshot, networkSnapshot, toolSnapshot,
+  type LimitSnapshot, type NetworkPolicySnapshot, type ToolProfileSnapshot,
+} from "../jobs/snapshots";
 
 export type MetricValue = { value: number | null; coverage: number };
 export type LeaderboardScope = {
   dataset_id: string; dataset_revision: string; split: string; repo: string;
   evaluation_track: string; network_policy_id: string;
-  network_policy_snapshot: Record<string, unknown>; tool_profile_id: string;
-  tool_profile_snapshot: Record<string, unknown>; limit_profile_id: string;
-  limit_snapshot: Record<string, unknown>; harbor_revision: string;
+  network_policy_snapshot: NetworkPolicySnapshot; tool_profile_id: string;
+  tool_profile_snapshot: ToolProfileSnapshot; limit_profile_id: string;
+  limit_snapshot: LimitSnapshot; harbor_revision: string;
   swe_gym_revision: string; swe_bench_fork_revision: string;
   execution_contract_version: string;
 };
@@ -72,9 +76,9 @@ function scope(value: unknown): LeaderboardScope {
   const result = Object.fromEntries(names.map((name) => [name, text(item, name)]));
   return {
     ...result,
-    network_policy_snapshot: record(item.network_policy_snapshot),
-    tool_profile_snapshot: record(item.tool_profile_snapshot),
-    limit_snapshot: record(item.limit_snapshot),
+    network_policy_snapshot: networkSnapshot(item.network_policy_snapshot),
+    tool_profile_snapshot: toolSnapshot(item.tool_profile_snapshot),
+    limit_snapshot: limitSnapshot(item.limit_snapshot),
   } as LeaderboardScope;
 }
 function agent(value: unknown): LeaderboardAgent {

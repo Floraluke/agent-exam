@@ -65,6 +65,7 @@ class LeaderboardAttempt:
     rerun_of_job_id: str | None
     run_id: str
     job_created_at: datetime
+    started_at: datetime | None
     finished_at: datetime
     job_status: str
     run_status: str

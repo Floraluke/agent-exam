@@ -10,40 +10,13 @@ import type {
 } from "./contracts";
 import { RUN_STATUSES } from "./contracts";
 import {
-  bool, nullableText, number, object, parseJobSummary, text,
+  nullableText, number, object, parseJobSummary, text,
 } from "./jobs/shapes";
+import {
+  limitSnapshot, networkSnapshot, toolSnapshot,
+} from "./jobs/snapshots";
 
 export { parseJobSummary } from "./jobs/shapes";
-
-function networkPolicy(value: unknown): JobDetail["network_policy_snapshot"] {
-  const item = object(value);
-  return {
-    mode: text(item, "mode"),
-    web_search: text(item, "web_search"),
-    arbitrary_hosts: bool(item, "arbitrary_hosts"),
-  };
-}
-
-function toolPolicy(value: unknown): JobDetail["tool_profile_snapshot"] {
-  const item = object(value);
-  return {
-    agent_type: text(item, "agent_type"),
-    web_search: text(item, "web_search"),
-    arbitrary_commands: bool(item, "arbitrary_commands"),
-  };
-}
-
-function limitSnapshot(value: unknown): JobDetail["limit_snapshot"] {
-  const item = object(value);
-  const keys = [
-    "agent_wall_timeout_sec", "agent_cpus", "agent_memory_mb", "agent_storage_mb",
-    "evaluator_wall_timeout_sec", "evaluator_cpus", "evaluator_memory_mb", "pids_limit",
-    "patch_warning_bytes", "patch_max_bytes", "raw_artifact_max_bytes", "raw_run_max_bytes",
-    "concurrency", "max_retries",
-  ];
-  return Object.fromEntries(keys.map((key) => [key, number(item, key)])) as
-    JobDetail["limit_snapshot"];
-}
 
 function stateEvent(value: unknown): StateEvent {
   const item = object(value);
@@ -112,9 +85,9 @@ export function parseJobDetail(value: unknown): JobDetail {
     }),
     limit_snapshot: limitSnapshot(item.limit_snapshot),
     network_policy_id: text(item, "network_policy_id"),
-    network_policy_snapshot: networkPolicy(item.network_policy_snapshot),
+    network_policy_snapshot: networkSnapshot(item.network_policy_snapshot),
     tool_profile_id: text(item, "tool_profile_id"),
-    tool_profile_snapshot: toolPolicy(item.tool_profile_snapshot),
+    tool_profile_snapshot: toolSnapshot(item.tool_profile_snapshot),
     harbor_revision: text(item, "harbor_revision"),
     swe_gym_revision: text(item, "swe_gym_revision"),
     swe_bench_fork_revision: text(item, "swe_bench_fork_revision"),

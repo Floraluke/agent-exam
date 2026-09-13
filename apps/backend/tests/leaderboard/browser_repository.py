@@ -88,6 +88,7 @@ class BrowserLeaderboardRepository:
             job.rerun_of_job_id,
             run.run_id,
             job.created_at,
+            run.started_at,
             run.finished_at or job.finished_at or job.created_at,
             job.status,
             run.status,

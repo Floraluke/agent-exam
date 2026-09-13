@@ -3,13 +3,14 @@
 from datetime import datetime
 from typing import Any
 
-from eval_platform.domain.agent import AgentConfiguration
-from eval_platform.domain.jobs.models import (
-    AgentSnapshot,
-    LimitSnapshot,
-    NetworkPolicySnapshot,
-    TaskSnapshot,
-    ToolProfileSnapshot,
+from eval_platform.adapters.persistence.jobs.reporting.validation import (
+    mapping,
+    read_agent,
+    read_limits,
+    read_network,
+    read_task,
+    read_tool,
+    text,
 )
 from eval_platform.domain.leaderboard import (
     AgentIdentity,
@@ -21,9 +22,13 @@ from eval_platform.domain.result import ResourceSummary, UsageSummary
 
 
 def read_attempt(row: dict[str, Any]) -> LeaderboardAttempt:
-    task = TaskSnapshot(**_mapping(row["task_snapshot"]))
-    agent = AgentSnapshot(**_mapping(row["agent_snapshot"]))
-    _validate_agent(agent)
+    task = read_task(row["task_snapshot"], row)
+    agent = read_agent(row["agent_snapshot"], row)
+    if (
+        row["backend_kind"] != "harbor"
+        or row["backend_revision"] != row["harbor_revision"]
+    ):
+        raise ValueError("Official execution identity changed")
     resolved = row["resolved"]
     result_at = row["result_created_at"]
     _validate_result(row, resolved, result_at)
@@ -32,25 +37,29 @@ def read_attempt(row: dict[str, Any]) -> LeaderboardAttempt:
         finished_at = row["job_created_at"]
     if not isinstance(finished_at, datetime):
         raise ValueError("Stored finish time is invalid")
-    if str(row["task_id"]) != task.task_id:
-        raise ValueError("Frozen task identity changed")
+    started_at = row["run_started_at"]
+    if started_at is not None and not isinstance(started_at, datetime):
+        raise ValueError("Stored start time is invalid")
+    created_at = row["job_created_at"]
+    if not isinstance(created_at, datetime):
+        raise ValueError("Stored creation time is invalid")
     return LeaderboardAttempt(
         ComparisonScope(
             task.dataset_id,
             task.dataset_revision,
             task.split,
             task.repo,
-            row["evaluation_track"],
-            row["network_policy_id"],
-            NetworkPolicySnapshot(**_mapping(row["network_policy_snapshot"])),
-            row["tool_profile_id"],
-            ToolProfileSnapshot(**_mapping(row["tool_profile_snapshot"])),
-            row["limit_profile_id"],
-            LimitSnapshot(**_mapping(row["limit_snapshot"])),
-            row["harbor_revision"],
-            row["swe_gym_revision"],
-            row["swe_bench_fork_revision"],
-            row["execution_contract_version"],
+            text(row["evaluation_track"]),
+            text(row["network_policy_id"]),
+            read_network(row["network_policy_snapshot"]),
+            text(row["tool_profile_id"]),
+            read_tool(row["tool_profile_snapshot"]),
+            text(row["limit_profile_id"]),
+            read_limits(row["limit_snapshot"]),
+            text(row["harbor_revision"]),
+            text(row["swe_gym_revision"]),
+            text(row["swe_bench_fork_revision"]),
+            text(row["execution_contract_version"]),
         ),
         AgentIdentity(
             agent.agent_configuration_id,
@@ -67,7 +76,8 @@ def read_attempt(row: dict[str, Any]) -> LeaderboardAttempt:
         str(row["job_id"]),
         None if row["rerun_of_job_id"] is None else str(row["rerun_of_job_id"]),
         str(row["run_id"]),
-        row["job_created_at"],
+        created_at,
+        started_at,
         finished_at,
         row["job_status"],
         row["run_status"],
@@ -77,21 +87,6 @@ def read_attempt(row: dict[str, Any]) -> LeaderboardAttempt:
         _metrics(row["process_metrics"]),
         row["result_scope"],
     )
-
-
-def _validate_agent(snapshot: AgentSnapshot) -> None:
-    configuration = AgentConfiguration(
-        snapshot.agent_configuration_id,
-        snapshot.agent_type,
-        snapshot.agent_version,
-        snapshot.model_provider,
-        snapshot.model,
-        snapshot.authentication_type,
-        snapshot.credential_profile_id,
-        {"reasoning_effort": snapshot.reasoning_effort},
-    )
-    if configuration.fingerprint != snapshot.configuration_fingerprint:
-        raise ValueError("Frozen Agent fingerprint changed")
 
 
 def _validate_result(row: dict[str, Any], resolved: object, result_at: object) -> None:
@@ -115,11 +110,11 @@ def _validate_result(row: dict[str, Any], resolved: object, result_at: object) -
 def _metrics(value: object) -> AttemptMetrics:
     if value is None:
         return AttemptMetrics()
-    mapping = _mapping(value)
-    if set(mapping) != {"usage", "resources"}:
+    values = mapping(value)
+    if set(values) != {"usage", "resources"}:
         raise ValueError("Stored process metrics are invalid")
-    usage = UsageSummary(**_mapping(mapping["usage"]))
-    resources = ResourceSummary(**_mapping(mapping["resources"]))
+    usage = UsageSummary(**mapping(values["usage"]))
+    resources = ResourceSummary(**mapping(values["resources"]))
     return AttemptMetrics(
         usage.n_input_tokens,
         usage.n_cache_tokens,
@@ -129,9 +124,3 @@ def _metrics(value: object) -> AttemptMetrics:
         resources.cpu_time_sec,
         resources.peak_memory_bytes,
     )
-
-
-def _mapping(value: object) -> dict[str, Any]:
-    if not isinstance(value, dict) or not all(isinstance(key, str) for key in value):
-        raise ValueError("Stored snapshot is not an object")
-    return value

@@ -16,6 +16,10 @@ function metric(label: string, item: MetricValue, selected: number, suffix = "")
 
 function Result({ row }: { row: LeaderboardRow }) {
   const scope = row.comparison_scope; const metrics = row.process_metrics;
+  const network = scope.network_policy_snapshot;
+  const tools = scope.tool_profile_snapshot;
+  const limits = scope.limit_snapshot;
+  const yesNo = (value: boolean) => value ? "是" : "否";
   return <article className="leaderboard-row">
     <h3>并列第 {row.rank} 名 · {row.agent.display_name}</h3>
     <p>{row.agent.agent_type} {row.agent.agent_version} · {row.agent.model_provider}
@@ -31,6 +35,18 @@ function Result({ row }: { row: LeaderboardRow }) {
       <p>{scope.dataset_id} / {scope.dataset_revision} / {scope.split} / {scope.repo}</p>
       <p>赛道 {scope.evaluation_track} · 网络策略 {scope.network_policy_id} ·
         工具策略 {scope.tool_profile_id} · 资源模板 {scope.limit_profile_id}</p>
+      <p>网络 {network.mode} · Web 搜索 {network.web_search} ·
+        任意主机 {yesNo(network.arbitrary_hosts)}</p>
+      <p>工具 {tools.agent_type} · Web 搜索 {tools.web_search} ·
+        任意命令 {yesNo(tools.arbitrary_commands)}</p>
+      <p>Agent {limits.agent_wall_timeout_sec} 秒 / {limits.agent_cpus} CPU /
+        {" "}{limits.agent_memory_mb} MB / {limits.agent_storage_mb} MB 存储</p>
+      <p>评测器 {limits.evaluator_wall_timeout_sec} 秒 /
+        {" "}{limits.evaluator_cpus} CPU / {limits.evaluator_memory_mb} MB ·
+        PID 上限 {limits.pids_limit}</p>
+      <p>补丁提醒/上限 {limits.patch_warning_bytes}/{limits.patch_max_bytes} bytes ·
+        原始产物/运行上限 {limits.raw_artifact_max_bytes}/{limits.raw_run_max_bytes} bytes</p>
+      <p>并发 {limits.concurrency} / 自动重试 {limits.max_retries}</p>
       <p className="small">Harbor {scope.harbor_revision}<br />
         SWE-Gym {scope.swe_gym_revision}<br />
         SWE-Bench Fork {scope.swe_bench_fork_revision}<br />
@@ -72,6 +88,9 @@ export default function LeaderboardView() {
     setFilters((current) => ({ ...current, [key]: value }));
   }
   async function load(current: LeaderboardFilters, cursor?: string) {
+    if (!cursor) {
+      setRows([]); setNext(null); setSearched(false);
+    }
     setBusy(true); setError("");
     try {
       const page = await leaderboard(current, cursor);

@@ -30,6 +30,7 @@ def build_rows(
         for item in attempts
         if item.result_scope == visible_scope
         and item.job_status in _TERMINAL_JOBS
+        and item.started_at is not None
         and item.task_id in known_tasks
         and known_tasks[item.task_id].repo == item.scope.repo
     )
