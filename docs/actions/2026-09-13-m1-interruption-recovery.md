@@ -2,7 +2,7 @@
 
 ## 状态
 
-In progress。用户已明确批准最小 `JobRepository.recover(RecoveryRequest)` Interface 及本记录中的收束、重试和访问语义。实现、分层验证和首轮双轴评审修复已完成；当前以 `2137e08` 为固定基准做最终 Standards/Spec 复审，尚未提前勾选任务验收。
+Completed。用户已明确批准最小 `JobRepository.recover(RecoveryRequest)` Interface 及本记录中的收束、重试和访问语义；实现、分层验证、首轮问题修复与最终双轴复审均已完成，任务单八项验收已按实际证据回填。
 
 ## 情况说明
 
@@ -102,4 +102,5 @@ docs/{architecture,interfaces}/                          # 当前恢复契约和
 - 修复后的专属 PostgreSQL/MinIO 套件为 `105 passed, 2 warnings in 38.72s`：三类错配都返回 503 且事务无部分写入，FINALIZING 保留取消意图，恢复与持旧租约 Worker 同时争锁时只有恢复成功。容器无宿主端口/挂载，三个专属容器与 tmpfs 已精确清理，镜像/构建缓存保留。
 - 评审修复后的完整后端为 `350 passed, 75 skipped, 2 warnings in 44.24s`；新增 5 个跳过均为已由专属环境通过的 PG 边界，其他跳过仍是显式外部探针门禁。mypy 再次覆盖 136 个源码文件并通过，Web typecheck 通过，Ruff check/format-check 通过。
 - 最终浏览器单项首次因旧结果目录 `.last-run.json` 的 Windows EPERM 未进入产品断言；精确删除该任务结果目录后，第二次又因沙箱无法重建目录退出，沙箱外首次运行再发现前一次异常留下的 3100 端口进程。仅终止该合成测试 Node 进程并重建精确目录后，`interruption-recovery.spec.ts` 为 `1 passed (10.2s)`；没有真实模型、Harbor 或凭据调用。
-- 当前实现和权威契约已同步，下一步只做双轴最终复审、回填八项任务验收并提交关闭记录；复审通过前不进入任务 11，也不提前宣称任务 10 完成。
+- 以任务 09 关闭提交 `2137e08` 为固定基准的 Standards 与 Spec 最终复审均 PASS。Standards 确认共享领域策略、文档同步、依赖边界和 200 行/8 文件指标无残留问题；Spec 逐项确认部分成功幂等、FINALIZING 取消、结果证据一致性、真实 PG 租约竞争、HTTP/Web 和新建重试契约。评审修复检查点为 `354667b`。
+- 任务单八项验收已全部勾选，任务 10 完成。后续任务 11 必须使用独立行动记录；不得把本行动继续复用为后续计划，也不得因任务完成而自动运行真实模型、部署或推送。
