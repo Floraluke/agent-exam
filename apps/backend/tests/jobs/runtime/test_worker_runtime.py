@@ -1,3 +1,4 @@
+from hashlib import sha256
 from pathlib import Path
 
 import pytest
@@ -10,13 +11,36 @@ from eval_platform.delivery.worker.runtime import (
     create_runtime_worker,
     main,
 )
+from eval_platform.domain.result import ArtifactRef
 
 
-def test_runtime_worker_reads_trusted_local_adapter_evidence(
+def test_runtime_worker_reads_harbor_and_fork_evidence(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     captured: dict[str, object] = {}
     shell = object()
+    evidence = tmp_path / "runtime" / "acceptance" / "task13" / "evidence"
+    harbor_path = evidence / "execution" / "trial" / "model.patch"
+    fork_path = evidence / "evaluation" / "run" / "report.json"
+    harbor_path.parent.mkdir(parents=True)
+    fork_path.parent.mkdir(parents=True)
+    harbor_body, fork_body = b"diff --git a/a b/a\n", b'{"resolved":true}'
+    harbor_path.write_bytes(harbor_body)
+    fork_path.write_bytes(fork_body)
+    harbor_ref = ArtifactRef(
+        str(harbor_path.resolve()),
+        "model_patch",
+        len(harbor_body),
+        sha256(harbor_body).hexdigest(),
+        "text/x-diff",
+    )
+    fork_ref = ArtifactRef(
+        fork_path.relative_to(tmp_path).as_posix(),
+        "harness_report",
+        len(fork_body),
+        sha256(fork_body).hexdigest(),
+        "application/json",
+    )
 
     class TaskSource:
         def __init__(self, path: Path) -> None:
@@ -26,7 +50,12 @@ def test_runtime_worker_reads_trusted_local_adapter_evidence(
             return object()
 
     def executor(*args: object, **kwargs: object) -> object:
-        captured["source_artifacts"] = kwargs.get("source_artifacts")
+        reader = kwargs["source_artifacts"]
+        assert isinstance(reader, LocalArtifactReader)
+        captured["bodies"] = (
+            reader.read_verified(harbor_ref),
+            reader.read_bounded_verified(fork_ref, 1024).content,
+        )
         return object()
 
     monkeypatch.setattr(runtime_module, "_verify_codex_archive", lambda path: None)
@@ -46,7 +75,6 @@ def test_runtime_worker_reads_trusted_local_adapter_evidence(
     monkeypatch.setattr(runtime_module, "SWEbenchEvaluator", lambda **kwargs: object())
     monkeypatch.setattr(runtime_module, "JobExecutor", executor)
     monkeypatch.setattr(runtime_module, "WorkerShell", lambda repository, runner: shell)
-    evidence = tmp_path / "runtime" / "acceptance" / "task13" / "evidence"
     config = RuntimeWorkerConfig(
         tmp_path,
         evidence,
@@ -58,9 +86,7 @@ def test_runtime_worker_reads_trusted_local_adapter_evidence(
     )
 
     assert create_runtime_worker(config) is shell
-    reader = captured["source_artifacts"]
-    assert isinstance(reader, LocalArtifactReader)
-    assert reader.root == evidence.resolve()
+    assert captured["bodies"] == (harbor_body, fork_body)
 
 
 def test_runtime_config_keeps_private_values_out_of_diagnostics(

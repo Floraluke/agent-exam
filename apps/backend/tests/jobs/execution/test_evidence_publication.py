@@ -63,6 +63,26 @@ def test_existing_local_adapter_references_publish_as_durable_run_evidence(tmp_p
     assert b"sk-synthetic" not in shared and b"private diagnostic" not in shared
 
 
+def test_relative_reference_base_cannot_escape_local_evidence_root(tmp_path):
+    evidence = tmp_path / "runtime" / "acceptance" / "task13" / "evidence"
+    evidence.mkdir(parents=True)
+    outside = tmp_path / "private-report.json"
+    body = b'{"private":true}'
+    outside.write_bytes(body)
+    reference = ArtifactRef(
+        outside.relative_to(tmp_path).as_posix(),
+        "harness_report",
+        len(body),
+        sha256(body).hexdigest(),
+        "application/json",
+    )
+
+    reader = LocalArtifactReader(evidence, reference_root=tmp_path)
+
+    with pytest.raises(ArtifactUnavailable):
+        reader.read_bounded_verified(reference, 1024)
+
+
 @pytest.mark.parametrize(
     "secret",
     [

@@ -23,10 +23,15 @@ _SOURCE_TYPES = {
 
 
 class LocalArtifactReader:
-    """Verify references emitted by trusted Harbor/Fork adapters under one root."""
+    """Resolve trusted adapter refs while confining reads to one safe root.
 
-    def __init__(self, root: Path) -> None:
+    Relative object keys use ``reference_root``; absolute and relative paths
+    must both resolve beneath ``root`` before any content is returned.
+    """
+
+    def __init__(self, root: Path, *, reference_root: Path | None = None) -> None:
         self.root = root.resolve()
+        self.reference_root = (reference_root or root).resolve()
 
     def read_verified(self, reference: ArtifactRef) -> bytes:
         try:
@@ -37,7 +42,7 @@ class LocalArtifactReader:
             ):
                 raise ArtifactUnavailable
             raw = Path(reference.object_key)
-            path = raw if raw.is_absolute() else self.root / raw
+            path = raw if raw.is_absolute() else self.reference_root / raw
             if path.is_symlink():
                 raise ArtifactUnavailable
             resolved = path.resolve(strict=True)
@@ -64,7 +69,7 @@ class LocalArtifactReader:
             ):
                 raise ArtifactUnavailable
             raw = Path(reference.object_key)
-            path = raw if raw.is_absolute() else self.root / raw
+            path = raw if raw.is_absolute() else self.reference_root / raw
             if path.is_symlink():
                 raise ArtifactUnavailable
             resolved = path.resolve(strict=True)

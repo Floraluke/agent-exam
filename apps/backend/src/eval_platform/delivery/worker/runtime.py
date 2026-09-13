@@ -106,7 +106,9 @@ def create_runtime_worker(config: RuntimeWorkerConfig) -> WorkerShell:
             backend,
             evaluator,
             source,
-            source_artifacts=LocalArtifactReader(config.evidence_root),
+            source_artifacts=LocalArtifactReader(
+                config.evidence_root, reference_root=config.project_root
+            ),
         ),
     )
 
