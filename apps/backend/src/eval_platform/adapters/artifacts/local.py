@@ -35,23 +35,9 @@ class LocalArtifactReader:
 
     def read_verified(self, reference: ArtifactRef) -> bytes:
         try:
-            if (
-                reference.retention_class != "prototype"
-                or reference.artifact_type not in _SOURCE_TYPES
-                or reference.size_bytes > _MAX_SOURCE_BYTES
-            ):
+            if reference.size_bytes > _MAX_SOURCE_BYTES:
                 raise ArtifactUnavailable
-            raw = Path(reference.object_key)
-            path = raw if raw.is_absolute() else self.reference_root / raw
-            if path.is_symlink():
-                raise ArtifactUnavailable
-            resolved = path.resolve(strict=True)
-            resolved.relative_to(self.root)
-            if (
-                not resolved.is_file()
-                or resolved.stat().st_size != reference.size_bytes
-            ):
-                raise ArtifactUnavailable
+            resolved = self._verified_path(reference)
             content = resolved.read_bytes()
             if sha256(content).hexdigest() != reference.sha256:
                 raise ArtifactUnavailable
@@ -63,25 +49,26 @@ class LocalArtifactReader:
         self, reference: ArtifactRef, maximum: int
     ) -> VerifiedArtifactBody:
         try:
-            if (
-                reference.retention_class != "prototype"
-                or reference.artifact_type not in _SOURCE_TYPES
-            ):
-                raise ArtifactUnavailable
-            raw = Path(reference.object_key)
-            path = raw if raw.is_absolute() else self.reference_root / raw
-            if path.is_symlink():
-                raise ArtifactUnavailable
-            resolved = path.resolve(strict=True)
-            resolved.relative_to(self.root)
-            if (
-                not resolved.is_file()
-                or resolved.stat().st_size != reference.size_bytes
-            ):
-                raise ArtifactUnavailable
+            resolved = self._verified_path(reference)
             with resolved.open("rb") as stream:
                 return read_bounded(
                     stream, reference.size_bytes, reference.sha256, maximum
                 )
         except (OSError, RuntimeError, ValueError):
             raise ArtifactUnavailable from None
+
+    def _verified_path(self, reference: ArtifactRef) -> Path:
+        if (
+            reference.retention_class != "prototype"
+            or reference.artifact_type not in _SOURCE_TYPES
+        ):
+            raise ArtifactUnavailable
+        raw = Path(reference.object_key)
+        path = raw if raw.is_absolute() else self.reference_root / raw
+        if path.is_symlink():
+            raise ArtifactUnavailable
+        resolved = path.resolve(strict=True)
+        resolved.relative_to(self.root)
+        if not resolved.is_file() or resolved.stat().st_size != reference.size_bytes:
+            raise ArtifactUnavailable
+        return resolved
