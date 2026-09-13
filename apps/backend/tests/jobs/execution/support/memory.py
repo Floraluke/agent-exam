@@ -5,7 +5,8 @@ from dataclasses import replace
 
 from eval_platform.domain.jobs.execution import ClaimedJob, JobLeaseConflict, TrialStart
 from eval_platform.domain.jobs.models import run_order_key
-from jobs.execution.support import memory_results
+from jobs.execution.support import memory_reports, memory_results
+from jobs.execution.support.memory_cancellation import stop_unstarted
 from jobs.execution.support.memory_state import (
     event,
     expiry,
@@ -19,7 +20,6 @@ from jobs.execution.support.memory_state import (
     lease as make_lease,
 )
 from jobs.memory import MemoryJobs
-from jobs.support.cancellation import cancel_runs
 
 _ACTIVE = {"PREPARING", "EXECUTING", "FINALIZING"}
 
@@ -87,16 +87,7 @@ class ExecutableMemoryJobs(MemoryJobs):
             current = self.records[lease.job_id]
             if current.status == "CANCEL_REQUESTED":
                 job, _anchor = self._current(lease, now, "EXECUTING", None)
-                job = replace(
-                    job,
-                    runs=cancel_runs(job.runs, now, lease.worker_id),
-                    row_version=job.row_version + 1,
-                    heartbeat_at=now,
-                    lease_expires_at=expiry(job, now),
-                )
-                anchor = next(run for run in job.runs if run.run_id == lease.run_id)
-                self.records[job.job_id] = job
-                return TrialStart(make_lease(job, anchor), False)
+                return stop_unstarted(self, lease, now, job)
             job, _anchor = self._current(lease, now, "EXECUTING", None)
             run = next_pending(job)
             if (
@@ -167,13 +158,13 @@ class ExecutableMemoryJobs(MemoryJobs):
         return memory_results.finish(self, lease, now, failure_code)
 
     def get_run_report(self, run_id):
-        return memory_results.get_run_report(self, run_id)
+        return memory_reports.get_run_report(self, run_id)
 
     def get_job_report(self, job_id):
-        return memory_results.get_job_report(self, job_id)
+        return memory_reports.get_job_report(self, job_id)
 
     def get_artifact_report(self, artifact_id):
-        return memory_results.get_artifact_report(self, artifact_id)
+        return memory_reports.get_artifact_report(self, artifact_id)
 
     def _current(self, lease, now, job_status, run_status):
         job = self.records[lease.job_id]

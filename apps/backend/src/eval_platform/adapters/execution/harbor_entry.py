@@ -19,6 +19,9 @@ from eval_platform.adapters.execution.codex.install import (
 )
 from eval_platform.adapters.execution.codex.uploads import validate_auth_file
 from eval_platform.adapters.execution.harbor.config_mapper import HARBOR_REVISION
+from eval_platform.adapters.execution.harbor.lifecycle.control import (
+    configure_controlled_runner,
+)
 from eval_platform.adapters.execution.network import (
     compose_profile,
     export_sidecar,
@@ -184,19 +187,7 @@ def main() -> None:
     if mode == "codex":
         assert runtime is not None
         register_guarded_codex(*runtime)
-    if args.control_dir is not None:
-        control = args.control_dir.resolve()
-        if (
-            control != (args.config.parent / "trial-control").resolve()
-            or args.control_dir.is_symlink()
-            or not control.is_dir()
-        ):
-            raise ValueError("HARBOR_TRIAL_CONTROL_INVALID")
-        from eval_platform.adapters.execution.harbor.lifecycle.control import (
-            install_controlled_runner,
-        )
-
-        install_controlled_runner(control)
+    configure_controlled_runner(args.control_dir, args.config.parent)
     cli = importlib.import_module("harbor.cli.main")
     sys.argv = ["harbor", "run", "--config", str(args.config), "--yes"]
     cli.app()

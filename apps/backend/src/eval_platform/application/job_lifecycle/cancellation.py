@@ -9,10 +9,11 @@ from eval_platform.application.ports.repositories import JobRepository
 from eval_platform.domain.identity import AuthenticatedActor
 from eval_platform.domain.jobs.cancellation import (
     CancellationRequest,
+    CancellationResult,
     cancel_request_sha,
     normalize_cancel_reason,
 )
-from eval_platform.domain.jobs.models import EvaluationJob, JobInputError, JobNotFound
+from eval_platform.domain.jobs.models import JobInputError, JobNotFound
 
 _KEY = re.compile(r"[A-Za-z0-9._~-]{8,128}")
 
@@ -32,7 +33,7 @@ class JobCancellation:
         job_id: str,
         reason: str | None,
         idempotency_key: str,
-    ) -> EvaluationJob:
+    ) -> CancellationResult:
         if not _KEY.fullmatch(idempotency_key):
             raise JobInputError("IDEMPOTENCY_KEY_INVALID")
         record = self.repository.get(job_id)

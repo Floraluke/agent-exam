@@ -8,6 +8,7 @@ from eval_platform.application.job_lifecycle.cancellation import JobCancellation
 from eval_platform.application.owner_approval import OwnerApproval
 from eval_platform.domain.jobs.decisions import JobStateConflict
 from eval_platform.domain.jobs.execution import JobLeaseConflict
+from eval_platform.domain.jobs.models import run_order_key
 
 pytestmark = pytest.mark.integration
 
@@ -100,3 +101,57 @@ def test_postgres_cancel_claim_race_never_leaves_an_executable_trial(
         if worker_claim is not None:
             with pytest.raises(JobLeaseConflict):
                 repository.start_execution(worker_claim.lease, cancellation.clock())
+
+
+def test_postgres_reconciliation_stop_and_replay_preserve_first_outcome(
+    postgres_sandbox,
+):
+    with postgres_api(postgres_sandbox) as (_client, jobs, repository, owner):
+        first = jobs.tasks.register(owner, "verified-task")
+        second = jobs.tasks.register(owner, "verified-task-2")
+        agent = jobs.agents.register(owner, "verified-codex")
+        created = jobs.submit(
+            owner,
+            [first.task_id, second.task_id],
+            [agent.configuration.configuration_id],
+            "closed_book",
+            "demo",
+            "default-single-host-v1",
+            "cancel-reconcile-postgres-source-0001",
+        )
+        OwnerApproval(repository).decide(
+            owner, created.job_id, "approve", None, "cancel-reconcile-approve-0001"
+        )
+        cancellation = JobCancellation(repository)
+        claimed = repository.claim("reconcile-postgres-worker", cancellation.clock())
+        assert claimed is not None
+        lease = repository.start_execution(claimed.lease, cancellation.clock())
+        first_outcome = cancellation.cancel(
+            owner,
+            created.job_id,
+            "对账期间停止",
+            "cancel-reconcile-postgres-0001",
+        )
+
+        ordered = sorted(claimed.job.runs, key=run_order_key)
+        lease = repository.fail(
+            lease,
+            ordered[0].run_id,
+            "BACKEND_RESULT_IDENTITY_INVALID",
+            "受控对账失败。",
+            cancellation.clock(),
+        )
+        lease = repository.start_finalizing(lease, cancellation.clock())
+        repository.finish(lease, cancellation.clock())
+        replay = cancellation.cancel(
+            owner,
+            created.job_id,
+            "对账期间停止",
+            "cancel-reconcile-postgres-0001",
+        )
+
+        assert first_outcome.accepted_status == "CANCEL_REQUESTED"
+        assert replay.accepted_status == first_outcome.accepted_status
+        assert replay.record.status == "CANCELED"
+        assert {run.status for run in replay.record.runs} == {"CANCELED"}
+        assert all(run.failure_code is None for run in replay.record.runs)

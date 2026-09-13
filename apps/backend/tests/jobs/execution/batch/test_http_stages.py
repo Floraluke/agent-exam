@@ -127,9 +127,7 @@ def test_rejected_report_counts_canceled_run_as_incomplete(internal_reports_api)
     assert report["runs"][0]["outcome"] == "incomplete"
 
 
-def test_evidence_http_is_authorized_paginated_and_fail_closed(
-    internal_reports_api,
-):
+def test_evidence_http_is_authorized_paginated_and_fail_closed(internal_reports_api):
     api = internal_reports_api
     api.login()
     task, agent = api.register_catalogs()

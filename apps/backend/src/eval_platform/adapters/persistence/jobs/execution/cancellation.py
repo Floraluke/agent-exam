@@ -11,6 +11,32 @@ from eval_platform.domain.jobs.execution import JobLease, JobLeaseConflict, Tria
 Connection = psycopg.Connection[Any]
 
 
+def cancel_unstarted(
+    connection: Connection,
+    rows: list[dict[str, Any]],
+    now: datetime,
+    worker_id: str | None = None,
+) -> None:
+    for row in rows:
+        if row["status"] not in {"PENDING", "PREPARING"}:
+            continue
+        connection.execute(
+            "UPDATE evaluation_runs SET status='CANCELED',stage='canceled',"
+            "row_version=row_version+1,finished_at=%s WHERE run_id=%s",
+            (now, row["run_id"]),
+        )
+        event(
+            connection,
+            "run",
+            row["run_id"],
+            row["status"],
+            "CANCELED",
+            "JOB_CANCELED",
+            worker_id,
+            now,
+        )
+
+
 def stop_unstarted(
     connection: Connection,
     lease: JobLease,
@@ -22,23 +48,7 @@ def stop_unstarted(
         "AND status IN ('PENDING','PREPARING') ORDER BY run_id FOR UPDATE",
         (lease.job_id,),
     ).fetchall()
-    for row in rows:
-        version = row["row_version"] + 1
-        connection.execute(
-            "UPDATE evaluation_runs SET status='CANCELED',stage='canceled',"
-            "row_version=%s,finished_at=%s WHERE run_id=%s",
-            (version, now, row["run_id"]),
-        )
-        event(
-            connection,
-            "run",
-            row["run_id"],
-            row["status"],
-            "CANCELED",
-            "JOB_CANCELED",
-            lease.worker_id,
-            now,
-        )
+    cancel_unstarted(connection, rows, now, lease.worker_id)
     anchor = connection.execute(
         "SELECT row_version FROM evaluation_runs WHERE run_id=%s",
         (lease.run_id,),

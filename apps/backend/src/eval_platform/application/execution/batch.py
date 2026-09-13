@@ -76,7 +76,6 @@ class BatchProgress:
     def reconcile(self, trials: tuple[ExecutionTrialResult, ...]) -> str | None:
         returned: dict[str, ExecutionTrialResult] = {}
         expected = {run.run_id for run in self.runs}
-        canceling = self.repository.get(self.job.job_id).status == "CANCEL_REQUESTED"
         if any(
             warning in _INCOMPLETE_BATCH_WARNINGS
             for trial in trials
@@ -90,16 +89,8 @@ class BatchProgress:
                 self.protocol_error = "BACKEND_RESULT_IDENTITY_INVALID"
             else:
                 returned[trial.run_id] = trial
-        expected_results = self.ended if canceling else expected
-        if returned.keys() != expected_results or self.ended != expected_results:
-            self.protocol_error = (
-                self.protocol_error or "BACKEND_RESULT_IDENTITY_INVALID"
-            )
         for run in self.runs:
             result = returned.get(run.run_id)
-            if result is None and canceling and run.run_id not in self.started:
-                self.closed.add(run.run_id)
-                continue
             if result is None:
                 self._fail(
                     run.run_id, self.protocol_error or "BACKEND_RESULT_IDENTITY_INVALID"
@@ -114,6 +105,12 @@ class BatchProgress:
             else:
                 self._handle(run, result)
             self.closed.add(run.run_id)
+        canceling = self.repository.get(self.job.job_id).status == "CANCEL_REQUESTED"
+        expected_results = self.ended if canceling else expected
+        if returned.keys() != expected_results or self.ended != expected_results:
+            self.protocol_error = (
+                self.protocol_error or "BACKEND_RESULT_IDENTITY_INVALID"
+            )
         return self.protocol_error
 
     def abort_remaining(self, code: str) -> None:
@@ -138,5 +135,9 @@ class BatchProgress:
     def _fail(
         self, run_id: str, code: str, trial: ExecutionTrialResult | None = None
     ) -> None:
-        self.lease = self.processor.fail(self.lease, run_id, str(code), trial)
-        self.had_run_failure = True
+        current = self.repository.get(self.job.job_id)
+        run = next(item for item in current.runs if item.run_id == run_id)
+        if run.status == "CANCELED":
+            return
+        self.lease, failed = self.processor.fail(self.lease, run_id, str(code), trial)
+        self.had_run_failure = self.had_run_failure or failed

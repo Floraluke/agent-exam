@@ -5,15 +5,27 @@ from uuid import uuid4
 
 import psycopg
 
-from eval_platform.domain.jobs.cancellation import CancellationRequest
+from eval_platform.adapters.persistence.jobs.execution.cancellation import (
+    cancel_unstarted,
+)
+from eval_platform.domain.jobs.cancellation import (
+    CancellationRequest,
+    CancellationStatus,
+)
 from eval_platform.domain.jobs.decisions import JobStateConflict
-from eval_platform.domain.jobs.models import JobIdempotencyConflict, JobNotFound
+from eval_platform.domain.jobs.models import (
+    JobIdempotencyConflict,
+    JobNotFound,
+    JobUnavailable,
+)
 
 Connection = psycopg.Connection[Any]
 _DIRECT = {"AWAITING_OWNER_APPROVAL", "QUEUED", "PREPARING"}
 
 
-def cancel(connection: Connection, request: CancellationRequest) -> str:
+def cancel(
+    connection: Connection, request: CancellationRequest
+) -> tuple[str, CancellationStatus]:
     row = connection.execute(
         "SELECT status,cancel_request_key_hash,cancel_request_sha256 "
         "FROM evaluation_jobs WHERE job_id=%s FOR UPDATE",
@@ -23,7 +35,7 @@ def cancel(connection: Connection, request: CancellationRequest) -> str:
         raise JobNotFound
     if row["cancel_request_key_hash"] == request.idempotency_key_hash:
         if row["cancel_request_sha256"] == request.request_sha256:
-            return request.job_id
+            return request.job_id, _accepted_status(connection, request.job_id)
         raise JobIdempotencyConflict
     status = row["status"]
     if status not in {*_DIRECT, "EXECUTING"}:
@@ -37,7 +49,9 @@ def cancel(connection: Connection, request: CancellationRequest) -> str:
         run["status"] not in {"PENDING", "PREPARING"} for run in runs
     ):
         raise JobStateConflict
-    target = "CANCEL_REQUESTED" if status == "EXECUTING" else "CANCELED"
+    target: CancellationStatus = (
+        "CANCEL_REQUESTED" if status == "EXECUTING" else "CANCELED"
+    )
     connection.execute(
         "UPDATE evaluation_jobs SET status=%s,row_version=row_version+1,"
         "cancel_requested_by=%s,cancel_requested_at=%s,cancel_reason=%s,"
@@ -58,8 +72,8 @@ def cancel(connection: Connection, request: CancellationRequest) -> str:
     )
     _job_event(connection, request, status, target)
     if target == "CANCELED":
-        _cancel_unstarted_runs(connection, request, runs)
-    return request.job_id
+        cancel_unstarted(connection, runs, request.requested_at)
+    return request.job_id, target
 
 
 def _job_event(
@@ -87,30 +101,13 @@ def _job_event(
     )
 
 
-def _cancel_unstarted_runs(
-    connection: Connection,
-    request: CancellationRequest,
-    runs: list[dict[str, Any]],
-) -> None:
-    connection.execute(
-        "UPDATE evaluation_runs SET status='CANCELED',stage='canceled',"
-        "row_version=row_version+1,finished_at=%s WHERE job_id=%s "
-        "AND status IN ('PENDING','PREPARING')",
-        (request.requested_at, request.job_id),
-    )
-    for row in runs:
-        if row["status"] not in {"PENDING", "PREPARING"}:
-            continue
-        connection.execute(
-            "INSERT INTO run_state_events "
-            "(event_id,run_id,sequence,from_status,to_status,reason_code,occurred_at) "
-            "SELECT %s,%s,COALESCE(max(sequence),0)+1,%s,'CANCELED',"
-            "'JOB_CANCELED',%s FROM run_state_events WHERE run_id=%s",
-            (
-                str(uuid4()),
-                row["run_id"],
-                row["status"],
-                request.requested_at,
-                row["run_id"],
-            ),
-        )
+def _accepted_status(connection: Connection, job_id: str) -> CancellationStatus:
+    row = connection.execute(
+        "SELECT to_status FROM job_state_events WHERE job_id=%s "
+        "AND reason_code IN ('CANCEL_REQUESTED','JOB_CANCELED') "
+        "ORDER BY sequence LIMIT 1",
+        (job_id,),
+    ).fetchone()
+    if row is None or row["to_status"] not in {"CANCEL_REQUESTED", "CANCELED"}:
+        raise JobUnavailable
+    return "CANCEL_REQUESTED" if row["to_status"] == "CANCEL_REQUESTED" else "CANCELED"

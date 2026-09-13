@@ -13,7 +13,10 @@ from eval_platform.adapters.persistence.jobs.execution import (
 )
 from eval_platform.adapters.persistence.jobs.publication import publish
 from eval_platform.adapters.persistence.jobs.records import read_job
-from eval_platform.domain.jobs.cancellation import CancellationRequest
+from eval_platform.domain.jobs.cancellation import (
+    CancellationRequest,
+    CancellationResult,
+)
 from eval_platform.domain.jobs.decisions import OwnerDecision
 from eval_platform.domain.jobs.execution import (
     ClaimedJob,
@@ -79,13 +82,13 @@ class PostgresJobRepository:
             raise JobUnavailable
         return record
 
-    def cancel(self, request: CancellationRequest) -> EvaluationJob:
+    def cancel(self, request: CancellationRequest) -> CancellationResult:
         with job_transaction(self.dsn) as connection:
-            job_id = cancellations.cancel(connection, request)
+            job_id, accepted_status = cancellations.cancel(connection, request)
             record = read_job(connection, job_id)
         if record is None:
             raise JobUnavailable
-        return record
+        return CancellationResult(record, accepted_status)
 
     def claim(self, worker_id: str, now: datetime) -> ClaimedJob | None:
         with job_transaction(self.dsn) as connection:

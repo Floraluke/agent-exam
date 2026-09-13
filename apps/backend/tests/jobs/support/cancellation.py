@@ -3,6 +3,7 @@
 from dataclasses import replace
 from uuid import uuid4
 
+from eval_platform.domain.jobs.cancellation import CancellationResult
 from eval_platform.domain.jobs.decisions import JobStateConflict
 from eval_platform.domain.jobs.models import (
     JobIdempotencyConflict,
@@ -15,11 +16,11 @@ def cancel(repository, request):
         record = repository.get(request.job_id)
         previous = repository.cancellations.get(request.job_id)
         if previous is not None:
-            key_hash, request_sha = previous
+            key_hash, request_sha, accepted_status = previous
             if key_hash == request.idempotency_key_hash:
                 if request_sha != request.request_sha256:
                     raise JobIdempotencyConflict
-                return record
+                return CancellationResult(record, accepted_status)
             raise JobStateConflict
         direct = {"AWAITING_OWNER_APPROVAL", "QUEUED", "PREPARING"}
         if record.status not in {*direct, "EXECUTING"}:
@@ -57,8 +58,9 @@ def cancel(repository, request):
         repository.cancellations[record.job_id] = (
             request.idempotency_key_hash,
             request.request_sha256,
+            target,
         )
-        return canceled
+        return CancellationResult(canceled, target)
 
 
 def cancel_runs(runs, now, worker=None):

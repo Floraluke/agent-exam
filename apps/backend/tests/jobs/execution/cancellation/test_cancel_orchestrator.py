@@ -51,6 +51,26 @@ class CancelAfterFirstBackend:
         return (result,)
 
 
+class CancelAfterStatusSampleJobs(ExecutableMemoryJobs):
+    def __init__(self, *records):
+        super().__init__(*records)
+        self.cancel_after_sample = None
+
+    def get(self, job_id):
+        record = super().get(job_id)
+        callback = self.cancel_after_sample
+        if callback is not None and record.status == "EXECUTING":
+            self.cancel_after_sample = None
+            callback()
+        return record
+
+
+class EmptyBackend:
+    def execute(self, request, progress=None):
+        assert progress is not None
+        return ()
+
+
 def test_executing_cancel_preserves_current_result_and_cancels_later_runs():
     now = datetime(2026, 9, 13, 1, 0, tzinfo=UTC)
     job, bundles = queued_batch(now)
@@ -84,3 +104,34 @@ def test_executing_cancel_preserves_current_result_and_cancels_later_runs():
         "FINALIZATION_STARTED",
         "JOB_CANCELED",
     ]
+
+
+def test_cancel_during_result_reconciliation_cancels_unstarted_runs():
+    now = datetime(2026, 9, 13, 1, 30, tzinfo=UTC)
+    job, bundles = queued_batch(now)
+    repository = CancelAfterStatusSampleJobs(job)
+    cancellation = JobCancellation(repository, lambda: now)
+    actor = AuthenticatedActor(job.created_by, "owner", "owner")
+    repository.cancel_after_sample = lambda: cancellation.cancel(
+        actor, job.job_id, "对账期间停止", "reconcile-cancel-0001"
+    )
+    source_by_id = {bundle.public.instance_id: bundle for bundle in bundles}
+    source = type(
+        "Source", (), {"load": lambda self, identity: source_by_id[identity]}
+    )()
+    artifacts = MemoryArtifacts()
+    executor = JobExecutor(
+        repository,
+        artifacts,
+        EmptyBackend(),
+        Evaluator(artifacts),
+        source,
+        lambda: now,
+    )
+
+    WorkerShell(repository, executor, lambda: now).run_once("race-cancel-worker")
+
+    stored = repository.get(job.job_id)
+    assert stored.status == "CANCELED"
+    assert {run.status for run in stored.runs} == {"CANCELED"}
+    assert all(run.failure_code is None for run in stored.runs)

@@ -2,7 +2,10 @@ from datetime import datetime
 from typing import Protocol
 
 from eval_platform.domain.catalog import CatalogTask, RegisteredAgent
-from eval_platform.domain.jobs.cancellation import CancellationRequest
+from eval_platform.domain.jobs.cancellation import (
+    CancellationRequest,
+    CancellationResult,
+)
 from eval_platform.domain.jobs.decisions import OwnerDecision
 from eval_platform.domain.jobs.execution import (
     ClaimedJob,
@@ -72,7 +75,7 @@ class JobRepository(Protocol):
 
     def decide(self, decision: OwnerDecision) -> EvaluationJob: ...
 
-    def cancel(self, request: CancellationRequest) -> EvaluationJob: ...
+    def cancel(self, request: CancellationRequest) -> CancellationResult: ...
 
     def claim(self, worker_id: str, now: datetime) -> ClaimedJob | None: ...
 

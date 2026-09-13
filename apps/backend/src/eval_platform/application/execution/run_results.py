@@ -55,7 +55,7 @@ class RunResultProcessor:
         except (KeyError, OSError, RuntimeError, TypeError, ValueError):
             code = "EXECUTION_PIPELINE_INVALID"
         assert self._active_lease is not None
-        return self.fail(self._active_lease, run.run_id, str(code)), True
+        return self.fail(self._active_lease, run.run_id, str(code))
 
     def _process(
         self, run: EvaluationRun, trial: ExecutionTrialResult
@@ -63,17 +63,16 @@ class RunResultProcessor:
         assert self._active_lease is not None
         lease = self._active_lease
         if not trial.backend_job_ref:
-            return self.fail(lease, run.run_id, "BACKEND_RESULT_IDENTITY_INVALID"), True
+            return self.fail(lease, run.run_id, "BACKEND_RESULT_IDENTITY_INVALID")
         if trial.termination_reason is not TerminationReason.COMPLETED:
             code = "EXECUTION_" + trial.termination_reason.value.upper()
-            return self.fail(lease, run.run_id, code, trial), True
+            return self.fail(lease, run.run_id, code, trial)
         if not trial.backend_trial_ref:
-            lease = self.fail(
+            return self.fail(
                 lease, run.run_id, "BACKEND_RESULT_IDENTITY_INVALID", trial
             )
-            return lease, True
         if trial.patch_ref is None:
-            return self.fail(lease, run.run_id, "PATCH_MISSING", trial), True
+            return self.fail(lease, run.run_id, "PATCH_MISSING", trial)
         patch_ref, patch = self.evidence.prepare_patch(run.run_id, trial.patch_ref)
         warnings = validate_patch_content(
             patch_ref,
@@ -111,8 +110,8 @@ class RunResultProcessor:
         run_id: str,
         code: str,
         trial: ExecutionTrialResult | None = None,
-    ) -> JobLease:
-        return self.repository.fail(
+    ) -> tuple[JobLease, bool]:
+        updated = self.repository.fail(
             lease,
             run_id,
             code,
@@ -120,3 +119,6 @@ class RunResultProcessor:
             self.clock(),
             trial,
         )
+        record = self.repository.get(lease.job_id)
+        run = next(item for item in record.runs if item.run_id == run_id)
+        return updated, run.status == "FAILED"

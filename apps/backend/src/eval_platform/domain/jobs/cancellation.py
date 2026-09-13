@@ -5,8 +5,11 @@ import json
 import unicodedata
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Literal
 
-from eval_platform.domain.jobs.models import JobInputError
+from eval_platform.domain.jobs.models import EvaluationJob, JobInputError
+
+CancellationStatus = Literal["CANCEL_REQUESTED", "CANCELED"]
 
 
 def normalize_cancel_reason(reason: str | None) -> str | None:
@@ -35,3 +38,11 @@ class CancellationRequest:
     requested_at: datetime
     idempotency_key_hash: str
     request_sha256: str
+
+
+@dataclass(frozen=True, slots=True)
+class CancellationResult:
+    """Current record plus the status returned by the first accepted request."""
+
+    record: EvaluationJob
+    accepted_status: CancellationStatus

@@ -9,6 +9,9 @@ from eval_platform.adapters.persistence.jobs.execution.batch import (
     _next_run,
     _touch_job,
 )
+from eval_platform.adapters.persistence.jobs.execution.cancellation import (
+    stop_unstarted,
+)
 from eval_platform.adapters.persistence.jobs.execution.common import current, event
 from eval_platform.domain.jobs.execution import (
     JobLease,
@@ -112,6 +115,11 @@ def fail(
         or (trial is not None and trial.run_id != run_id)
     ):
         raise JobLeaseConflict
+    if job["status"] == "CANCEL_REQUESTED" and run["status"] in {
+        "PENDING",
+        "PREPARING",
+    }:
+        return stop_unstarted(connection, lease, now, job).lease
     backend_job_ref = trial.backend_job_ref if trial is not None else None
     backend_trial_ref = trial.backend_trial_ref if trial is not None else None
     run_version = run["row_version"] + 1

@@ -49,3 +49,16 @@ def install_controlled_runner(root: Path) -> None:
 
     job_type = importlib.import_module("harbor.job").Job
     job_type._run_trials_with_queue = run
+
+
+def configure_controlled_runner(control_dir: Path | None, config_parent: Path) -> None:
+    if control_dir is None:
+        return
+    control = control_dir.resolve()
+    if (
+        control != (config_parent / "trial-control").resolve()
+        or control_dir.is_symlink()
+        or not control.is_dir()
+    ):
+        raise ValueError("HARBOR_TRIAL_CONTROL_INVALID")
+    install_controlled_runner(control)

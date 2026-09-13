@@ -1,10 +1,10 @@
 import pytest
 from identity.conftest import WRITE_HEADERS
-
-from eval_platform.domain.jobs.execution import JobLeaseConflict
 from jobs.test_http import submission, submit
 from jobs.test_postgres import login, postgres_api
 from jobs.test_security import invite
+
+from eval_platform.domain.jobs.execution import JobLeaseConflict
 
 
 def _cancel(api, job_id, key="cancel-request-0001", reason="不再需要"):

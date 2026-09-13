@@ -155,9 +155,10 @@ def jobs_router(
             body: CancelRequest,
             idempotency_key: IdempotencyKey,
         ) -> JobSummary:
-            record = cancellations.cancel(
+            outcome = cancellations.cancel(
                 actor(request), str(job_id), body.reason, idempotency_key
             )
-            return JobSummary.from_record(record)
+            summary = JobSummary.from_record(outcome.record)
+            return summary.model_copy(update={"status": outcome.accepted_status})
 
     return router

@@ -60,7 +60,7 @@ def event(
     before: str,
     after: str,
     reason: str,
-    worker: str,
+    worker: str | None,
     now: datetime,
 ) -> None:
     table, field = {
