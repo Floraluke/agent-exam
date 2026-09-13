@@ -70,5 +70,8 @@ docs/{architecture,interfaces}/                          # 当前恢复契约和
 
 ## 自验证情况
 
-- 尚未执行。当前只完成权威规格、现有状态机、Repository/租约、HTTP/Web 与目录规模核对；未修改生产实现或测试。
+- 尚未执行生产测试。当前只完成权威规格、现有状态机、Repository/租约、HTTP/Web 与目录规模核对；未修改生产实现或测试。
+- 源码事务核对确认：`results.complete()` 在同一 PostgreSQL 事务中写入制品索引、`deterministic_results` 和 Run 的 `COMPLETED`/事件；事务失败会整体回滚。因此一致存储中“可信结果已落盘”必然对应终态 Run，恢复只需验证这些既有记录并收束 Job，不得重新调用 Evaluator。
+- `RUNNING_AGENT`、`VERIFYING` 或其他活跃 Run 若没有上述完整事务结果，即使存在进程内返回值、孤立对象或 Harbor 残留也不能证明确定性结果；候选恢复会明确写 `INFRASTRUCTURE_INTERRUPTED`，不猜测或补造结果。
+- `execution.common.current()` 明确拒绝 `now >= lease_expires_at`、Worker/版本/租约错配；现有 `fail()`、`start_finalizing()`、`finish()` 均依赖该检查，证明确需独立且受限的过期租约恢复事务，而不是复用正常执行入口。
 - 待用户确认唯一新增 Interface 及上述最小语义后进入 TDD 红灯。
