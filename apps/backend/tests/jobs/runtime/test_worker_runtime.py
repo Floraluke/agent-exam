@@ -3,11 +3,64 @@ from pathlib import Path
 import pytest
 
 from eval_platform.adapters.artifacts.config import MinioConfig
+from eval_platform.adapters.artifacts.local import LocalArtifactReader
+from eval_platform.delivery.worker import runtime as runtime_module
 from eval_platform.delivery.worker.runtime import (
     RuntimeWorkerConfig,
     create_runtime_worker,
     main,
 )
+
+
+def test_runtime_worker_reads_trusted_local_adapter_evidence(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    captured: dict[str, object] = {}
+    shell = object()
+
+    class TaskSource:
+        def __init__(self, path: Path) -> None:
+            self.path = path
+
+        def load(self, instance_id: str) -> object:
+            return object()
+
+    def executor(*args: object, **kwargs: object) -> object:
+        captured["source_artifacts"] = kwargs.get("source_artifacts")
+        return object()
+
+    monkeypatch.setattr(runtime_module, "_verify_codex_archive", lambda path: None)
+    monkeypatch.setattr(runtime_module, "validate_auth_file", lambda path: None)
+    monkeypatch.setattr(
+        runtime_module, "_verify_framework", lambda path, revision: None
+    )
+    monkeypatch.setattr(runtime_module, "SWEGymTaskSource", TaskSource)
+    monkeypatch.setattr(runtime_module, "PostgresJobRepository", lambda dsn: object())
+    monkeypatch.setattr(runtime_module, "create_client", lambda config: object())
+    monkeypatch.setattr(
+        runtime_module, "MinioArtifactStore", lambda client, bucket: object()
+    )
+    monkeypatch.setattr(
+        runtime_module, "HarborExecutionAdapter", lambda *args, **kwargs: object()
+    )
+    monkeypatch.setattr(runtime_module, "SWEbenchEvaluator", lambda **kwargs: object())
+    monkeypatch.setattr(runtime_module, "JobExecutor", executor)
+    monkeypatch.setattr(runtime_module, "WorkerShell", lambda repository, runner: shell)
+    evidence = tmp_path / "runtime" / "acceptance" / "task13" / "evidence"
+    config = RuntimeWorkerConfig(
+        tmp_path,
+        evidence,
+        tmp_path / "task.parquet",
+        tmp_path / "codex.tgz",
+        tmp_path / "auth.json",
+        "host=127.0.0.1",
+        MinioConfig("http://127.0.0.1:9000", "bucket", "access", "secret"),
+    )
+
+    assert create_runtime_worker(config) is shell
+    reader = captured["source_artifacts"]
+    assert isinstance(reader, LocalArtifactReader)
+    assert reader.root == evidence.resolve()
 
 
 def test_runtime_config_keeps_private_values_out_of_diagnostics(

@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from eval_platform.adapters.artifacts.config import MinioConfig, create_client
+from eval_platform.adapters.artifacts.local import LocalArtifactReader
 from eval_platform.adapters.artifacts.minio import MinioArtifactStore
 from eval_platform.adapters.evaluation.swe_bench import FORK_REVISION, SWEbenchEvaluator
 from eval_platform.adapters.execution.codex.install import ARCHIVE_BYTES, ARCHIVE_SHA512
@@ -99,7 +100,14 @@ def create_runtime_worker(config: RuntimeWorkerConfig) -> WorkerShell:
     )
     return WorkerShell(
         repository,
-        JobExecutor(repository, artifacts, backend, evaluator, source),
+        JobExecutor(
+            repository,
+            artifacts,
+            backend,
+            evaluator,
+            source,
+            source_artifacts=LocalArtifactReader(config.evidence_root),
+        ),
     )
 
 
