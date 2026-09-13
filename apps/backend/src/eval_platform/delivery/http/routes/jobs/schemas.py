@@ -8,7 +8,6 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 from eval_platform.domain.jobs.models import EvaluationJob, JobStatus, RunStatus
-from eval_platform.domain.jobs.policy import SubmissionPolicy
 
 
 class JobRequest(BaseModel):
@@ -63,6 +62,9 @@ class RunResponse(BaseModel):
     backend_revision: str
     execution_contract_version: str
     state_events: list[StateEventResponse]
+    stage: str | None
+    failure_code: str | None
+    failure_summary: str | None
 
 
 class JobSummary(BaseModel):
@@ -82,6 +84,9 @@ class JobSummary(BaseModel):
     cancel_requested_by: str | None
     cancel_requested_at: datetime | None
     cancel_reason: str | None
+    lease_expires_at: datetime | None
+    failure_code: str | None
+    failure_summary: str | None
 
     @classmethod
     def from_record(cls, record: EvaluationJob) -> "JobSummary":
@@ -101,6 +106,9 @@ class JobSummary(BaseModel):
             cancel_requested_by=record.cancel_requested_by,
             cancel_requested_at=record.cancel_requested_at,
             cancel_reason=record.cancel_reason,
+            lease_expires_at=record.lease_expires_at,
+            failure_code=record.failure_code,
+            failure_summary=record.failure_summary,
         )
 
 
@@ -157,6 +165,9 @@ class JobDetail(JobSummary):
                     backend_kind=run.backend_kind,
                     backend_revision=run.backend_revision,
                     execution_contract_version=run.execution_contract_version,
+                    stage=run.stage,
+                    failure_code=run.failure_code,
+                    failure_summary=run.failure_summary,
                     state_events=[
                         StateEventResponse.model_validate(item)
                         for item in run.state_events
@@ -170,31 +181,3 @@ class JobDetail(JobSummary):
 class JobPage(BaseModel):
     items: list[JobSummary]
     next_cursor: str | None
-
-
-class JobOptionsResponse(BaseModel):
-    batch_presets: list[dict[str, int | str]]
-    evaluation_tracks: list[str]
-    limit_profiles: list[dict[str, int | str]]
-    maximum_agent_configurations: int
-    maximum_runs: int
-
-    @classmethod
-    def from_policy(cls, policy: SubmissionPolicy) -> "JobOptionsResponse":
-        return cls(
-            batch_presets=[
-                {
-                    "batch_preset": item.batch_preset,
-                    "minimum_tasks": item.minimum_tasks,
-                    "maximum_tasks": item.maximum_tasks,
-                }
-                for item in policy.batch_presets
-            ],
-            evaluation_tracks=["closed_book"],
-            limit_profiles=[
-                {"limit_profile_id": item.limit_profile_id, **asdict(item.snapshot())}
-                for item in policy.limit_profiles
-            ],
-            maximum_agent_configurations=policy.maximum_agent_configurations,
-            maximum_runs=policy.maximum_runs,
-        )

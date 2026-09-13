@@ -10,6 +10,7 @@ from eval_platform.adapters.persistence.membership import PostgresMembershipRepo
 from eval_platform.application.agent_registry import AgentRegistry
 from eval_platform.application.identity import IdentityService
 from eval_platform.application.job_lifecycle.cancellation import JobCancellation
+from eval_platform.application.job_lifecycle.recovery import JobRecovery
 from eval_platform.application.job_submission import JobSubmission
 from eval_platform.application.membership import MembershipService
 from eval_platform.application.owner_approval import OwnerApproval
@@ -59,6 +60,7 @@ def create_app(
     approvals: OwnerApproval | None = None,
     reporting: JobReporting | None = None,
     cancellations: JobCancellation | None = None,
+    recovery: JobRecovery | None = None,
 ) -> FastAPI:
     app = FastAPI(title="AgentExam", version="0.1.0")
     limiters = {
@@ -106,7 +108,9 @@ def create_app(
     if tasks is not None:
         app.include_router(catalog_router(service, tasks, config, agents))
     if jobs is not None:
-        app.include_router(jobs_router(service, jobs, config, approvals, cancellations))
+        app.include_router(
+            jobs_router(service, jobs, config, approvals, cancellations, recovery)
+        )
     if reporting is not None:
         app.include_router(report_router(service, reporting, config))
         app.include_router(artifact_router(service, reporting, config))
@@ -120,7 +124,7 @@ def create_runtime_app() -> FastAPI:
     identity = IdentityService(PostgresIdentityRepository(dsn), passwords)
     membership = MembershipService(PostgresMembershipRepository(dsn), passwords)
     tasks, agents = create_catalog(dsn)
-    jobs, approvals, cancellations = create_jobs(dsn, tasks, agents)
+    jobs, approvals, cancellations, recovery = create_jobs(dsn, tasks, agents)
     reporting = JobReporting(jobs.repository, tasks.artifacts)
     return create_app(
         identity,
@@ -132,4 +136,5 @@ def create_runtime_app() -> FastAPI:
         approvals,
         reporting,
         cancellations,
+        recovery,
     )

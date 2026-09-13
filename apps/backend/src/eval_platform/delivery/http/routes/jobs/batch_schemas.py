@@ -1,3 +1,4 @@
+from dataclasses import asdict
 from typing import Literal
 
 from pydantic import BaseModel
@@ -9,8 +10,38 @@ from eval_platform.domain.jobs.models import (
     RunStatus,
     run_order_key,
 )
+from eval_platform.domain.jobs.policy import SubmissionPolicy
 
 BatchOutcome = Literal["resolved", "unresolved", "infrastructure_error", "incomplete"]
+
+
+class JobOptionsResponse(BaseModel):
+    batch_presets: list[dict[str, int | str]]
+    evaluation_tracks: list[str]
+    limit_profiles: list[dict[str, int | str]]
+    maximum_agent_configurations: int
+    maximum_runs: int
+
+    @classmethod
+    def from_policy(cls, policy: SubmissionPolicy) -> "JobOptionsResponse":
+        return cls(
+            batch_presets=[
+                {
+                    "batch_preset": item.batch_preset,
+                    "minimum_tasks": item.minimum_tasks,
+                    "maximum_tasks": item.maximum_tasks,
+                }
+                for item in policy.batch_presets
+            ],
+            evaluation_tracks=["closed_book"],
+            limit_profiles=[
+                {"limit_profile_id": item.limit_profile_id, **asdict(item.snapshot())}
+                for item in policy.limit_profiles
+            ],
+            maximum_agent_configurations=policy.maximum_agent_configurations,
+            maximum_runs=policy.maximum_runs,
+        )
+
 
 _JOB_MESSAGES = {
     "AWAITING_OWNER_APPROVAL": "等待所有者批准，不会启动执行。",

@@ -20,6 +20,13 @@ class JobLeaseConflict(JobError):
 
 
 @dataclass(frozen=True, slots=True)
+class RecoveryRequest:
+    job_id: str
+    actor_user_id: str
+    occurred_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
 class JobLease:
     job_id: str
     run_id: str

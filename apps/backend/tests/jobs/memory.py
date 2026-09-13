@@ -11,6 +11,7 @@ from eval_platform.domain.jobs.models import (
     StateEvent,
 )
 from jobs.support.cancellation import cancel as cancel_job
+from jobs.support.recovery import recover as recover_job
 
 
 class MemoryJobs:
@@ -121,3 +122,6 @@ class MemoryJobs:
 
     def cancel(self, request):
         return cancel_job(self, request)
+
+    def recover(self, request):
+        return recover_job(self, request)

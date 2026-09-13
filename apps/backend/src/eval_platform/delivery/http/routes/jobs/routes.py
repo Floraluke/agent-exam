@@ -5,16 +5,18 @@ from fastapi import APIRouter, Header, Query, Request
 
 from eval_platform.application.identity import IdentityService
 from eval_platform.application.job_lifecycle.cancellation import JobCancellation
+from eval_platform.application.job_lifecycle.recovery import JobRecovery
 from eval_platform.application.job_submission import JobSubmission
 from eval_platform.application.owner_approval import OwnerApproval
 from eval_platform.delivery.http.config import HttpConfig
+from eval_platform.delivery.http.routes.jobs.batch_schemas import JobOptionsResponse
 from eval_platform.delivery.http.routes.jobs.cancel_schemas import CancelRequest
 from eval_platform.delivery.http.routes.jobs.decision_schemas import (
     OwnerDecisionRequest,
 )
+from eval_platform.delivery.http.routes.jobs.lifecycle.routes import recovery_router
 from eval_platform.delivery.http.routes.jobs.schemas import (
     JobDetail,
-    JobOptionsResponse,
     JobPage,
     JobRequest,
     JobSummary,
@@ -35,6 +37,7 @@ def jobs_router(
     config: HttpConfig,
     approvals: OwnerApproval | None = None,
     cancellations: JobCancellation | None = None,
+    recovery: JobRecovery | None = None,
 ) -> APIRouter:
     router = APIRouter(
         prefix="/api/v1",
@@ -160,5 +163,8 @@ def jobs_router(
             )
             summary = JobSummary.from_record(outcome.record)
             return summary.model_copy(update={"status": outcome.accepted_status})
+
+    if recovery is not None:
+        router.include_router(recovery_router(identity, recovery, config))
 
     return router

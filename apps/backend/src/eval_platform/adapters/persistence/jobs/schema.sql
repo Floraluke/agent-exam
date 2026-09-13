@@ -114,7 +114,10 @@ CREATE TABLE run_state_events (
     worker_id varchar(64),
     occurred_at timestamptz NOT NULL,
     CHECK (
-        (worker_id IS NULL AND (sequence = 1 OR reason_code IN ('JOB_REJECTED','JOB_CANCELED'))) OR
+        (worker_id IS NULL AND (sequence = 1 OR reason_code IN (
+            'JOB_REJECTED','JOB_CANCELED','INFRASTRUCTURE_INTERRUPTED',
+            'INTERRUPTION_PENDING_CANCELED'
+        ))) OR
         (worker_id IS NOT NULL AND sequence > 1 AND reason_code <> 'JOB_REJECTED')
     ),
     UNIQUE (run_id, sequence)

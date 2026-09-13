@@ -11,6 +11,7 @@ from eval_platform.domain.jobs.execution import (
     ClaimedJob,
     JobLease,
     JobReport,
+    RecoveryRequest,
     RunCompletion,
     RunReport,
     TrialStart,
@@ -76,6 +77,8 @@ class JobRepository(Protocol):
     def decide(self, decision: OwnerDecision) -> EvaluationJob: ...
 
     def cancel(self, request: CancellationRequest) -> CancellationResult: ...
+
+    def recover(self, request: RecoveryRequest) -> EvaluationJob: ...
 
     def claim(self, worker_id: str, now: datetime) -> ClaimedJob | None: ...
 

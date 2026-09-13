@@ -13,6 +13,7 @@ from eval_platform.adapters.persistence.jobs.execution import (
 )
 from eval_platform.adapters.persistence.jobs.publication import publish
 from eval_platform.adapters.persistence.jobs.records import read_job
+from eval_platform.adapters.persistence.jobs.recovery.actions import recover
 from eval_platform.domain.jobs.cancellation import (
     CancellationRequest,
     CancellationResult,
@@ -22,6 +23,7 @@ from eval_platform.domain.jobs.execution import (
     ClaimedJob,
     JobLease,
     JobReport,
+    RecoveryRequest,
     RunCompletion,
     RunReport,
     TrialStart,
@@ -89,6 +91,10 @@ class PostgresJobRepository:
         if record is None:
             raise JobUnavailable
         return CancellationResult(record, accepted_status)
+
+    def recover(self, request: RecoveryRequest) -> EvaluationJob:
+        with job_transaction(self.dsn) as connection:
+            return recover(connection, request)
 
     def claim(self, worker_id: str, now: datetime) -> ClaimedJob | None:
         with job_transaction(self.dsn) as connection:

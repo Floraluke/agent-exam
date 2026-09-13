@@ -2,15 +2,15 @@
 
 ## 状态
 
-Blocked（等待最小 `JobRepository` 恢复 Interface 确认）。任务 09 已验收关闭；本任务对应 [10-interruption-recovery.md](../../.scratch/m1-platform/issues/10-interruption-recovery.md)，尚未修改生产代码或测试。
+In progress。用户已明确批准最小 `JobRepository.recover(RecoveryRequest)` Interface 及本记录中的收束、重试和访问语义。任务 09 已验收关闭；本任务对应 [10-interruption-recovery.md](../../.scratch/m1-platform/issues/10-interruption-recovery.md)，现在从 HTTP/内存 Repository 红灯开始。
 
 ## 情况说明
 
 - Worker、宿主或 Harbor 中断后，现有 Job 会保留在 `PREPARING`、`EXECUTING`、`CANCEL_REQUESTED` 或 `FINALIZING`，但所有推进方法都要求尚未过期且版本匹配的 `JobLease`。复用 `fail()`/`finish()` 会绕过租约隔离或根本无法执行，现有职责不能安全承载过期租约收束。
 - 权威规格要求旧 Job 不自动续跑、重新排队或调用模型；证据充分时只做幂等收束，证据不足、错配或损坏时明确记录 `INFRASTRUCTURE_INTERRUPTED`。所有者需要重试时必须创建关联的新 Job、重新冻结当前有效目录并重新批准。
-- 候选最小变更是在既有 `JobRepository` 增加 `recover(RecoveryRequest) -> EvaluationJob`。它只在一个短事务内锁定过期 Job、终结未完成 Run、保留完成结果并使旧 Worker 的版本失效；不触碰 `ExecutionBackend`、`PatchEvaluator`、Harbor 进程或真实凭据。
+- 已确认的最小变更是在既有 `JobRepository` 增加 `recover(RecoveryRequest) -> EvaluationJob`。它只在一个短事务内锁定过期 Job、终结未完成 Run、保留完成结果并使旧 Worker 的版本失效；不触碰 `ExecutionBackend`、`PatchEvaluator`、Harbor 进程或真实凭据。
 - 不新增数据库表或顶层 Module。`evaluation_jobs` 只增加自引用 `rerun_of_job_id`；恢复审计继续使用既有不可变状态事件。应用层在既有 `job_lifecycle/` 增加恢复用例，手动重试复用并深化 `JobSubmission`。
-- 候选访问语义：恢复与重试仅 owner；重试 Job 保留原 Job 的 `created_by`，因此原协作者仍可查询，新 Job 的首个事件以 owner 为 `actor_user_id`，并通过 `rerun_of_job_id` 关联旧 Job。普通 `POST /jobs` 不能伪造该关联。
+- 已确认的访问语义：恢复与重试仅 owner；重试 Job 保留原 Job 的 `created_by`，因此原协作者仍可查询，新 Job 的首个事件以 owner 为 `actor_user_id`，并通过 `rerun_of_job_id` 关联旧 Job。普通 `POST /jobs` 不能伪造该关联。
 - Judge/Review 不在本任务范围；不运行真实模型，不强杀真实容器，不自动扫描/续租/重试，不部署、不推送、不改机器或网络设置。
 
 ## 实施措施
@@ -70,8 +70,9 @@ docs/{architecture,interfaces}/                          # 当前恢复契约和
 
 ## 自验证情况
 
-- 尚未执行生产测试。当前只完成权威规格、现有状态机、Repository/租约、HTTP/Web 与目录规模核对；未修改生产实现或测试。
+- 第一片 TDD 红灯已出现：新增恢复 HTTP 测试为 `3 failed`，三项都因端点不存在返回 404，分别覆盖过期收束、有效租约冲突/幂等重放、owner-only 与伪造控制字段。
+- 第一片绿灯为 `3 passed, 2 warnings`。已实现 owner-only 空正文恢复入口、内存/生产 Repository 的过期租约原子收束、活跃 Run 基础设施中断、待运行取消、重复恢复无新事件，以及 Job/Run 安全失败字段；同组 Ruff 已通过。
 - 源码事务核对确认：`results.complete()` 在同一 PostgreSQL 事务中写入制品索引、`deterministic_results` 和 Run 的 `COMPLETED`/事件；事务失败会整体回滚。因此一致存储中“可信结果已落盘”必然对应终态 Run，恢复只需验证这些既有记录并收束 Job，不得重新调用 Evaluator。
 - `RUNNING_AGENT`、`VERIFYING` 或其他活跃 Run 若没有上述完整事务结果，即使存在进程内返回值、孤立对象或 Harbor 残留也不能证明确定性结果；候选恢复会明确写 `INFRASTRUCTURE_INTERRUPTED`，不猜测或补造结果。
 - `execution.common.current()` 明确拒绝 `now >= lease_expires_at`、Worker/版本/租约错配；现有 `fail()`、`start_finalizing()`、`finish()` 均依赖该检查，证明确需独立且受限的过期租约恢复事务，而不是复用正常执行入口。
-- 待用户确认唯一新增 Interface 及上述最小语义后进入 TDD 红灯。
+- 用户已明确批准唯一新增 Interface 及上述最小语义；下一步用新红灯实现手动重试和 `rerun_of_job_id`，之后补真实 PostgreSQL 竞争验证。
