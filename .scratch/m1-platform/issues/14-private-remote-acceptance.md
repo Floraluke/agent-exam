@@ -4,7 +4,7 @@
 
 **Blocked by:** 13 本机真实平台验收
 
-**Status:** ready-for-agent
+**Status:** needs-info
 
 **Spec stories:** 48, 49, 50, 51, 52
 
@@ -21,3 +21,5 @@
 ## Comments
 
 2026-09-11：任务已发布，尚未实施。此任务是私有协作验收，不授权公开部署、远程控制其他用户设备或 Git 推送。
+
+2026-09-14：任务 13 已完成并以 `f3870f6` 关闭，顺序依赖解除。只读核对确认评测机没有 Tailscale CLI、服务或网卡，固定 Web/API/PG/MinIO 端口也未监听；2026-09-05 行动只有文档设计证据，不能替代双机实测。当前缺少安装/登录/Serve/grants/VPN 切换的具体机器变更授权，以及获准与未获准设备/账号参与条件，故状态改为 `needs-info`。在此之前不安装、不下载、不配置、不公开入口；行动见 `docs/actions/2026-09-14-m1-private-remote-acceptance.md`。
