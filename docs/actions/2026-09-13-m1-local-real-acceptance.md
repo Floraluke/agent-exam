@@ -1,6 +1,6 @@
 # M1 任务 13：本机真实平台验收
 
-> 状态：实施中；用户已于 2026-09-13 批准本行动的最小真实验收范围。M0 第四场仅作历史基线，不计作本任务证据。
+> 状态：Completed；`-04` 完整真实流程、最终双轴评审和公开证据收尾均已完成。M0 第四场仅作历史基线，不计作本任务证据。
 
 ## 情况说明
 
@@ -93,8 +93,9 @@ runtime/acceptance/m1-task13-20260914-03/  # 追加授权第 1 次完整运行�
 └─ tests/
    ├─ test_browser_runtime.py              # 缺失、链接/junction、项目外缓存均在 Job/模型前失败关闭
    └─ test_storage_readiness.py            # 内部已就绪、主机首连延迟的合成红绿回归
-runtime/acceptance/m1-task13-20260914-04/  # 已创建：追加授权第 2 次的全新隔离作用域
-└─ 仅复制 -03 的 16 个源码/测试并替换 scope # 未复制 evidence、results、日志、摘要或缓存
+runtime/acceptance/m1-task13-20260914-04/  # 最终成功隔离作用域；16 个源码/测试与 -03 等价
+├─ evidence/                              # 私有 Harbor/Fork 原始材料；不入 Git、不经公开接口发布
+└─ results/                               # safe-summary、Web 日志与真实浏览器截图
 ```
 
 文件树已随红绿循环收敛，`runtime.py` 与 `agentexam-worker` 脚本注册均已采用。设计模式保持 Ports & Adapters：`ExecutionBackend` / `PatchEvaluator` 是既有 ports，Harbor / SWE-Bench 是 Adapters，Worker runtime 是 composition root；它只隐藏依赖组装，不形成第二条执行链。
@@ -187,3 +188,9 @@ runtime/acceptance/m1-task13-20260914-04/  # 已创建：追加授权第 2 次�
 - 状态同步后浏览器修复的最终 Standards 与 Spec 均为 `0 findings/PASS`：项目根锚定、symlink/junction 拒绝、目录 `7/4/6/3`、测试计数、任务单第 4–7 项与页面/最终提交未完成边界均已确认。当前新建 `m1-task13-20260914-04`，只复制 `-03` 的源码/测试并替换专属 scope；通过等价对账、13 项测试和零模型 preflight 后，才使用新增授权第 2 次完整流程。
 - `m1-task13-20260914-04` 已实际从 `-03` 精确复制 16 个源码/测试文件；把 scope 归一回 `-03` 后 `unexpected_differences=0`，且运行前无 `evidence/`、`results/`、摘要或缓存。忽略态测试 `13 passed in 0.83s`，ruff、15 文件 format check、compileall、Node 语法及文件/目录指标均通过；零模型 preflight 为 `status=passed`、`storage/http=ready`、`jobs_created=0`、`model_called=false`、`auth_read=false`、`cleanup=verified`，随后独立标签查询确认专属容器、网络和卷为空。下一步使用新增授权第 2 次执行一次且不重试的完整真实流程；若失败先保存安全结果并诊断，不自动消耗第 3 次。
 - `-04` 的完整真实运行命令在操作系统进程创建前被安全审批器拒绝：虽然用户已允许使用全量 auth 最多运行三次，但审批器要求用户在被告知风险后，进一步明确同意把固定验收题目和运行请求经 `auth.openai.com` / `chatgpt.com` 发送给 `openai/gpt-5.6-terra`。本次没有启动编排器、容器或网络连接，没有读取 auth、创建 Job、调用模型，也不计入最多三次中的次数；拒绝后独立 Docker 标签查询确认专属容器、网络和卷仍为空。不得绕过或换入口重试；取得这一具体数据到具体目的地的明确同意前，任务 13 保持 `in-progress`，按既定顺序也不提前开始任务 14。
+- 用户现已在上述风险说明后逐字明确同意：把固定验收题目和运行请求经 `auth.openai.com` / `chatgpt.com` 发送给 `openai/gpt-5.6-terra`，并使用既有私有 auth 执行任务 13 的隔离真实运行。该具体授权解除 `-04` 的安全审批前置条件；次数与其他边界不变，运行前仍须确认无旧 evidence/专属资源，运行中仅一次模型尝试、零自动重试，退出先清理。
+- `-04` 完整真实流程实际以一次模型尝试、零重试通过：Job `82c06c39-567d-4456-a8a1-b6d35898d53f`、Run `7b97e96c-0c3f-4057-991e-e8fbde0a9d58` 均为 `COMPLETED` 且无失败码，固定 Fork `resolved=true`，patch SHA-256 为 `d5fefec345eb335c9b17d6305037ef47214c56d265f1ca11175c88c90d3ad09d`。数据库计数为 Job/Run/`internal_test` Job `1/1/0`，唯一 Harbor Trial、唯一排行榜来源、Judge 分析 0、人工复核/质量决胜为空；最终摘要为 `status=passed/phase=complete/cleanup=verified`。
+- 本次真实浏览器已从登录与 Job 详情走到完成报告，并生成 `results/browser-report.png`；该普通文件为 395582 字节，SHA-256 为 `1d1f118a67bdfe947b0f303503e76629b4a658d6517cefc047c7358de711c30e`。运行后独立按 `agentexam.task13=m1-task13-20260914-04` 查询容器、网络和卷均为空；没有输出 auth 或私有 Harbor/Codex 正文。当前只剩相对 `5e39632` 的最终 Standards/Spec 评审、公开任务文档提交和状态关闭，不需要消耗剩余真实运行次数。
+- 最终 Standards 首轮复核发现两项文档 P2：行动文件树仍是 `-04` 创建前快照，五份权威文档的更新时间仍为 2026-09-13。已把 `-04` 的私有 evidence/安全 results 分层补入实际文件树，并把架构、数据模型、模块契约、Harbor 与 HTTP 文档同步到 2026-09-14；不涉及产品代码或运行行为。等待原评审者复核关闭。
+- 最终 Spec 首轮复核另发现一项 P2：行动把 `database_counts` 的第三项误写为失败事件；源码 SQL 实际统计 `internal_test` Job。现已准确记录为 Job/Run/`internal_test` Job `1/1/0`。针对性复核最终为 Standards `0 findings/PASS`、Spec `0 findings/PASS`，确认实际文件树、五份权威文档日期、计数语义和九项范围均一致。
+- 任务 13 收尾只提交本行动与任务 13 任务单两份公开文档；私有 `evidence/`、浏览器截图/日志、auth、混合全局文档和旧缓存均不暂存、不推送。真实闭环及适用门槛已满足，任务状态改为 Completed；任务 14 的私有远程验收仍是独立下一项，不据此宣称 M1/MVP 已完成。
