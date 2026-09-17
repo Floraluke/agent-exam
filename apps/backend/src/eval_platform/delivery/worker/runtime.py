@@ -1,11 +1,8 @@
-"""Owner-local composition for one production Worker claim."""
+"""Owner-local production Worker composition; command control is kept separate."""
 
-import argparse
 import hashlib
-import json
 import os
 import subprocess
-import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -23,6 +20,7 @@ from eval_platform.application.execute_job import JobExecutor
 from eval_platform.application.ports.execution import RunLimits
 from eval_platform.delivery.http.config import database_url
 from eval_platform.delivery.job_presets import submission_policy
+from eval_platform.delivery.worker.command import run_command
 from eval_platform.delivery.worker.main import WorkerShell
 
 MODEL_HOSTS = ("auth.openai.com", "chatgpt.com")
@@ -114,21 +112,9 @@ def create_runtime_worker(config: RuntimeWorkerConfig) -> WorkerShell:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="AgentExam 本机正式 Worker")
-    parser.add_argument("worker_id")
-    arguments = parser.parse_args(argv)
-    try:
-        worked = create_runtime_worker(RuntimeWorkerConfig.from_environment()).run_once(
-            arguments.worker_id
-        )
-    except Exception:
-        print(
-            json.dumps({"status": "worker_cycle_unavailable"}),
-            file=sys.stderr,
-        )
-        return 2
-    print(json.dumps({"status": "worker_cycle_finished", "claimed": worked}))
-    return 0
+    return run_command(
+        argv, lambda: create_runtime_worker(RuntimeWorkerConfig.from_environment())
+    )
 
 
 def _verify_codex_archive(path: Path) -> None:

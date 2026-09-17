@@ -2,7 +2,7 @@
 
 ## 状态与情况说明
 
-状态：In progress；P1 配置切片已验证，正式 MinIO 风险处置待决定。本行动从用户发布持续目标开始，独立于先前已完成的模块/单机规划行动。交付范围与成功标准以[行动指南](../architecture/modules/owner-host-runtime/ACTION_GUIDE.md)为准；P1–P5 尚未完成，不把基线测试当部署验收。
+状态：In progress；P1 配置及 P3 Worker 命令控制切片已验证，正式 MinIO 风险处置待决定。本行动从用户发布持续目标开始，独立于先前已完成的模块/单机规划行动。交付范围与成功标准以[行动指南](../architecture/modules/owner-host-runtime/ACTION_GUIDE.md)为准；P1–P5 尚未完成，不把基线测试当部署验收。
 
 用户已确认新增 `infra/` 作为本地运行工具箱，并确认从初始化、启停、备份、恢复命令及现有 Worker/存储接口验收。只放部署配置/脚本，不新增业务 Module、Interface 或表。实际工作区为 `E:\9.1agent_exam`；目标文本中的 `E:\9.1agent\_exam` 不存在，按会话既定工作区处理。正式数据根目录尚不存在，未发现需要覆盖的目标目录。
 
@@ -24,7 +24,7 @@
 
 ## 受影响文件树
 
-以下先冻结 P1 配置切片；后续切片开工前继续细化本树，不以占位代码冒充实现。
+P1 配置切片已落盘；正式存储发行版待决定期间，只推进不依赖该选择的 P3 Worker 命令壳，不改变 P1–P5 整体完成标准。下面冻结当前精确树，不以占位代码冒充实现。
 
 ```text
 infra/                                     # 已获确认：项目专属运行工具箱，不是新业务模块
@@ -33,6 +33,11 @@ infra/                                     # 已获确认：项目专属运行�
   tests/
     test_compose_config.py                 # P1：通过真实 Compose config 命令验收可观察配置
   local/                                   # 后续：初始化/启停/备份恢复入口；实现前细化，不先创建空目录
+apps/backend/src/eval_platform/delivery/worker/
+  runtime.py                               # 既有 Composition Root；主入口委托内部命令壳，延迟生产装配
+  command.py                               # 新增内部实现：默认单次、显式循环、停领与安全错误输出
+apps/backend/tests/jobs/runtime/
+  test_worker_command.py                   # 新增：在已确认 Worker 命令入口使用假 Worker 验收控制流程
 docs/actions/2026-09-17-minimal-local-persistence.md # 本行动及实际验证、偏差、检查点
 docs/architecture/modules/owner-host-runtime/
   ACTION_GUIDE.md                           # 用户目标已生效、P1–P5 完成度与操作边界
@@ -42,6 +47,10 @@ HANDOFF.md                                  # 最新目标、执行证据、尚�
 ```
 
 配置消费关系：owner 本地命令 → 本项目 Compose 配置 → PG/MinIO；现有应用 Repository 与 ArtifactStore Adapter 继续负责业务读写。Worker runtime 仍是生产依赖的 Composition Root，不把部署逻辑塞入业务用例。首片不引入新依赖，不修改第三方源码。
+
+Worker 控制关系：原 `agentexam-worker` → runtime 主入口 → 内部 command → 既有 WorkerShell.run_once；工厂调用延迟到参数与停止检查后，假 Worker 是命令控制测试的替身，不装配凭据/Harbor。新文件位于已存在 worker/runtime 测试目录，不新增业务 Module、Interface、表或目录。现有 PostgreSQL claim 仍唯一决定 QUEUED 可领、单活动 Job 与排序，循环不自行批准/重试。默认单次的 JSON 与退出码保持兼容。
+
+P3 本片验收：预存停止标记不得装配真实依赖；显式 `--loop --stop-file <绝对路径>` 顺序执行；任务中产生停止标记则当前 run_once 正常返回、下一轮不领取；无任务等待一秒，不忙轮询；异常立即退出且不打印敏感异常、不自动重试；相对路径/缺少停止路径拒绝。标记检测与数据库 claim 不是原子操作，最后检查后已经进入的领取仍可能完成，该竞争边界必须实测并在指南明确。标记只读不删除；启动命令今后显式管理旧标记，不在 Worker 内擅自清除。
 
 ## 自验证方式与成功标准
 
@@ -95,3 +104,26 @@ D 盘写入、真实重建、备份恢复与端口验收：Pending。尚未创�
 只读 `tar -xOf` 核对既有固定源码归档的 `cmd/object-handlers.go` 和 `cmd/object-multipart-handlers.go`，两处仍使用通告所述的 Authorization 头存在性作为 unsigned-trailer 签名验证条件。未运行漏洞利用；结合官方通告，不能满足用户“不严重”的放行条件。强密码、单节点和备份都不是该缺陷的修复；网络隔离会影响可利用性，但本机尚未有足够隔离验收证据。
 
 候选最小替代：仍保留 MinIO/S3 Adapter 与单机/D 盘架构，核对官方已修复的 AIStor Free 发行版。[官方许可文档](https://docs.min.io/aistor/operations/licenses/) 说明 Free 可用于单节点，但须有效许可证，与原 CE 不同；尚未下载、注册、接受协议、付费或更换镜像。先请用户确认是否采用这条发行版方向，不把有免费方案写成已经拿到许可证或所有漏洞均已修复。
+
+### P3 独立命令控制切片
+
+接续审计：上轮有实质进展（配置、验证与本地提交 `477c281`），不是运行中的后台作业。重新核对 git 和源码，未收到新的发行版确认；正式部署保持暂停，仅推进不依赖发行版、已获目标授权的命令壳，不把这一配套切片代替持久化交付。
+
+已接回 runtime 的既有主入口。默认单次行为及 JSON 保留；显式循环每轮只调用一次 run_once，空闲等一秒。启动前已有停止标记时不装配生产依赖，装配期间产生标记则首次领取也不开始；当前轮内产生标记不打断该轮，返回后不进入下一轮。停止目录不存在/不可访问时安全退出，标记不删除；异常退出 2、只输出安全状态，不重试、不自动批准。文件检查与数据库 claim 之间仍有已说明的竞争窗口，不承诺标记创建瞬间原子阻断一轮已经开始的领取。
+
+红绿记录：不存在 command 模块时 collection error → 单次 1 passed；无 loop 参数时 1 failed/1 passed → 2 passed；未循环时 1 failed/2 passed → 3 passed；未等待时 1 failed/3 passed → 4 passed；非法停止参数三例 3 failed/4 passed → 7 passed；原 runtime 未接线时 1 failed/9 passed → 14 passed（含原四项 runtime）；停止目录缺失仍尝试装配时 1 failed/10 passed → 最终 **16 passed**（含默认空队列回归、原四项 runtime），pytest 0.07 秒。异常去敏和装配途中停止原逻辑已通过，属于补充回归，不虚构红灯。
+
+命令均在 `apps/backend`，禁插件自动装载、字节码及 pytest 缓存：
+
+```text
+.venv/Scripts/python.exe -B -m pytest -q -p no:cacheprovider --tb=short tests/jobs/runtime/test_worker_command.py tests/jobs/runtime/test_worker_runtime.py
+.venv/Scripts/python.exe -B -m ruff check --no-cache src/eval_platform/delivery/worker tests/jobs/runtime/test_worker_command.py
+.venv/Scripts/python.exe -B -m ruff format --check --no-cache src/eval_platform/delivery/worker/command.py tests/jobs/runtime/test_worker_command.py
+.venv/Scripts/python.exe -B -m mypy --no-incremental src/eval_platform
+```
+
+Ruff 首次长行失败已修正；Mypy 首次识别 optional stop_path 两处类型错误已修正，局部 2 文件通过；显式源码范围全后端 **162 文件通过**。format 最后一次检查发现新增测试需格式化，已格式化并复检 2 文件 unchanged。原两条 Starlette/AnyIO 弃用警告保留，不升级依赖。
+
+校验入口限制：不带路径直接运行 Mypy 时无法识别已安装包的 py.typed；指定 `src/eval_platform` 后通过。当前 venv 不存在 `agentexam-worker.exe`，没有擅自安装/重建环境；明确 `PYTHONPATH=src` 后使用 `python -m eval_platform.delivery.worker.runtime --help` 成功显示 loop/stop 参数，没有实例化生产 Worker。后续正式启动工具须确定模块启动环境，不能假设 console exe 已安装。源码 68/161 行，新测试 190 行；两个目录各 4 文件，未超过指标。统一进程管理、真实 Worker、全量产品测试和部署仍未验收。
+
+最终组合检查：在上述 Worker 两个测试文件外追加 `../../infra/tests/test_compose_config.py`，显式 `-c pyproject.toml`，结果 **24 passed / 2 warnings / 1.19 秒**；Ruff lint/format 通过，局部 diff whitespace 检查通过。帮助输出首次中文编码不匹配，指定 `PYTHONUTF8=1` 后参数与中文帮助均正常。此轮只提交 command、runtime、本片测试与本行动；正式发行版仍待用户决定，未写 D 盘、部署容器、调用模型或把目标标为完成。
