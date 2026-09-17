@@ -221,6 +221,41 @@ PostgreSQL 继续 15 系列；官方 [15.19 发布说明](https://www.postgresql
 
 模板冻结红灯为 **9 passed、1 failed / 1.32 秒**，失败项准确显示两个镜像值仍为空；填入已核验 digest 后为 **10 passed / 1.33 秒**。Ruff lint、format check 与限定 infra diff whitespace 检查通过，仅有现有 LF/CRLF 提示。测试文件 192 行，未超过动态语言 200 行指标；infra 根目录 2 文件、tests 目录 1 文件。P1 的配置准备已形成可提交检查点，但正式 D 盘目录、运行 UID、许可证服务端验证、实际端口隔离和容器重建保留仍未验收，因此 P1 尚不能标完成。
 
+### P2 AIStor 私有 bucket 与最小应用权限切片（进行中）
+
+数据库协调检查点 `4f31130` 后继续 P2。现有 `MinioArtifactStore` 实际只调用对象级 `PutObject`、`GetObject`、`HeadObject`（权限仍为 GetObject）和 `DeleteObject`；客户端显式固定 region 与 path-style，不需要应用账号创建/列举 bucket。因而正式 bucket 冻结为 `agentexam-private`，应用身份冻结为 `agentexam-app`，应用策略只允许该 bucket 的对象 ARN 上 `s3:GetObject`、`s3:PutObject`、`s3:DeleteObject`。建桶、建用户、挂策略与管理员操作只属于首次初始化，不授予日常应用身份。
+
+本片先新增并验证下列文件；它们深化已获确认的 `infra/local/` 部署目录，不新增业务 Module、Interface 或数据库表：
+
+```text
+infra/local/
+  AgentExam.Local.psm1             # 部署命令共享的固定身份、Docker、路径/ACL 与秘密文件内部实现
+  AgentExam.Initialize.psm1        # 首次初始化内部阶段：服务稳定就绪、schema 核验和 AIStor 准备
+  minio-app-policy.json             # 非秘密的最小 S3 对象权限；只指向正式私有 bucket
+  Initialize-AgentExam.ps1          # 公开首次初始化入口；先提供只读预检，再逐片接入实际初始化
+infra/tests/
+  test_storage_policy.py            # 权威策略文件验收：精确动作/资源，无管理员或桶管理权限
+  test_local_initialization.py      # 显式启用的真实本机预检/初始化验收，不连接旧环境
+```
+
+验证先记录策略文件不存在或权限过宽的红灯，再最小落盘策略并回归。后续初始化命令须使用 AIStor 镜像内置 `mc`，通过标准输入接收 root/app 凭据，不能把秘密放入 argv；首次建桶必须为私有且只在确认目标不存在时执行。跨 PostgreSQL 与 AIStor 无法形成单一事务，初始化工具不得谎称原子：仅在两端均成功后写完成标记；中途失败必须报告实际部分状态并保持可安全重试，不能把普通启动与初始化绑定。
+
+初始化命令先实现 `-ValidateOnly` 公开预检：只检查固定仓库/数据根、许可路径、重解析点、固定镜像身份、Docker Server 和 Compose 解析，不创建目录、密码、容器、bucket、表或标记。真实本机测试须显式设置 `AGENTEXAM_RUN_LOCAL_DEPLOYMENT=1`，并断言输出只含非敏感状态；普通回归默认跳过。预检通过不等于初始化或持久化完成，下一片才允许同一入口执行写入。
+
+预检实际红灯依次暴露：脚本不存在；Windows 默认执行策略拒绝仓库脚本；普通沙箱不能读取 owner-only 许可；Windows PowerShell 子进程无法加载 ACL 模块；直接 .NET ACL 对象不能使用 PowerShell 扩展的 `Owner/Access` 属性。公开测试改为项目现有 PowerShell 7，脚本声明最低 7.4，并使用 .NET `GetOwner/GetAccessRules`；owner 进程复检最终 **1 passed / 1.46 秒**。结果只含固定路径、项目名、Docker 版本、镜像引用、许可存在性和初始化状态，未输出许可正文、身份声明或密码，也未产生写入。
+
+下一片将公共入口的内部函数提取到同目录模块，供后续初始化/启动/停止/状态命令复用，避免每个脚本重复 Docker 身份和路径安全判断；这不是新业务 Module 或对外服务 Interface。首次写入在 private 下先建立带阶段的部署状态标记，再创建数据目录和随机密码；任何失败保留非完成阶段并拒绝普通启动，只有 PostgreSQL schema、AIStor bucket/用户/策略和应用凭据读写验证均成功才标 `complete`。普通启动永不调用初始化。
+
+真实初始化红灯一：写入 `preparing` 标记后，PowerShell 7 的 `New-Item` 不接受 `-LiteralPath`，故 **未创建数据目录、密码或容器**；精确核对六个目标均不存在。加入仅允许 `preparing` 且目标全不存在的恢复开关后重试。红灯二：创建空 `postgres` 目录后，ACL 实现重复设置所有者被 Windows 拒绝；精确检查该目录非重解析点、子项数 0、无容器，随后删除这一刚建空目录。ACL 改为先确认 owner 不变、仅替换访问规则，不请求更改所有者。
+
+第三次推进成功创建三个受限目录、三个随机密码文件并启动两只专属容器，状态停在 `services-ready`，但 schema 调用失败。只读诊断显示 TCP/SCRAM 密码认证成功，`public` 表、类、函数、类型和非系统 schema 计数均为 0；容器日志证明 `pg_isready` 在官方 entrypoint 的临时初始化服务器阶段先返回可用，而 `agentexam` 数据库当时尚不存在，脚本因此过早建表。随后以同一私有密码和正式 owner CLI 对确认空库执行，退出 0 并建立完整 schema；没有创建账号、任务、Job 或对象。等待逻辑改为目标数据库连续三次实际 `SELECT 1`，并新增只在阶段与现实 schema 精确吻合时推进的恢复核验，不能仅凭旧标记跳过。
+
+第一次 `services-ready` 恢复又暴露原生命令跨行参数被 PowerShell 当成命令的问题，未改变 schema 或 AIStor；改成显式参数数组后，恢复入口先核对现实为精确 11 张空表，再建立 `agentexam-private`、非秘密策略 `agentexam-app`、同名应用用户并绑定策略，最终状态标记为 `complete`，命令退出 0。23:27 只读复核两只容器均 Running，实际发布端口为 `127.0.0.1:55432` 与 `127.0.0.1:59000`，Compose 标签中的数据源指向 `D:/AgentExamData/postgres` 与 `D:/AgentExamData/minio`。该 `complete` 只代表初始化各命令走完，尚未替代应用权限、匿名拒绝和跨重建数据保留验收。
+
+下一条行为测试继续沿已确认的现有存储 Interface：读取 owner-only 的 `minio-app-password` 到测试进程，使用 `MinioArtifactStore` 写入一个随机、摘要固定的 `raw_30d` 合成对象，回读校验后通过 Adapter 受控删除；同一对象存在期间，无签名读取必须失败，应用身份的 `ListBuckets` 与目标桶 `ListObjectsV2` 也必须失败。测试只清理本次随机对象，不删除 bucket、用户、策略或正式目录；普通回归无显式本机部署标志时跳过。这是对刚由初始化命令创建的外部权限状态追加验收，不为制造红灯而回退真实 bucket/用户；若首次即通过，应记录为现有行为的验收证据，而不是声称测试驱动了此前实现。
+
+22:53 额度检查到期。第一次原生查询错误选中 npm 的 `codex.ps1`，不能作为 Windows 可执行文件启动；第二次通过子 PowerShell 启动没有返回可用结果；第三次使用 Codex 桌面的精确 `codex.exe` 路径成功，只输出 `PrimaryRemaining=18`。未创建模型 turn、未读取或输出认证内容，未触发 1–4% 停工阈值；下次持续执行检查最迟 23:23。
+
 本片精确本地检查点为 **`7875444`**，只包含 `infra/compose.yaml`、`infra/.env.example`、`infra/tests/test_compose_config.py` 与本行动；暂存允许集合和实际集合一致，暂存 diff 检查通过，无推送。依赖、架构、规格及 HANDOFF 的同步事实保留在既有混合工作区，没有混入提交。
 
 ### P2 空库统一初始化：数据库协调切片
@@ -247,3 +282,13 @@ infra/tests/
 原 owner/Compose/初始化非集成组合为 **14 passed、3 deselected、2 个既有弃用警告 / 2.36 秒**；163 个后端源码 Mypy 通过。Ruff 首次发现新测试导入排序和长行，格式化并修复导入后 lint 与 format check 均通过。专属测试容器已按精确名称停止并因 `--rm` 删除，55439 不再监听；没有 D 盘写入、旧库连接、模型调用或残留测试容器。数据库协调切片通过，但 P2 仍缺 AIStor 私有 bucket/最小应用权限初始化，不能标成整体完成。
 
 模板冻结红灯为 **9 passed、1 failed / 1.32 秒**，失败项准确显示两个镜像值仍为空；填入已核验 digest 后为 **10 passed / 1.33 秒**。Ruff lint、format check 与限定 infra diff whitespace 检查通过，仅有现有 LF/CRLF 提示。测试文件 192 行，未超过动态语言 200 行指标；infra 根目录 2 文件、tests 目录 1 文件。P1 的配置准备已形成可提交检查点，但正式 D 盘目录、运行 UID、许可证服务端验证、实际端口隔离和容器重建保留仍未验收，因此 P1 尚不能标完成。
+
+### 23:50 硬停止前的 P2 收口证据
+
+应用权限真实验收首次即通过（这是对已创建外部状态的验收，不倒退制造红灯）：`test_local_storage_access.py` 为 **1 passed / 0.69 秒**。`agentexam-app` 通过现有 `MinioArtifactStore` 完成随机 `raw_30d` 合成对象写入、摘要回读和受控删除；同一对象存在期间，匿名读取、应用身份 `ListBuckets`、目标桶 `ListObjectsV2` 均返回 403。finally 再执行精确对象删除，未删 bucket、用户、策略或目录。
+
+AIStor 服务端 `mc license info --json` 只经临时 `/tmp` 客户端配置查询，最终脱敏结果为 `status=success`、`Product=AIStor`、`Plan=FREE`、`Trial=False`、`Nodes=1`、无到期时间；APIKey、ID、Serial、Organization 均未输出。容器日志的 `MinIO Community License` 是展示名称差异，不再作为许可有效性阻点。
+
+组合回归在提升进程中先得到 **5 passed、9 errors**；9 项全部是 pytest 无权枚举 `C:\Windows\Temp\pytest-of-YINGYI`，不是 Compose 断言失败。拆分后普通权限 `test_compose_config.py` 为 **10 passed / 1.34 秒**；owner 进程的初始化重复执行、真实权限与策略为 **4 passed / 4.99 秒**。四份 Python 测试 Ruff lint 通过、format check 通过；三个 PowerShell 文件 Parser 检查通过。该轮未跑后端全量测试、Mypy 或双轴评审；数据库协调片此前的 163 源文件 Mypy 证据不冒充当前脚本验证。
+
+当前可靠停点：P2 的 schema、AIStor 私有 bucket、应用用户/最小策略、重复初始化和真实权限已经具备证据；P1 尚缺合成业务记录/对象在停止启动及容器重建后的保留验收，P3 尚缺 Start/Stop/Status 公共命令，P4 尚缺完整合成联调与操作说明。两只 `agentexam-local` 容器仍 Running，停止工作不等于停止服务。用户新编辑的目标文本重新出现“备份与恢复”，与此前明确取消且已写入 ACTION_GUIDE 的决定冲突；硬停止前不擅自改回，恢复后首先核对当前用户意图并同步唯一事实源。
