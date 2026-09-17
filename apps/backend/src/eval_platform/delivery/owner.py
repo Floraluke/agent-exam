@@ -6,6 +6,7 @@ import sys
 import warnings
 
 from eval_platform.adapters.identity.passwords import Argon2Passwords
+from eval_platform.adapters.persistence.bootstrap import initialize_empty_database
 from eval_platform.adapters.persistence.identity import PostgresIdentityRepository
 from eval_platform.adapters.persistence.membership import PostgresMembershipRepository
 from eval_platform.application.identity import IdentityService
@@ -16,7 +17,7 @@ from eval_platform.domain.identity import IdentityConflict, IdentityUnavailable
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="AgentExam 本机所有者维护")
     subcommands = parser.add_subparsers(dest="command", required=True)
-    subcommands.add_parser("init-db", help="仅在明确的空白专属数据库建立身份表")
+    subcommands.add_parser("init-db", help="仅在明确的空白专属数据库建立全部表")
     subcommands.add_parser("upgrade-members", help="仅为现有专属身份库补充邀请表")
     for command in ("bootstrap", "recover"):
         subcommands.add_parser(command).add_argument("username")
@@ -31,8 +32,8 @@ def main(argv: list[str] | None = None) -> int:
             print("邀请表已建立；未创建账号或修改既有会话。")
             return 0
         if arguments.command == "init-db":
-            repository.initialize_schema()
-            print("身份表已建立；未创建任何应用账号。")
+            initialize_empty_database(dsn)
+            print("平台全部表已建立；未创建账号、任务、Job 或文件。")
             return 0
         with warnings.catch_warnings():
             warnings.simplefilter("error", getpass.GetPassWarning)

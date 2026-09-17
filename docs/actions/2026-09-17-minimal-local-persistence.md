@@ -221,4 +221,29 @@ PostgreSQL 继续 15 系列；官方 [15.19 发布说明](https://www.postgresql
 
 模板冻结红灯为 **9 passed、1 failed / 1.32 秒**，失败项准确显示两个镜像值仍为空；填入已核验 digest 后为 **10 passed / 1.33 秒**。Ruff lint、format check 与限定 infra diff whitespace 检查通过，仅有现有 LF/CRLF 提示。测试文件 192 行，未超过动态语言 200 行指标；infra 根目录 2 文件、tests 目录 1 文件。P1 的配置准备已形成可提交检查点，但正式 D 盘目录、运行 UID、许可证服务端验证、实际端口隔离和容器重建保留仍未验收，因此 P1 尚不能标完成。
 
+本片精确本地检查点为 **`7875444`**，只包含 `infra/compose.yaml`、`infra/.env.example`、`infra/tests/test_compose_config.py` 与本行动；暂存允许集合和实际集合一致，暂存 diff 检查通过，无推送。依赖、架构、规格及 HANDOFF 的同步事实保留在既有混合工作区，没有混入提交。
+
+### P2 空库统一初始化：数据库协调切片
+
+现实接口核对发现：`agentexam-owner init-db` 只建立身份/邀请表，目录和 Job 各有独立入口且分属不同事务；直接串行执行会在后段失败时留下可误认成完成的半初始化。P2 先深化现有 persistence Adapter 与 owner CLI 的既有 `init-db` Interface：新增一个内部协调实现，在同一个 PostgreSQL 事务中按依赖顺序复用四份现有 SQL；执行前拒绝任何非系统 schema 或 `public` 中的关系、函数、用户类型，不新增表或迁移机制。owner CLI 保持一个 `init-db` 命令，不暴露四个执行细节。
+
+计划文件树与职责：
+
+```text
+apps/backend/src/eval_platform/adapters/persistence/
+  bootstrap.py                    # 新增内部协调 Implementation：空库检查与四份 schema 单事务安装
+apps/backend/src/eval_platform/delivery/
+  owner.py                        # 深化既有 owner CLI Interface：init-db 委托统一初始化
+infra/tests/
+  test_database_initialization.py # 新增部署 seam 的真实 PG 验收：完整表集、重复/非空拒绝且旧数据保留
+```
+
+这里没有新增业务 Module、Interface、数据库表或顶层目录；新增文件位于既有 persistence Adapter 和已确认 infra 测试目录。设计模式是 **Facade（外观）**：owner `init-db` 是小 Interface，`bootstrap.py` 隐藏四份 schema 顺序、空库判定与事务。PostgreSQL 是本片的外部依赖，测试使用专属临时真实数据库，不 mock 自有 Repository；MinIO bucket/最小应用权限作为下一垂直切片，不能冒充已由数据库事务原子覆盖。
+
+验证先写真实 PG 测试并记录缺少协调实现的红灯；实现后在固定 PostgreSQL 15.19 的临时、回环、非默认端口容器运行。成功标准：空库一次得到当前全部规划表；重复调用或预存合成表/记录时返回失败且原数据不变；同组原 owner 恢复测试回归。测试容器只用 tmpfs/合成密码，结束时精确删除，不触碰 D 盘或旧数据库。结果 Pending。
+
+实际红灯在专属 `agentexam-p2-init-test`、`127.0.0.1:55439`、tmpfs、合成密码的 PostgreSQL 15.19 上为 **2 failed / 0.52 秒**：旧 owner 命令只建立 `accounts`、`sessions`、`invitations` 三表，且存在 `existing_data` 与合成记录时仍返回 0。新增 Facade 后真实集成为 **2 passed / 0.45 秒**；测试格式修正后复检仍 **2 passed / 0.46 秒**。空库得到当前 11 张规划表，非空库返回 2 且原记录和唯一旧表不变。
+
+原 owner/Compose/初始化非集成组合为 **14 passed、3 deselected、2 个既有弃用警告 / 2.36 秒**；163 个后端源码 Mypy 通过。Ruff 首次发现新测试导入排序和长行，格式化并修复导入后 lint 与 format check 均通过。专属测试容器已按精确名称停止并因 `--rm` 删除，55439 不再监听；没有 D 盘写入、旧库连接、模型调用或残留测试容器。数据库协调切片通过，但 P2 仍缺 AIStor 私有 bucket/最小应用权限初始化，不能标成整体完成。
+
 模板冻结红灯为 **9 passed、1 failed / 1.32 秒**，失败项准确显示两个镜像值仍为空；填入已核验 digest 后为 **10 passed / 1.33 秒**。Ruff lint、format check 与限定 infra diff whitespace 检查通过，仅有现有 LF/CRLF 提示。测试文件 192 行，未超过动态语言 200 行指标；infra 根目录 2 文件、tests 目录 1 文件。P1 的配置准备已形成可提交检查点，但正式 D 盘目录、运行 UID、许可证服务端验证、实际端口隔离和容器重建保留仍未验收，因此 P1 尚不能标完成。
