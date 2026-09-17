@@ -1,0 +1,55 @@
+# Preparation only: image approval, host permissions and isolation are still gated.
+# Docker <28 has a localhost-publishing risk; these bindings do not prove isolation.
+name: agentexam-local
+services:
+  postgres:
+    image: ${AGENTEXAM_POSTGRES_IMAGE:?Set a verified PostgreSQL image identity}
+    restart: "no"
+    security_opt: [no-new-privileges:true]
+    environment:
+      POSTGRES_DB: agentexam
+      POSTGRES_USER: agentexam_admin
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres-password
+      POSTGRES_HOST_AUTH_METHOD: scram-sha-256
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    ports:
+      - target: 5432
+        published: ${AGENTEXAM_POSTGRES_PORT:-55432}
+        host_ip: 127.0.0.1
+    volumes:
+      - type: bind
+        source: ${AGENTEXAM_DATA_ROOT:?Set the explicit owner data root}/postgres
+        target: /var/lib/postgresql/data
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${AGENTEXAM_DATA_ROOT:?Set the explicit owner data root}/private/postgres-password
+        target: /run/secrets/postgres-password
+        read_only: true
+        bind:
+          create_host_path: false
+  minio:
+    image: ${AGENTEXAM_MINIO_IMAGE:?Set a verified MinIO image identity}
+    restart: "no"
+    security_opt: [no-new-privileges:true]
+    environment:
+      MINIO_ROOT_USER: agentexam_admin
+      MINIO_ROOT_PASSWORD_FILE: /run/secrets/minio-password
+      MINIO_BROWSER: "off"
+    ports:
+      - target: 9000
+        published: ${AGENTEXAM_MINIO_PORT:-59000}
+        host_ip: 127.0.0.1
+    command: [server, /data, --address, ':9000', --console-address, ':9001']
+    volumes:
+      - type: bind
+        source: ${AGENTEXAM_DATA_ROOT:?Set the explicit owner data root}/minio
+        target: /data
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${AGENTEXAM_DATA_ROOT:?Set the explicit owner data root}/private/minio-password
+        target: /run/secrets/minio-password
+        read_only: true
+        bind:
+          create_host_path: false
