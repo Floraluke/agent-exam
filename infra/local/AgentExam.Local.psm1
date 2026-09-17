@@ -19,6 +19,7 @@ function Get-AgentExamConfig {
         MinioPassword = Join-Path $private 'minio-password'
         MinioAppPassword = Join-Path $private 'minio-app-password'
         LicenseFile = Join-Path $private 'minio.license'
+        WorkerStopFile = Join-Path $data 'control\worker.stop'
         ComposeFile = Join-Path $root 'infra\compose.yaml'
         EnvironmentFile = Join-Path $root 'infra\.env.example'
         PolicyFile = Join-Path $root 'infra\local\minio-app-policy.json'
