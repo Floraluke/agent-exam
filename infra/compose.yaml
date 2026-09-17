@@ -40,7 +40,15 @@ services:
       - target: 9000
         published: ${AGENTEXAM_MINIO_PORT:-59000}
         host_ip: 127.0.0.1
-    command: [server, /data, --address, ':9000', --console-address, ':9001']
+    command:
+      - server
+      - /data
+      - --address
+      - :9000
+      - --console-address
+      - :9001
+      - --license
+      - /run/secrets/minio.license
     volumes:
       - type: bind
         source: ${AGENTEXAM_DATA_ROOT:?Set the explicit owner data root}/minio
@@ -50,6 +58,12 @@ services:
       - type: bind
         source: ${AGENTEXAM_DATA_ROOT:?Set the explicit owner data root}/private/minio-password
         target: /run/secrets/minio-password
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${AGENTEXAM_DATA_ROOT:?Set the explicit owner data root}/private/minio.license
+        target: /run/secrets/minio.license
         read_only: true
         bind:
           create_host_path: false

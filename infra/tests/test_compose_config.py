@@ -9,6 +9,18 @@ from pathlib import Path
 import pytest
 
 COMPOSE_FILE = Path(__file__).resolve().parents[1] / "compose.yaml"
+ENV_EXAMPLE = COMPOSE_FILE.with_name(".env.example")
+
+
+def read_example_environment() -> dict[str, str]:
+    values = {}
+    for raw_line in ENV_EXAMPLE.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        key, value = line.split("=", 1)
+        values[key] = value
+    return values
 
 
 def render_config(tmp_path: Path, **overrides: str) -> subprocess.CompletedProcess[str]:
@@ -26,7 +38,7 @@ def render_config(tmp_path: Path, **overrides: str) -> subprocess.CompletedProce
     environment.update(
         AGENTEXAM_DATA_ROOT=(tmp_path / "data space").as_posix(),
         AGENTEXAM_POSTGRES_IMAGE="postgres@sha256:" + "1" * 64,
-        AGENTEXAM_MINIO_IMAGE="minio/minio@sha256:" + "2" * 64,
+        AGENTEXAM_MINIO_IMAGE="quay.io/minio/aistor/minio@sha256:" + "2" * 64,
     )
     environment.update(overrides)
     return subprocess.run(
@@ -118,6 +130,42 @@ def test_passwords_are_readonly_files_not_embedded_in_compose_environment(tmp_pa
         assert not mount.get("bind", {}).get("create_host_path", False)
 
 
+def test_aistor_license_is_an_explicit_readonly_file_not_a_command_secret(tmp_path):
+    result = render_config(tmp_path)
+
+    assert result.returncode == 0, result.stderr
+    service = json.loads(result.stdout)["services"]["minio"]
+    assert "--license" in service["command"]
+    license_path = service["command"][service["command"].index("--license") + 1]
+    assert license_path == "/run/secrets/minio.license"
+    mount = next(item for item in service["volumes"] if item["target"] == license_path)
+    assert mount["type"] == "bind"
+    assert (
+        Path(mount["source"]) == tmp_path / "data space" / "private" / "minio.license"
+    )
+    assert mount["read_only"] is True
+    assert not mount.get("bind", {}).get("create_host_path", False)
+    assert not (tmp_path / "data space").exists()
+
+
+def test_example_pins_the_verified_linux_amd64_image_digests():
+    values = read_example_environment()
+
+    assert {
+        "AGENTEXAM_POSTGRES_IMAGE": values["AGENTEXAM_POSTGRES_IMAGE"],
+        "AGENTEXAM_MINIO_IMAGE": values["AGENTEXAM_MINIO_IMAGE"],
+    } == {
+        "AGENTEXAM_POSTGRES_IMAGE": (
+            "docker.io/library/postgres@sha256:"
+            "a2c20749c564b4eb73a77bfda626f8a3cde1bbfae020fb97c616a00cdc1a2181"
+        ),
+        "AGENTEXAM_MINIO_IMAGE": (
+            "quay.io/minio/aistor/minio@sha256:"
+            "dfa8e241413464755a9cd90574b15030d6a5703c74ec73928abb6d9c5f4f42ce"
+        ),
+    }
+
+
 @pytest.mark.parametrize(
     "missing",
     ["AGENTEXAM_DATA_ROOT", "AGENTEXAM_POSTGRES_IMAGE", "AGENTEXAM_MINIO_IMAGE"],
@@ -136,7 +184,7 @@ def test_stores_have_no_broad_host_mounts_or_privileged_runtime(tmp_path):
     services = json.loads(result.stdout)["services"]
     expected_targets = {
         "postgres": {"/var/lib/postgresql/data", "/run/secrets/postgres-password"},
-        "minio": {"/data", "/run/secrets/minio-password"},
+        "minio": {"/data", "/run/secrets/minio-password", "/run/secrets/minio.license"},
     }
     for name, targets in expected_targets.items():
         service = services[name]
