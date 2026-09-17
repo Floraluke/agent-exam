@@ -1,7 +1,7 @@
 # MinIO：M1 固定基线与最小接入调研
 
-- 核对日期：2026-09-12；范围：MinIO 社区版（CE），不评估替代产品，不切换 AIStor。
-- 本文是有日期的官方来源调研快照，候选不等于已批准或已安装。当前依赖决定仍以[依赖总表](../dependencies/DEPENDENCIES.md#23-任务-03-对象存储依赖复核)为准；执行与授权见[任务 03 行动](../actions/2026-09-12-m1-task-agent-catalog.md)。
+- 历史核对日期：2026-09-12；第 1–5 节保留当时仅评估 MinIO 社区版（CE）的证据与授权边界，不作为当前正式部署选择。2026-09-17 用户已明确采用 **MinIO AIStor Free 修复版方向**，新增官方核对见[第 6 节](#6-2026-09-17aistor-free-修复版方向核对)。
+- 本文是有日期的官方来源调研快照，候选不等于已安装。当前依赖决定见[依赖总表第 2.4 节](../dependencies/DEPENDENCIES.md#24-最小本地持久化的部署候选2026-09-17)，当前执行与授权见[持久化行动](../actions/2026-09-17-minimal-local-persistence.md)；历史任务 03 的执行仍见[原行动](../actions/2026-09-12-m1-task-agent-catalog.md)。
 - 本次只读网页与源码、编写本文；未下载可执行制品、安装依赖、构建或启动容器，未运行模型、漏洞利用或业务测试。
 
 ## 1. 已查证的版本身份
@@ -82,3 +82,54 @@ M1 原始 JSON 快照可以候选采用已知长度、可重读字节的一次 P
 - GitHub 动态 compare 的文件 diff 未完整渲染，已使用具体修复 commit 与固定源码核对关键路径。部分 raw／API 页面打开失败；本机 PowerShell 的两个只读 GitHub API 请求也被套接字权限阻止，没有据此改网络。失败不构成服务故障或构建失败证据。
 - 未完成：构建环境摘要、二进制／镜像摘要、所选 SDK 固定版本、隔离运行可行性、真实并发与流式校验、PostgreSQL／MinIO 单侧失败发布测试、正式部署风险处置。
 - 结论：可以继续保留 MinIO 与既有架构分层；推荐讨论“固定归档 CE 源码，仅作隔离合成测试”的明确边界。不能把候选、源码阅读或一般 S3 文档当作任务 03 已验收。
+
+## 6. 2026-09-17：AIStor Free 修复版方向核对
+
+本节是用户确认新方向后的官方证据快照；实施及验收状态只在[持久化行动记录](../actions/2026-09-17-minimal-local-persistence.md)维护。本次仅读取公开网页、发行元数据和页面脚本、更新本文；没有获取许可证、提交表单、注册/登录账号、接受条款、下载软件制品、拉取镜像或运行容器。
+
+### 6.1 具体发行候选与尚未取得的镜像身份
+
+截至核对时，[官方最新发行 API](https://dl.min.io/api/releases/aistor/latest)返回 AIStor Server，`release_date=2026-09-08T05:05:14Z`，Docker 下载说明指向 **`quay.io/minio/aistor/minio:RELEASE.2026-09-07T08-39-31Z`**。固定[发行说明](https://dl.min.io/aistor/minio/release/notes/release-notes-RELEASE.2026-09-07T08-39-31Z.md)自述发布日期为 2026-09-07；这是制品版本时间与发布元数据时间的区别，不应混写。[发行索引](https://dl.min.io/aistor/minio/release/notes/)与[官方 Helm 镜像表](https://docs.min.io/aistor/reference/kubernetes/object-store-operator-helm-chart/)相互印证该 tag 和官方仓库路径；本项目不引入 Helm。
+
+- 选择标准版，不因示例存在而启用 RDMA/FIPS 等无关变体；不采用浮动 `latest`，也不把 4 月漏洞通告里的最低修复版误当当前最新版。
+- **未验证**：仓库实际可拉取性、镜像清单 SHA-256、Linux/amd64 平台清单摘要、容器内实际版本与运行用户。tag 有官方出处，但还不是项目已固定且验收的镜像身份；部署前须按审批取得、记录并核对这些证据，不能猜填摘要。
+- 9 月发行说明另外列出 IAM/STS 授权与凭据绑定、管理接口信息泄漏、请求体/内存边界等加固，并更新若干依赖。说明明确部分问题编号后续另发，因此本节不能宣称“所有漏洞均已修复”；也没有运行制品漏洞扫描或攻击验证。[该版安全说明](https://dl.min.io/aistor/minio/release/notes/release-notes-RELEASE.2026-09-07T08-39-31Z.md)
+
+### 6.2 与既有 CE 风险逐项对应
+
+下表记录官方针对第 2 节所列 2026 年通告给出的 AIStor 修复身份。9 月候选晚于这些修复发行，按官方受影响/修复范围属于包含修复的后续发行；这是**官方版本范围结论**，不是本项目对尚未取得的二进制完成了逐项验证。
+
+| 已记录风险 | 官方 AIStor 修复身份及边界 |
+| --- | --- |
+| unsigned-trailer 查询参数凭据绕过签名写入 | `RELEASE.2026-04-11T03-20-12Z`；这是此前阻止旧 CE 正式部署的 High/8.8 风险。[通告](https://github.com/minio/minio/security/advisories/GHSA-hv4r-mvr4-25vw) |
+| Snowball 自动解包缺少签名校验 | `RELEASE.2026-04-11T03-20-12Z`。[通告](https://github.com/minio/minio/security/advisories/GHSA-9c4q-hq6p-c237) |
+| S3 Select CSV 无界内存分配 | `RELEASE.2025-12-20T04-58-37Z`。[通告](https://github.com/minio/minio/security/advisories/GHSA-h749-fxx7-pwpg) |
+| 复制头注入加密元数据，破坏对象可读性 | `RELEASE.2026-03-26T21-24-40Z`；普通 PUT 也可能进入旧漏洞路径，不能只因本项目不开复制就忽略。[通告](https://github.com/minio/minio/security/advisories/GHSA-3rh2-v3gr-35p9) |
+| LDAP 用户枚举/暴力尝试 | `RELEASE.2026-03-17T21-25-16Z`；本项目仍不启用 LDAP。[通告](https://github.com/minio/minio/security/advisories/GHSA-jv87-32hw-hh99) |
+| OIDC JWT 算法混淆 | `RELEASE.2026-03-17T21-25-16Z`；本项目仍不启用 OIDC。[通告](https://github.com/minio/minio/security/advisories/GHSA-5cx5-wh4m-82fh) |
+| 节点间 ReadMultiple 路径穿越 | 通告推荐 `RELEASE.2026-04-14T21-32-45Z` 或之后；正文另说明相关路由自 AIStor `RELEASE.2024-10-23T19-38-07Z` 已移除，单节点 standalone 本身也不注册该路由。不把推荐升级时间说成首次修复时间。[通告](https://github.com/minio/minio/security/advisories/GHSA-xh8f-g2qw-gcm7) |
+
+### 6.3 Free 许可证：用户必须完成的步骤与已知期限
+
+**Free 不是下载页默认展示的两个月 Trial。** [定价页](https://www.min.io/pricing)单列 Free 单节点免费档；[下载页](https://www.min.io/download)展示两个月试用入口，不能点到试用后把它当长期免费许可证。
+
+建议用户操作顺序：
+
+1. 自行阅读 [AIStor Free Agreement](https://www.min.io/legal/aistor-free-agreement)及其隐私政策链接。协议说明下载、安装或使用即表示接受；用户目前确认的是产品方向，代理不能替用户接受这些条款。该协议为专有软件的单节点使用许可，列举教育/个人项目等用途，禁止向第三方重新分发软件；本记录不作法律合规保证。
+2. 打开[定价页](https://www.min.io/pricing)，选择 **Free → Get Started Free**，由用户自行填写/提交许可证申请。官方[实验室教程](https://www.min.io/blog/building-a-rag-lab-with-aistor-and-milvus)描述填写姓名和工作邮箱、邮件收取许可证；本次实时公开页脚本也定位到 Free 专用表单，读取 firstname、lastname、email 并调用官方邮件接口。本次没有执行脚本或提交信息；表单当前哪些字段必填、个人邮箱能否通过、实际邮件时延仍未验证，不凭旧博客“no sign-up”断言现在无需信息或账号。
+3. 收到后自行保存 `minio.license`，只把**文件路径**告知代理，不把文件正文、许可证令牌、账号密码贴到聊天或 Git。若已有 SUBNET 账户，官方路径是登录后 **Deployments → License Key → Download**；这是一条可用路径，不代表每个 Free 新用户都必须先单独注册 SUBNET。[许可证取得说明](https://docs.min.io/aistor/operations/licenses/)
+4. 后续专属部署中核对计划确为 Free、并非 Trial、`Expiry` 为 `N/A`。官方 `mc license info` 明确 **Free 不到期**；其完整输出可能含 License ID/API Key，验收只能记录必要的脱敏状态，不能整段打印或落盘。[许可证状态接口](https://docs.min.io/aistor/reference/cli/mc-license/mc-license-info/)
+
+离线边界：官方 Docker 流程允许把已取得的许可证文件直接挂入容器；官方也提供隔离环境注册流程，说明部署不必持续直连 SUBNET，但首次许可证取得仍需要联网设备。`mc license register --airgap --license ...` 会生成需在联网浏览器打开的 URL，并会关联部署信息；本项目不得把注册或上传部署资料作为隐式启动副作用。Free 不到期与“无许可证时的 offline mode”是两件事：后者表示 S3 读写被禁用，并非“正常无网运行”。没有有效许可证不能用健康端口可访问冒充对象服务可用。[隔离环境注册接口](https://docs.min.io/aistor/reference/cli/mc-license/mc-license-register/)、[许可证运行模式](https://docs.min.io/aistor/operations/licenses/)
+
+### 6.4 Docker 接入与本项目能力边界
+
+[官方容器说明](https://docs.min.io/aistor/installation/container/install/)确认接口：把宿主许可证文件挂为容器内文件，并向服务器传 `minio server <数据目录> --license <许可证文件>`。例如容器路径 `/minio.license` 是可选约定，不是许可证内容；本项目可在已批准部署配置中将许可证作为只读文件挂载。数据目录仍须绑定已确认的 D 盘专属目录；官方示例中的默认密码、浮动镜像与对所有网卡公开的端口不能直接照搬。
+
+Free 的单节点限制适合当前“一个主机保存数据、五人协作”的拓扑，不等于只能一个业务用户。基本 S3 读写是候选能力，仍须用现有 Adapter 验证 `PutObject` 条件创建、GET/HEAD 与 SHA-256；不能仅因兼容 S3 就判定当前客户端通过。官方明确 Free 不含多节点、各种复制、对象分层/生命周期迁移、指定版本删除及部分诊断/支持功能；因此不能把内置复制设计为此次备份入口。[Free 功能限制](https://docs.min.io/aistor/operations/licenses/#minio-aistor-free-community-use)、[对象 API 兼容说明](https://docs.min.io/aistor/developers/s3-api-compatibility/)
+
+### 6.5 本次检查结果与最小后续
+
+- 已核对：官方精确发行 tag、七项既有通告的修复对应、当前免费档/条款、Free 不到期、公开申请入口与容器许可证参数。保留历史 CE 内容，不改旧测试已发生的事实。
+- 网页工具无法读取部分动态表单、release API 和原始发行说明；普通 PowerShell HTTP 被沙箱 socket 权限阻止。首次只读提权审批超时，按提示重试一次获准，随后仅在内存读取公开 API/HTML；这不是镜像拉取、许可证申请或部署成功的证据。固定发行说明页面内嵌 Markdown 的安全段已读取，未据此声称整包安全审计完成。
+- 下一步由用户自行取得并接受 Free 许可证；代理只需要私有文件路径，不需要许可证正文。后续按主行动审批取得固定镜像并记录实际摘要/版本，完成合成数据读写、容器重建、备份/隔离恢复与 D 盘验收。许可证未就绪时不回退旧 CE，也不改用短期 Trial 冒充已满足长期持久化。
