@@ -1,6 +1,6 @@
 # 所有者单机运行 Module
 
-> 状态：**2026-09-18 本地持久化已实际部署；初始化、手动启停、跨专属容器重建读回、本机非回环端口负向和组合回归通过。电脑整机重启/另一设备负向未执行；备份与恢复不属于课设范围。** 最新实施证据见[实施行动](../../../actions/2026-09-17-minimal-local-persistence.md)。
+> 状态：**2026-09-18 最小本地持久化 P1–P4 已完成；初始化、手动启停、跨专属容器重建、一次 Windows 整机重启后的同一样本读回、本机非回环端口负向和组合回归通过。另一设备负向仍归原 M1 任务 14；备份与恢复不属于课设范围。** 最新实施证据见[实施行动](../../../actions/2026-09-17-minimal-local-persistence.md)。
 > 目标：让一个 owner 管理的单台电脑安全承载一个五人小组的私有协作入口、数据和真实执行。
 > 权威范围：进程/容器放置、信任边界、持久化门禁及已接受的数据丢失风险；产品字段和业务流程仍由其他专题文档维护。
 
@@ -8,7 +8,7 @@
 
 这种模式可行，适合当前“单机、低并发、owner 审批后才真实运行”的范围。组员只需要浏览器、Tailscale 和应用账号；PostgreSQL、MinIO、Docker/Harbor、Worker、固定框架及模型凭据都留在 owner 电脑。
 
-用户已发布持久化目标，当前范围为 P1–P4；“正式单机持久化 + 端口隔离”仍是**真实组内使用和真实模型 API 试跑之前的部署门禁**。备份与恢复已由用户明确移出课设交付。账号、Job/Run、目录快照及制品将成为团队需要长期保存的状态，但本版不承诺灾难后可找回。阶段依赖在[执行计划](../../../../.scratch/ui-catalog-providers/plan.md)维护；确认执行不表示代码全部就绪，准备度见第 10 节。
+用户已发布并完成持久化目标 P1–P4；“正式单机持久化 + 本机端口隔离”这项部署门禁已有实际证据。五人远程开放仍须完成原 M1 任务 14 的另一设备验收；真实模型 API 试跑仍须另获调用授权。备份与恢复已由用户明确移出课设交付。账号、Job/Run、目录快照及制品将成为团队需要长期保存的状态，但本版不承诺灾难后可找回。阶段依赖在[执行计划](../../../../.scratch/ui-catalog-providers/plan.md)维护；准备度见第 10 节。
 
 正式对象存储采用 **MinIO AIStor Free 修复版**，保留本机/S3 Adapter，不切云。固定镜像已运行，服务端许可脱敏查询为 FREE、非 Trial、单节点、无到期并返回 success；旧 CE 的历史隔离测试证据不作为正式部署基线。镜像身份和来源见[依赖总表第 2.4 节](../../../dependencies/DEPENDENCIES.md#24-最小本地持久化的部署候选2026-09-17)。
 
@@ -19,8 +19,8 @@
 | 选择 | 已确认内容 | 仍未落实的部分 |
 |---|---|---|
 | 启停方式 | 用时手动启动存储，不随开机自动启动；Worker 经另行授权后在 owner 前台运行；不用时由停止命令先停领、等活动 Job 收束再停存储 | 初始化、启动、停止、状态入口及假 Worker 停领已验证；本轮未启动真实 Worker |
-| 数据丢失风险 | 本课设不做备份和恢复；只要求 D 盘目录完好时正常停止/启动及容器重建后可读回 | 误删、损坏、数据库逻辑故障或 D 盘故障可能导致全部业务数据丢失，用户已明确接受 |
-| 正式业务数据 | 根目录选定 `D:\AgentExamData`，不是旧 `D:\dockerdata`；代码与当前 E 盘 Docker 数据不搬迁 | postgres/minio/control/private 已实际建立并受限；合成业务记录和对象跨两容器删除/重建读回通过 |
+| 数据丢失风险 | 本课设不做备份和恢复；只要求 D 盘目录完好时正常停止/启动、容器重建及电脑重启后可读回 | 误删、损坏、数据库逻辑故障或 D 盘故障可能导致全部业务数据丢失，用户已明确接受 |
+| 正式业务数据 | 根目录选定 `D:\AgentExamData`，不是旧 `D:\dockerdata`；代码与当前 E 盘 Docker 数据不搬迁 | postgres/minio/control/private 已实际建立并受限；合成业务记录和 9 个对象跨两容器删除/重建及 Windows 重启读回通过 |
 | 首版范围 | 本地 PG/MinIO 持久化、必要初始化/升级、手动启停和明确容量预算 | 不增设云服务器、云数据库、备份系统或生产级高可用系统；本机自身 WLAN/Tailscale 等非回环地址负向通过，另一设备检查仍属任务 14 |
 | 云存储 | 暂列未来可选，首版使用本地业务存储 | 未选择供应商、开通、付费或上传；当前无需用云端承担备份 |
 
@@ -77,7 +77,7 @@ flowchart LR
 1. 只读清点现有测试数据、正式候选数据、磁盘容量和当前 Docker/WSL 状态；禁止把临时验收库直接当生产库。
 2. 固定长期 PostgreSQL 与已确认 AIStor Free 的精确版本、许可、数据目录和容量上限；旧 CE 不用于正式部署。
 3. 建立专属持久数据卷和最小权限目录；schema 只通过显式 owner 命令初始化/升级。
-4. 验证正常停启、容器重建、存储暂不可用后的状态收束与数据保留；中断 Run 记基础设施错误，不自动重跑。整机重启需另获用户选择窗口及批准；异常场景在隔离环境模拟，不自动强制重启用户电脑。
+4. 验证正常停启、容器重建、存储暂不可用后的状态收束与数据保留；中断 Run 记基础设施错误，不自动重跑。用户已选择窗口并手动完成一次整机重启，项目未自启且正式启动后同一样本完整读回；异常场景仍在隔离环境模拟，不破坏真实磁盘。
 5. 再完成 Tailscale 双机正/负、VPN 开关、owner 电脑离线、未授权设备和应用越权验收，才允许五人正式使用。
 
 ### C. 在真实模型 API 前完成
@@ -149,30 +149,31 @@ infra/                                                # 已确认并创建：项
 - [ ] 存储只在 owner 本机受信路径可达：本机 5 个非回环接口对两端口共 10 次连接均失败、回环成功；另一设备 LAN/tailnet/公网负向仍未验。
 - [x] schema 初始化是显式操作，日常启动不建表；非空未知库拒绝初始化。
 - [x] 正常停止/启动和容器重建后，PG 记录、MinIO 对象引用、大小与摘要保持一致。
-- [ ] 正常重启、异常中断、存储不可用与磁盘阈值都有可检查结果。
+- [x] 一次 Windows 整机重启已有可检查结果：项目未自动启动，正式启动后 5 类业务记录和 9 个对象全部读回。
+- [ ] 异常中断、存储不可用与磁盘阈值仍需按未来实际需求分别验收，不由正常重启结果代替。
 - [ ] Tailscale 只暴露 Web；未授权设备、应用越权、VPN 开关和离线场景已验收。
 - [x] 存储秘密不在 Git、镜像、argv、共享 env 或页面中，宿主文件为 owner-only；模型凭据不由本轮脚本读取。
 - [x] Worker 命令仍是单重型 Job、一次尝试、零自动重试；假 Worker 已验证停止后不领下一项，本轮未启动真实 Worker。
 - [x] owner 有可执行的初始化、启动、停止、状态和故障说明，且明确告知无备份风险；撤权仍由既有业务入口负责。
 
-详细阶段范围见[持久化规格](../../../../.scratch/persistence-deferred/spec.md)，交付顺序和成功标准由[行动指南](ACTION_GUIDE.md)维护。正式 D 盘挂载、初始化、AIStor Free 许可、跨容器重建和本机非回环端口负向均已有实际证据；电脑整机重启、另一设备入口负向及完整产品回归是仍未关闭的独立门禁。
+详细阶段范围见[持久化规格](../../../../.scratch/persistence-deferred/spec.md)，交付顺序和成功标准由[行动指南](ACTION_GUIDE.md)维护。正式 D 盘挂载、初始化、AIStor Free 许可、跨容器重建、Windows 整机重启和本机非回环端口负向均已有实际证据；另一设备入口负向与整个 MVP 仍未完成。
 
 ## 10. 当前代码准备度（2026-09-18 实际核对）
 
-**结论：课设最小本地持久化的业务读写、显式初始化、手动生命周期和跨容器重建保留已经具备实际证据。** 尚未覆盖灾难恢复、版本化 schema 迁移、电脑整机重启、真实 Worker/模型运行和远程组员入口；这些限制不能由本次合成验收替代。
+**结论：课设最小本地持久化的业务读写、显式初始化、手动生命周期、跨容器重建和一次 Windows 整机重启后的保留已经具备实际证据。** 尚未覆盖灾难恢复、版本化 schema 迁移、真实 Worker/模型运行和远程组员入口；这些限制不能由本次合成验收替代。
 
 | 能力 | 当前源码证据 | 准备度及剩余工作 |
 |---|---|---|
 | PostgreSQL 业务存取 | [persistence](../../../../apps/backend/src/eval_platform/adapters/persistence/) 包含身份、邀请、目录、Job/Run、事件、结果、制品索引 Repository 与事务 | 已有；无需重写业务存储层 |
 | MinIO 对象存取 | [minio.py](../../../../apps/backend/src/eval_platform/adapters/artifacts/minio.py) 的不可变写入、摘要回读、限长读取和受控删除 | `agentexam-private` 与 `agentexam-app` 已建立；对象写/摘要读/删通过，匿名读取及列桶/对象均 403 |
-| 应用装配 | [HTTP app](../../../../apps/backend/src/eval_platform/delivery/http/app.py)、[Worker runtime](../../../../apps/backend/src/eval_platform/delivery/worker/runtime.py) 已连接正式 Adapter | 已有；连接信息来自显式环境配置，不代表正式存储已部署 |
+| 应用装配 | [HTTP app](../../../../apps/backend/src/eval_platform/delivery/http/app.py)、[Worker runtime](../../../../apps/backend/src/eval_platform/delivery/worker/runtime.py) 已连接正式 Adapter | 已有；连接信息来自显式环境配置，正式 D 盘存储已由独立部署配置完成并验收 |
 | 首次建表 | [bootstrap.py](../../../../apps/backend/src/eval_platform/adapters/persistence/bootstrap.py) 由 [owner.py](../../../../apps/backend/src/eval_platform/delivery/owner.py) 的既有 `init-db` 调用，在空库检查后以单事务执行四份现有 SQL | 正式 D 盘 PostgreSQL 已建立 11 表；重复初始化只核对完成状态、不清库，非空拒绝已在专属测试库验证；AIStor 初始化同入口配套脚本已完成 |
 | 保留既有数据的 schema 升级 | [Job SQL](../../../../apps/backend/src/eval_platform/adapters/persistence/jobs/schema.sql) 主要为 `CREATE TABLE` / `CREATE INDEX`，初始化入口直接执行整份 SQL；仅有特定成员表升级入口 | 尚无完整版本化升级、旧库校验和回退流程；不能对长期库重复执行 init-db 充当迁移 |
 | 中断 Job 收束与到期清理 | [recovery.py](../../../../apps/backend/src/eval_platform/application/job_lifecycle/recovery.py)、[retention.py](../../../../apps/backend/src/eval_platform/application/job_lifecycle/retention.py) | 已有 owner 显式入口；恢复 Job 状态不等于从备份恢复数据库或对象 |
-| 长期数据卷与启动配置 | [compose.yaml](../../../../infra/compose.yaml) 与 [local](../../../../infra/local/) 提供固定镜像、D 盘 bind mount、显式初始化及日常启停/状态 | 两服务实际运行；合成账号、目录、Job/Run、报告和对象在正常启停及容器删除/重建后逐项一致；日常停止不删数据 |
+| 长期数据卷与启动配置 | [compose.yaml](../../../../infra/compose.yaml) 与 [local](../../../../infra/local/) 提供固定镜像、D 盘 bind mount、显式初始化及日常启停/状态 | 两服务实际运行；合成账号、目录、Job/Run、报告和 9 个对象在正常启停、容器删除/重建及 Windows 重启后逐项一致；日常停止不删数据，项目不随系统或 Docker 自动启动 |
 | Worker 持续处理 | [main.py](../../../../apps/backend/src/eval_platform/delivery/worker/main.py) 保留 `run_once`；runtime 委托 [command.py](../../../../apps/backend/src/eval_platform/delivery/worker/command.py)，默认单次、显式 loop/stop-file | 假 Worker 命令测试覆盖顺序领取、空闲等待、停领和失败零重试；停止脚本写标记并等待主库活动 Job 归零。本轮未启动真实 Worker，不把它描述为真实模型验收 |
 | 备份与恢复 | 在项目自有源码、部署候选路径和维护入口中未找到正式 PG+MinIO 备份/恢复实现 | 用户已明确移出课设交付；不是待实现项，也不得描述为已有能力 |
 
-任务 13 的专属临时环境仍是历史证据；当前长期 D 盘卷的停止/启动与跨容器重建证据由[本次实施行动](../../../actions/2026-09-17-minimal-local-persistence.md)维护。整机重启与正式端口外部负向检查尚未由该证据覆盖；备份恢复已不在当前范围。
+任务 13 的专属临时环境仍是历史证据；当前长期 D 盘卷的停止/启动、跨容器重建及 Windows 整机重启证据由[本次实施行动](../../../actions/2026-09-17-minimal-local-persistence.md)维护。另一设备端口负向仍由原 M1 任务 14 管理；备份恢复已不在当前范围。
 
 最小后续工作集中在部署配置、维护脚本和现有入口的少量补齐，不需要先更换 PG/MinIO Repository 或新增业务表。由于后续题库规模/提供方扩展会改变现有 SQL 约束，长期库建立前应定义 schema 基线，后续修改必须提供保留旧记录的升级路径；在没有备份的当前范围下，任何真实 schema 迁移都必须另行说明不可逆风险。
