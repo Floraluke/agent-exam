@@ -1,6 +1,6 @@
 # 课设最小本地持久化行动指南
 
-> 2026-09-18：取消备份后的 P1–P4 最小本地持久化已经完成。无模型合成样本通过正常启停、专属容器重建和一次 Windows 整机重启读回，本机非回环端口负向与组合回归也已通过。另一设备负向仍归原 M1 任务 14，限制五人远程开放，但不阻塞本地目标完成。最新证据由[实施行动](../../../actions/2026-09-17-minimal-local-persistence.md)维护。
+> 2026-09-18：取消备份后的 P1–P4 最小本地持久化已经完成。无模型合成样本通过正常启停、专属容器重建和一次 Windows 整机重启读回。用户随后为五人课设确认共用 PostgreSQL 管理员直连；tailnet `15432` 到本机 `55432` 的转发和 owner 端口自测已完成，组员 DBeaver 登录及未授权设备负向仍待验证。持久化证据由[实施行动](../../../actions/2026-09-17-minimal-local-persistence.md)维护，组员操作见[数据库连接教程](../../../operations/TEAM_POSTGRESQL_CONNECTION.md)。
 
 ## 1. 目标与范围
 
@@ -115,8 +115,8 @@ $env:PYTHONPATH = 'src'
 
 ### 对外边界
 
-- PG/MinIO/API 只给 owner 本机所需入口，组员仍只通过 Web；用实际端口配置和获准的连接检查验证，不能把回环配置当作完整双机验收。
-- 不更改 Tailscale、代理、防火墙、Funnel 等机器/网络配置，不上线云服务、不上传数据、不付费。用户最新要求允许重要节点精确本地提交，仍禁止推送和混入旧改动。
+- PostgreSQL 的 Docker 发布仍只绑定 owner 本机 `127.0.0.1:55432`，另由 Tailscale Serve 向获准 tailnet 成员提供 `15432`；五人共用 `agentexam_admin`。MinIO、FastAPI 原始端口、Docker、Worker 和模型端点仍不向组员开放。操作步骤由[数据库连接教程](../../../operations/TEAM_POSTGRESQL_CONNECTION.md)维护。
+- 已按用户最新课设决定新增 PostgreSQL Tailscale TCP Serve；不启用 Funnel、不开放校园网/公网端口、不上线云服务、不上传数据、不付费。组员电脑正向和未授权设备负向仍须实际检查，不能把 owner 自测当成完整双机验收。
 - 原 M1 任务 14 的双机及负向验收仍独立未完；本地持久化完成不等于五人正式开放或整个 MVP 完成。
 
 ## 5. 怎样才算完成

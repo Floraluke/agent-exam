@@ -1,11 +1,21 @@
 # Harbor 执行后端接口
 
-> 文档状态：架构已确认；第四场真实 Codex 单题产生补丁并由固定 Fork 独立判卷通过；M0 核心闭环已通过，完整安全/生命周期验收状态见第 13.1 节
+> 文档状态：架构已确认；第四场真实 Codex 单题与固定 Fork 判卷通过；M0 核心闭环已通过；任务 13 的 `-04` 正式 Job/Run、固定 Fork、持久化、真实页面和双轴终审均通过
 >
-> 最后更新：2026-09-08
+> 最后更新：2026-09-17（API扩展规划；执行接口不变）
 >
 > Harbor 固定版本：以 [`DEPENDENCIES.md`](../dependencies/DEPENDENCIES.md) 中的完整提交为唯一事实源
 > 权威范围：本文件维护 AgentExam `ExecutionBackend` 与 Harbor 之间的输入、输出、字段映射、错误和验收门槛。Harbor 来源与恢复方式见 [`DEPENDENCIES.md`](../dependencies/DEPENDENCIES.md)；Codex 与自研 Agent 的凭据所有权和秘密边界只在 [`CODEX_AUTHENTICATION.md`](./CODEX_AUTHENTICATION.md) 维护。
+
+## 新扩展的执行边界（规划，未实施）
+
+[UI/题库/API计划](../../.scratch/ui-catalog-providers/plan.md)保留一平台Job→一Harbor Job→逐Run/Trial以及独立固定Fork判卷，不重建执行链。新题须先完成固定镜像与离线资格检查；第三方Codex由现有Adapter按冻结配置选择内部绑定，原M0单题与ChatGPT路径保留。
+
+新增代理为Trial内部可信辅助进程，不是HTTP业务服务、Worker或Evaluator。公开Execution请求不含Key/私有路径；真正开始已批准Run后才读取所需私有profile，网络、限额、令牌撤销与Key隔离见[认证4.1](./CODEX_AUTHENTICATION.md#41-codex-第三方-api-扩展规划2026-09-17)。现有共享网络命名空间侧车不能直接充当凭据代理，具体拓扑须通过专属合成正反例。
+
+接口合同保持原状态、Observer准入、取消与崩溃恢复语义。代理故障或超限按现有基础设施/策略错误收束，不自动续跑、重试或切换供应商，不以代理机制擅自强杀当前协作取消中的Trial。新版本工具/网络/额度配置先冻结、再参与既有快照校验；现有租约必须覆盖实际准备/执行/判卷/收尾，代理准备不能形成无界等待。
+
+配置请求的既有探针不证明完整Trial；具体假值→真实单题→矩阵门禁见[验证计划](../../.scratch/ui-catalog-providers/verification.md)。长期暂停后重新核对依赖身份与提供方事实，不改上游固定源码或静默升级CLI。
 
 ## 1. 先用小白能懂的话解释
 
@@ -26,14 +36,14 @@ Harbor 负责“让 Agent 做题并留下过程证据”，固定 SWE-Bench-Fork
 
 ```mermaid
 flowchart LR
-    O[Job Orchestrator] -->|ExecutionJobRequest| P[ExecutionBackend interface]
+    O[Job Orchestrator] -->|ExecutionJobRequest + run_id Observer| P[ExecutionBackend interface]
     H[HarborExecutionAdapter] -. 实现 .-> P
     F[ProcessExecutionAdapter<br/>验收失败时的后备实现] -. 实现 .-> P
     H --> J[Harbor Job]
     J --> T[Harbor Trials<br/>n_concurrent_trials=1]
     T --> A[Agent + Docker Environment]
     T --> R[Trial result / trajectory / artifacts]
-    H -->|ExecutionTrialResult[]| O
+    H -->|started/finished 身份 + ExecutionTrialResult[]| O
     O --> E[固定 SWE-Bench-Fork Evaluator]
 ```
 
@@ -89,6 +99,8 @@ n_attempts × task_configs × agents
 
 展开 Trial。首版 `n_attempts=1`，所以每个任务与 Agent 配置组合恰好对应一条评测运行。
 
+平台把冻结运行按 `task_id → agent_configuration_id → run_id` 排成稳定顺序；配置中的 tasks 与 agents 按相同顺序首次出现，因此与 Harbor 的 tasks×agents 展开一致。随机 `run_id` 不能决定笛卡尔积顺序，否则多配置批次可能把 Trial 生命周期绑错运行。
+
 ## 5. Agent 和 Task 映射
 
 ### 5.1 `AgentConfig`
@@ -100,7 +112,7 @@ Harbor 固定提交已核验字段包括 `name`、`import_path`、`model_name`�
 - 内置 Agent 依次接入：Codex MVP 完成后再接 Harbor 已有的 Aider、Claude Code；不为同一能力另写一套 Adapter。
 - P2 自研 Agent 只支持 Python，并实现 [`RUNNER_PROTOCOL.md`](./RUNNER_PROTOCOL.md) 的固定进程 Interface；平台拥有的包装实现把审核后的模块映射为 Harbor Agent，普通用户不能直接提交 Harbor `import_path`、shell 命令或环境变量。完整 manifest 字段、Python 版本、依赖锁格式和包装 extension point 留待 P2 确认/实测。
 - 公开 Job、数据库和对外接口只记录非秘密的认证类型，不接收凭据文件、内容或真实路径。
-- 对首个 Codex 原型，执行节点从本机 `CODEX_AUTH_JSON_PATH` 解析机器所有者的凭据，只在受控 Trial 的最小生命周期内交给 Harbor Codex Agent；具体 Token 刷新与清理仍待实测。
+- 对首个 Codex 原型，可信执行节点通过显式私有运行绑定 `codex_auth_path` 提供机器所有者的凭据，不从环境变量隐式接受凭据路径；该绑定不是公开 Job 字段。凭据只在受控 Trial 的最小生命周期内使用，当前隔离/清理证据与未验证的 Token 刷新见 [`CODEX_AUTHENTICATION.md`](./CODEX_AUTHENTICATION.md#63-其他尚待实测项)。
 - P2 自研 Agent 只允许登记 `deepseek` 或 `kimi` 提供方；同一源码切换提供方必须生成独立 Agent Configuration。真实提供方 Key 只由执行节点可信实现读取，不直接注入被测 Agent 容器；提交者只能选择已登记配置，不能提供 Key、Base URL 或代理。
 - `n_concurrent` 不得超过 Job 的 `n_concurrent_trials=1`。
 
@@ -123,6 +135,8 @@ Harbor 固定提交支持本地 `path`、Git 任务 `git_url + git_commit_id + p
 
 Harbor Job 目录会保存 Job/Trial 的 `config.json`、`result.json`、Agent 日志、可用时的 `trajectory.json` 和收集的 artifacts。固定 `SingleStepTrial` 及真实 NOP 已确认顺序为：运行 Agent → 同步日志 → 执行任务 `verifier.collect` hook → 收集 artifacts → 可选运行 Verifier；`verifier.disable=true` 时仍执行前两类收集。
 
+固定源码还确认 Trial 在 START 前写自身 `config.json`，在 END 前写自身 `result.json`。任务 07 的 CLI Adapter 以这两个受信文件发出只含冻结 `run_id` 的开始/结束通知；每 0.1 秒的有界进程轮询只是发现文件，不解析 stdout/stderr。重复文件只通知一次；重复身份、无法解析、未知 task+agent 或结果身份不一致不会直接推进平台状态，最终由返回矩阵闭合为明确错误。Harbor Job 汇总 `result.json` 缺失时，Adapter 仍扫描受信的逐 Trial 结果、保留已完成项，并附加 `HARBOR_JOB_RESULT_MISSING` 协议警告；未知、重复或损坏 Trial 也以受控协议警告使 Job 收束为部分错误。通知不是数据库写权限，所有推进仍须 Repository 校验 Worker、租约、Job/Run 版本和顺序。
+
 ### 6.2 Adapter 必须返回的项目结果
 
 每个 Trial 必须转换为一条 `ExecutionTrialResult`：
@@ -130,7 +144,7 @@ Harbor Job 目录会保存 Job/Trial 的 `config.json`、`result.json`、Agent �
 | 字段 | 含义 |
 |---|---|
 | `run_id` | 对应 AgentExam 评测运行 |
-| `backend_job_ref` / `backend_trial_ref` | Harbor Job/Trial 可追溯身份 |
+| `backend_job_ref` / `backend_trial_ref` | Harbor Job/Trial 的安全不透明标识；不得使用宿主绝对路径 |
 | `termination_reason` | 规范化的完成、超时、认证、资源、Agent、制品或内部错误 |
 | `patch_ref` | 必需的 Git unified diff 制品；可为空补丁，但引用和 SHA-256 必须存在 |
 | `trajectory_ref` | 可用时的 ATIF/规范化轨迹制品；缺失必须带能力/错误说明 |
@@ -153,7 +167,7 @@ Harbor 固定提交的 `TrialResult` 没有标准 `model_patch` 字段。Harbor 
 5. 二进制 patch 返回 `BINARY_PATCH_NOT_ALLOWED`，不进入 Harness；MVP 只接受文本统一 diff。
 6. 同一字节内容保存到 MinIO，并作为 SWE-Bench-Fork prediction 的 `model_patch`。
 
-M0 已选择固定 Harbor 支持的任务级 `verifier.collect` hook：在容器销毁前相对任务 `base_commit` 生成 `model.patch`、SHA-256、字节数和二进制标志，再把整个 `/logs/artifacts` 目录收集到宿主 `artifacts/agentexam`。真实 NOP 已验证空 patch 与元数据、Verifier 关闭、UTF-8 CLI 退出和 Compose 资源清理；固定摘要、禁网容器测试又验证了跟踪文件修改、新文件、删除和 Agent 自行 commit 四种非空结果都能相对固定 `base_commit` 生成完整 patch，并通过宿主强校验。真实 Codex 仍须继续实测。
+M0 已选择固定 Harbor 支持的任务级 `verifier.collect` hook：在容器销毁前相对任务 `base_commit` 生成 `model.patch`、SHA-256、字节数和二进制标志，再把整个 `/logs/artifacts` 目录收集到宿主 `artifacts/agentexam`。真实 NOP 已验证空 patch 与元数据、Verifier 关闭、UTF-8 CLI 退出和 Compose 资源清理；固定摘要、禁网容器测试又验证了跟踪文件修改、新文件、删除和 Agent 自行 commit 四种非空结果都能相对固定 `base_commit` 生成完整 patch，并通过宿主强校验。真实 Codex 使用该出口并接入独立判卷的证据见[第四场记录](#第四次授权运行真实补丁与独立判卷通过2026-09-08)。M0 使用本机制品，MinIO 落盘属于 M1。
 
 ## 8. 运行身份映射
 
@@ -185,6 +199,10 @@ run_id ↔ task_id + agent_configuration_id + attempt_index ↔ Harbor trial id/
 
 执行中收到取消请求时，Adapter 不再启动新的 Trial；当前 Trial 不强杀，只运行到 Job 创建时冻结的超时并保存真实结果。宿主机、Worker 或 Harbor 中断不能触发自动续跑或自动重试；可证明已经完成的 Trial 只做幂等收束，否则记录 `INFRASTRUCTURE_INTERRUPTED`，新尝试必须由所有者创建新 Job。
 
+任务 09 的实际 Adapter 协议只在提供 `ExecutionProgressObserver` 时启用。父进程在本次 `run_root/trial-control` 下创建私有控制目录；固定 Harbor 子进程在第 N 个 Trial 入队前写 `ready-NNNN` 并等待 `permit-NNNN`。父进程先读取并保存前一 Trial 的真实 `result.json`，再调用 `trial_started(run_id) -> bool`：允许时写 permit，取消事务已胜出时由 Repository 原子取消未启动 Run、返回 false 并写 `stop`。子进程看到 stop 后直接返回已经完成的结果，不启动当前及后续 Trial；Adapter 只映射监视器已确认完成的结果。
+
+该协议没有新增公开执行后端或 Harbor 配置字段。`harbor_entry` 只接受与配置同目录且精确名为 `trial-control` 的非符号链接目录，并在加载固定 Harbor revision 后安装受控顺序 runner；路径或来源不符立即失败关闭。固定 Harbor 当前没有公开的“停止未来 Trial、保留当前 Trial”Interface，所以此实现绑定其私有 `_run_trials_with_queue`；上游 revision 变化时必须先通过入口来源检查和协议测试，不能静默兼容。控制文件不含用户身份、凭据、任务正文或结果正文。
+
 ## 10. P2 Agent 源码提交入口（MVP 禁用）
 
 本节只保存未来扩展接缝。MVP 的 Web、HTTP API 和 Agent Registry 不公开源码提交入口，只能选择项目预登记 Agent。
@@ -215,11 +233,13 @@ P2 提交只创建 `PENDING_REVIEW` 记录，不会触发 Harbor、Docker build 
 - 单个轨迹、stdout、stderr 或 Judge 原始制品最多 50 MiB，超过只能显式标记截断；每运行原始制品总额最多 200 MiB。核心配置、确定性结果、最终 patch 和测试摘要优先完整保存，不能用静默丢失伪装证据完整。
 - Web 创建 Job 时必须显示组合产生的 Trial 数；耗时只能基于真实历史数据估算，没有历史数据时显示“未知”，不能承诺完成时间。
 
+当前 M0 覆盖差距（2026-09-08，只读核对）：生产执行器已对 stdout/stderr 分别落实 50 MiB 上限和显式截断记录，但尚未对全部原始制品落实每运行 200 MiB 总额。超限轨迹当前返回缺失引用及 `TRAJECTORY_TOO_LARGE` 警告，没有生成带截断状态的轨迹制品引用。小体积真实单题通过不能代替上述边界验收；这些是相对本节完整规则的实现缺口，不修改限额，也不自动认定全部延后至 M1。完整限制对象的阶段差异见 [模块契约](../architecture/MODULE_CONTRACTS.md#41-当前-m0-实现与目标契约的区别)，下一项处理范围由用户确认。
+
 ## 13. 分阶段验收
 
 ### 13.1 M0：本机 Codex 技术原型
 
-从固定 revision 的 `SWE-Gym/SWE-Gym-Lite` 先选择 1 道真实任务，必要时扩至 3 道，并使用 Harbor 内置 Codex Agent 验证。认证政策已确认为评测机所有者的 ChatGPT Pro `auth.json`，首轮 CLI 版本、模型与推理强度见 [依赖总表](../dependencies/DEPENDENCIES.md#2-当前依赖总表)，已确认而不再待选。固定制品和无凭据容器启动/Harbor 预装复用已验证（同表第 2.1 节），但不代表完整 Trial 可用；账号实际可用性、端点白名单、资源兼容、Token 刷新、脱敏和清理仍须在真实运行前核验。
+从固定 revision 的 `SWE-Gym/SWE-Gym-Lite` 先选择 1 道真实任务，必要时扩至 3 道，并使用 Harbor 内置 Codex Agent 验证。认证政策已确认为评测机所有者的 ChatGPT Pro `auth.json`，首轮 CLI 版本、模型与推理强度见 [依赖总表](../dependencies/DEPENDENCIES.md#2-当前依赖总表)，已确认而不再待选。第四场固定单题核心闭环已经通过，完整验收状态见本节末的[验收对账](#暂停后的验收对账2026-09-08)。以下带日期的实验段落保留当时状态，不能用较早的“未运行”覆盖后续成功记录。
 
 M0 用本机脚本编排，不实现 Web、PostgreSQL、MinIO、登录或审批；证据写入受控本机临时目录，标为技术原型，不进入正式排行。验收项：
 
@@ -319,7 +339,7 @@ DNS 因果对照已定位：主容器/侧车使用 Docker `127.0.0.11`，内部�
 
 在只含 `auth.openai.com` / `chatgpt.com` 的 allowlist 下，不使用代理环境变量、不带认证且未使用 `-k` 的 HTTPS HEAD 均 curl exit 0、`ssl_verify_result=0`、HTTP 403。这证明两个主机根路径的 TLS 连接和证书校验可用，不证明真实 Codex 模型 API、WebSocket、账号或 Token 刷新成功，也没有证明具体经过了哪条 FlClash 路由。完整回归及追加探针的各轮精确 Compose 容器/网络/卷/镜像残留均为空；第一次追加探针因拒绝错误类型断言不准确而中止的证据也已保留。命令、红绿与限制见[M0 行动记录](../actions/2026-09-05-m0-codex-harbor-implementation.md#2026-09-08已授权的限定-dns-适配)。
 
-该例外限制的是 DNS 转发目的地址和端口，不按查询域名过滤，不证明 DNS 无外传风险。没有运行新的 Codex 单题、使用真实登录或生成新补丁/判卷；第四场真实调用和剩余风险接受未获授权。M0 仍未完成。
+该例外限制的是 DNS 转发目的地址和端口，不按查询域名过滤，不证明 DNS 无外传风险。截至该次无凭据 DNS 验证结束时，没有运行新的 Codex 单题、使用真实登录或生成新补丁/判卷；第四场真实调用尚未授权，M0 尚未完成。随后第四场的单独授权与结果见下节，不将运行许可泛化为剩余风险豁免。
 
 #### 第四次授权运行：真实补丁与独立判卷通过（2026-09-08）
 
@@ -331,9 +351,37 @@ DNS 因果对照已定位：主容器/侧车使用 Docker `127.0.0.11`，内部�
 
 **M0 真实单题核心闭环已通过；尚不宣称所有安全/生命周期验收或 MVP 完成。** 本场证明当前账号/模型路径及实际工具执行可用，不证明 Token 刷新、所有 IPv6/长连接/故障路径或全面输出保护。下一步是按本节及认证接口核对 M0 剩余验收边界，再进入 M1；不为了已有成功结果自动新增真实单题。
 
+#### 暂停后的验收对账（2026-09-08）
+
+本表沿用上述实验和 [M0 行动记录](../actions/2026-09-05-m0-codex-harbor-implementation.md) 中的运行证据，并结合本轮静态代码核对；本轮没有运行模型、Docker 或测试，也没有重新读取受 ACL 限制的私有原始输出。“已有证据”仅覆盖注明范围，不代表完整阶段验收。
+
+| 原验收项 | 已有证据与仍缺部分 |
+|---|---|
+| 1. 固定 Harbor 安装与 Docker Trial | 已有真实 NOP 和第四场 Codex Trial 证据。 |
+| 2. 单并发、资源与网络策略 | 第四场固定单并发/单尝试、资源限制、非 root 和受控侧车已核对；完整 IPv6、长连接、故障路径及具体代理路由仍未全部验证。 |
+| 3. 隐藏判分字段隔离 | 已有 Task Catalog/公开任务契约测试及第四场实际公开任务字节核对；不向 Agent 提供 gold patch 和判分字段。 |
+| 4. 补丁出口、哈希和拒绝边界 | 已有空/修改/新建/删除/自行 commit 收集证据及大小、二进制拒绝契约测试；第四场真实补丁与 Fork 输入哈希一致。 |
+| 5. 同 Run 输出追溯及日志限额 | 第四场小体积轨迹/配置/输出/判卷证据可追溯；stdout/stderr 有界。完整制品总额和超限轨迹表示仍有[第 12 节](#12-单机资源规则)所列实现缺口。 |
+| 6. 禁用 Harbor 最终判卷但收集制品 | NOP 与第四场均有证据，最终正确性仍由独立 Fork 判定。 |
+| 7. 同补丁的固定 Fork 独立判卷 | 第四场已有真实 `resolved=true` 及原始报告；仅覆盖登记用例，不代表整个 mypy 测试集。 |
+| 8. 失败映射与清理 | 已有错误映射契约、真实 Agent 超时及 NOP 外层超时清理回归；非超时崩溃/外层中断、上传中断等路径尚未充分验证，不能由超时通过外推。 |
+| 9. 生命周期与秘密残留 | 已有假凭据正对照、第三场超时及第四场正常路径的限定检查；真实 Token 刷新和完整失败路径仍待核验。私有原始输出适用[认证第 6.2 节](./CODEX_AUTHENTICATION.md#62-2026-09-07-假凭据安全收尾)的阶段例外，不能据此免除凭据隔离与清理。 |
+
+代码待同步但本轮不修改：`adapters/execution/preflight.py` 中 `task_preflight()` 返回的 `pending` 仍含 `fixed Codex version/model/effort` 这一已经解决的旧提示；`real_codex_ready=false` 本身仍表示诊断不授予真实运行许可，不能为了消除陈旧提示就改为自动放行。该命令的输出不是当前项目验收状态的权威来源。
+
+清理验证边界：当前 Harbor Adapter 对外层超时设有显式资源清理后备路径；这不证明普通非零退出、宿主进程被中断或私有上传中断时均已完成相同生命周期验证。这里只记录覆盖不足，不声称本轮复现了新故障。更完整的凭据边界继续由[认证第 6.3 节](./CODEX_AUTHENTICATION.md#63-其他尚待实测项)维护。
+
+用户已要求放缓开发，本轮只同步事实。尚未验收不等于已经失败；哪些缺口在 M0 收尾处理、哪些适用既有例外或留待后续阶段，需要依据原验收边界由用户确认，不能自动扩大安全工程或直接开始 M1。
+
 ### 13.2 M1：Codex 平台 MVP
 
-M0 通过后才接 Web、PostgreSQL 和 MinIO，并验证协作者提交 → 所有者批准 → 本机 Worker → Harbor → patch → SWE-Bench-Fork → 报告的完整真实闭环。还必须覆盖两类角色、无公开注册、任务原始快照、取消/中断不自动重试、制品保留/清理审计和确定性结果报告。只有 M1 通过才称为 MVP 完成。
+M1 接 Web、PostgreSQL 和 MinIO，最终验证协作者提交 → 所有者批准 → 本机 Worker → Harbor → patch → SWE-Bench-Fork → 报告的完整真实闭环。还必须覆盖两类角色、无公开注册、任务原始快照、取消/中断不自动重试、制品保留/清理审计和确定性结果报告。分析扩展阶段以[总架构第 3.1 节](../architecture/ARCHITECTURE.md#31-m1-交付边界2026-09-09-已确认)为准。只有 M1 通过才称为 MVP 完成。
+
+2026-09-09 最新安排：用户允许按 Spec 分任务推进 M1 本机开发与内部测试；这不把第 13.1 节剩余项标为通过。进入真实执行或对外验收前仍须完成对应门槛与授权，不因开发许可而自动运行模型、Docker 探针或接受网络/刷新残余风险；恢复入口见 [HANDOFF](../../HANDOFF.md)。
+
+2026-09-13 任务 13 已增加生产 Worker Composition Root，并用正式目录 preset 验证 Harbor 配置：业务身份 `openai_chatgpt` 只在 Adapter 内映射成固定上游名 `openai`，最终仍由 `harbor_entry.validate_agent_mode` 精确接受 `openai/gpt-5.6-terra`、Codex 0.153.0、medium、web disabled。固定归档、认证文件元数据、Harbor/Fork 干净 revision 和任务快照均在领取前核验；没有新增 `ExecutionBackend` 或 `PatchEvaluator` Interface。
+
+同日无模型证据为：固定 Codex 离线安装/Harbor 复用 `1 passed`，真实 45 秒外层超时及 Compose 精确清理 `1 passed`，专属 PG/MinIO 取消/恢复/制品回归 `135 passed`；一次性编排预检确认 storage/HTTP ready、零 Job、零认证读取、零模型调用和清理完成。首次真实 Run 完成提交/批准并产生 1302 字节 patch，但 composition root 漏传 `LocalArtifactReader`，在固定 Fork 前以 `EVIDENCE_UNAVAILABLE` 失败；`10f0c53`、`3d66230`、`1b8e9ba` 依次补回 reader、修复绝对/相对引用和集中安全校验。第二次获批 Run 在源码等价的 `m1-task13-20260913-02` 中只尝试一次：平台 Job/Run 均为 `COMPLETED`、固定 Fork `resolved=true`，但忽略态验收器误读 Trial 配置并在浏览器前退出。该验证器及浏览器前置门禁经红绿和双轴评审修复后，`m1-task13-20260914-04` 用一次模型尝试、零重试完成正式 Job/Run、固定 Fork、MinIO/PostgreSQL 读回与真实页面报告，最终 `status=passed/phase=complete/cleanup=verified`；patch SHA-256 为 `d5fefec345eb335c9b17d6305037ef47214c56d265f1ca11175c88c90d3ad09d`，submitted/resolved/error=`1/1/0`，独立 Docker 标签查询为空。详细限制见[任务 13 行动](../actions/2026-09-13-m1-local-real-acceptance.md)。
 
 ### 13.3 后续 Agent
 

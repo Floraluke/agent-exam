@@ -1,9 +1,17 @@
 # 上游框架与 Agent CLI 接口清单
 
-> 文档状态：持续维护；Harbor 无模型执行与固定 Fork 五类真实补丁判卷已验证，真实 Codex Trial 仍待实测
+> 文档状态：持续维护；M0 固定真实 Codex 单题与独立 Fork 判卷通过，完整阶段验收未完成
 >
-> 最后更新：2026-09-07
+> 最后更新：2026-09-17（固定CLI配置探针与新提供方规划）
 > 权威范围：本文件维护 SWE-Gym、Harbor、SWE-Bench-Fork 和目标 Agent CLI 的真实上游接口入口。Harbor 字段级映射见 [`HARBOR_EXECUTION.md`](./HARBOR_EXECUTION.md)；Codex 与自研 Agent 凭据政策见 [`CODEX_AUTHENTICATION.md`](./CODEX_AUTHENTICATION.md)；依赖来源与固定版本见 [`DEPENDENCIES.md`](../dependencies/DEPENDENCIES.md)。
+
+## Codex 新提供方规划与接口证据
+
+[扩展规格](../../.scratch/ui-catalog-providers/spec.md)仍用固定Codex CLI，不实现P2 Python Agent或协议桥。官方原生Responses、模型/地区端点及价格来源见[研究](../research/2026-09-17-codex-provider-config-and-budget.md)；当前固定Harbor的Kimi内置配置偏向订阅端点，不能直接用作用户选择的开放平台预设。
+
+固定CLI `0.153.0` 已在禁外网/假令牌环境证明：用户级TOML配置可发出模型名匹配的Responses请求，`-c`可覆盖模型，`wire_api=chat`与缺少指定令牌变量在请求前拒绝。故意401只是请求到达证据，真实工具循环、返回usage、重试关闭和代理安全未验证；准确结果唯一见研究6.1。
+
+计划深化既有Guarded Codex配置渲染/安装/网络与Worker绑定，不修改固定第三方源码。模型目录、工具描述、关键请求参数与配置摘要须核验冻结；公开文档的新字段不能直接推定固定版本支持。五道题扩展继续用固定Parquet/Fork，其镜像及gold/负例门禁见[计划04](../../.scratch/ui-catalog-providers/plan.md#6-04五道新题合格入库打通六题提交)。
 
 ## 1. 先把最容易混淆的事说清楚
 
@@ -14,9 +22,9 @@
 1. SWE-Gym 主仓库提供数据、模型与复现实验材料；官方 README 把数据放在 Hugging Face，并明确把环境常量指向 SWE-Bench-Fork。
 2. 配套 SWE-Bench-Fork 提供实际的任务字段、Docker 环境构建和 `swebench.harness.run_evaluation` 判卷入口。
 3. 因此本项目“直接使用框架”的运行含义是：**读取真实 SWE-Gym 任务 → 让 Agent 在固定仓库快照生成 patch → 把真实 prediction 交给固定版本 SWE-Bench-Fork 判卷**。
-4. 本项目用 Harbor 统一运行 Agent 和 Docker 环境，在外面增加平台 Job 队列、长期制品、固定 Fork 判卷、Judge、人工复核和 Web，不重写上游判卷语义。
+4. 本项目用 Harbor 统一运行 Agent 和 Docker 环境，在外面增加平台 Job 队列、长期制品、固定 Fork 判卷和 Web，不重写上游判卷语义；后续 Judge/人工复核的启用阶段见[总架构第 3.1 节](../architecture/ARCHITECTURE.md#31-m1-交付边界2026-09-09-已确认)。
 
-SWE-Gym 本身没有提供 Codex/Aider/Claude Code 的统一 Runner；固定 Harbor 已核验包含多 Agent、Environment、Job/Trial 与轨迹能力，因此项目通过 `HarborExecutionAdapter` 复用它，而不是重复自研同一层。补丁出口和本机兼容性仍需真实原型证明。
+SWE-Gym 本身没有提供 Codex/Aider/Claude Code 的统一 Runner；固定 Harbor 已核验包含多 Agent、Environment、Job/Trial 与轨迹能力，因此项目通过 `HarborExecutionAdapter` 复用它，而不是重复自研同一层。当前固定单题的补丁出口和本机执行/判卷链路已有[第四场真实证据](./HARBOR_EXECUTION.md#第四次授权运行真实补丁与独立判卷通过2026-09-08)，不等于完整平台完成。
 
 ## 2. 事实状态
 
@@ -68,6 +76,8 @@ SWE-Gym README 说明任务数据在 Hugging Face，环境常量位于 SWE-Bench
 | `environment_setup_commit` | 环境准备信息 | 只供环境 Adapter |
 
 `FAIL_TO_PASS`/`PASS_TO_PASS` 在该固定代码的 `TypedDict` 中声明为字符串，而 `make_test_spec` 会把 JSON 字符串或对象解析成列表。项目内部要规范化为列表，不能假定加载后天然同一类型。
+
+当前 M0 只加载已固定、已校验的 Parquet 单题；`swe_gym.py` 的 `_string_tuple()` 仅接受列表。该固定快照可正常读取，但目标契约所述 JSON 字符串输入兼容尚未实现。扩展任务来源前需要补齐或明确其输入边界；这不是当前固定单题已知失败，也不授权本轮扩展题库。
 
 ### 4.2 候选 Adapter 映射
 
@@ -181,7 +191,7 @@ Harness 还在当前工作目录生成 `<model_name_or_path>.<run_id>.json` 汇�
 
 Windows 导入 WSL 生成的报告时，完整配置指纹和嵌套目录可能使路径超过 260 字符。Evaluator 内部使用扩展本机路径读取并继续输出原有相对 object key；不改系统全局设置、不缩短指纹。该问题已经过超长路径单测、原失败报告重放和真实无模型串联回归验证。
 
-M0 入口 `prototype_codex_harbor_e2e.py` 通过既有 `ExecutionBackend`/`PatchEvaluator` 串联。当前仅显式标记的内部测试/NOP 可调用，真实 Codex 入口尚未接通；`--check` 只验证本地固定任务并报告未完成门槛，不运行容器或模型。新增互斥的 `--check-network` 委托现有 Execution Adapter 内部 `preflight.py`，运行固定摘要、禁网的一次性内核探针并保存不可覆盖证据；除内核配置前提满足外均非零退出，始终不宣称真实 Codex 就绪。本机更新后的通过证据与复测纪律见 [Docker 事实第 3.4 节](../operations/LOCAL_DOCKER_ENVIRONMENT.md#34-harbor-网络前置条件)。Harbor NOP→生产 collect patch→固定 Fork 的非空补丁串联已实测，通过不等于真实 Codex M0 完成。
+M0 入口 `prototype_codex_harbor_e2e.py` 通过既有 `ExecutionBackend`/`PatchEvaluator` 串联，支持显式内部测试/NOP 和经可信本机构造器绑定的固定 Codex；真实入口要求见[认证接口](./CODEX_AUTHENTICATION.md)。`--check` 只验证本地固定任务，不运行容器或模型；互斥的 `--check-network` 委托执行适配层运行固定摘要、禁网的内核探针，只验证内核前提。两者都不是完整就绪或运行许可；旧 `pending` 提示的代码差距见 [Harbor 验收对账](./HARBOR_EXECUTION.md#暂停后的验收对账2026-09-08)。本机内核证据仍由 [Docker 事实第 3.4 节](../operations/LOCAL_DOCKER_ENVIRONMENT.md#34-harbor-网络前置条件)维护。
 
 ## 6. Harbor Execution Backend
 
@@ -192,14 +202,18 @@ M0 入口 `prototype_codex_harbor_e2e.py` 通过既有 `ExecutionBackend`/`Patch
 - `VerifierConfig.disable` 可关闭 Harbor Verifier；
 - `SingleStepTrial` 在运行 Agent 后、Verifier 前同步 Agent 输出并收集 artifacts；
 - 内存 `JobResult` 聚合 `trial_results`，但真实落盘 Job `result.json` 会排除该列表；完整结果位于各 Trial 子目录；`TrialResult` 没有标准 `model_patch` 字段。
+- `Trial.run()` 在发出 `START` 前先建立 Trial 目录并写 `config.json`；最终化先写完整 `result.json`，再发出 `END`。`Job` 自身为 START/END 注册内部 hook，并把实时汇总写入 Job `result.json`。
+- `Job` 把已解析配置写入 Job 根 `config.json` 时使用 `exclude_defaults=True`，所以默认的 `n_attempts=1` 与 `retry.max_retries=0` 可以不出现；Trial 子目录的 `config.json` 使用 `TrialConfig`，按定义不含这些 Job 级字段。验收必须对照 Adapter 保留的源 Job 配置、Job 根配置和 Trial 配置三层读取，不能把字段缺省或配置层级差异误判为重试失控。
 
 架构决定是：平台 Job→Harbor Job，评测运行→Harbor Trial，`n_attempts=1`、`n_concurrent_trials=1`、`verifier.disable=true`；每个 Trial 的 patch 由 Adapter 强校验后交给固定 SWE-Bench-Fork。完整输入、输出、错误和验收门槛只在 [`HARBOR_EXECUTION.md`](./HARBOR_EXECUTION.md) 维护。
 
-固定 Harbor 已在本机安装，项目生成的 `JobConfig` 与无 `tests/` 的公开 Task 已通过真实 Harbor 类型解析。真实 NOP Docker Trial 进一步验证了任务 `verifier.collect` hook、0-byte patch 与元数据、单目录 artifact、关闭 Harbor Verifier、UTF-8 CLI、结果到 `run_id` 的严格映射和正常 Compose 资源清理；生产有界执行器接真实 Harbor CLI 的 NOP 路径也已通过。固定摘要、禁网容器中的修改、新建、删除和 Agent commit 四类非空 patch 又通过生产 hook 与宿主校验，结果为 `4 passed in 5.91s` 且测试容器无残留。阻塞 collect 的公开 Adapter 探针先复现外层强杀残留，再以 `1 passed in 49.47s` 验证精确 project label 清理；日志后代管道也以固定期限收束并在不完整时显式告警。该状态仍只能标为“无模型执行路径通过”；它不能证明 Codex、认证/网络或固定 Fork E2E 可用。
+任务 07 的生产接入仍通过阻塞 Harbor CLI 子进程，不能直接注入上述进程内 hook。Adapter 因此只轮询固定 Job 根下的逐 Trial `config.json`/`result.json`：前者按受信 task+agent 键映射冻结 `run_id` 并表示开始，后者在身份一致且含 Trial ID 时表示结束。日志文本、目录名和 Job 聚合计数都不作为权威业务状态；Repository 仍用租约、行版本和状态机决定能否持久化。
+
+固定 Harbor 类型/公开 Task、NOP、四类非空补丁收集及外层超时清理的既有测试记录见 [M0 行动记录](../actions/2026-09-05-m0-codex-harbor-implementation.md)。当前已经取得[第四场真实 Codex → 固定 Fork 的单题证据](./HARBOR_EXECUTION.md#第四次授权运行真实补丁与独立判卷通过2026-09-08)；不能继续把当前整体状态写成“仅无模型路径通过”，也不能据此宣称所有契约与生命周期完成。
 
 ## 7. Codex CLI Adapter
 
-项目已确认首个真实原型使用 Harbor 内置 Codex Agent，认证采用评测机所有者本人通过 ChatGPT Pro 登录产生的 `auth.json`；首轮 CLI 版本、模型与推理强度已由 [依赖总表](../dependencies/DEPENDENCIES.md#2-当前依赖总表) 固定。该决定不等于容器内 Codex 已可运行；账号实际可用性、端点白名单、Token 刷新、脱敏、清理和网络策略仍须核验。
+项目已确认首个真实原型使用 Harbor 内置 Codex Agent，认证采用评测机所有者本人通过 ChatGPT Pro 登录产生的 `auth.json`；首轮 CLI 版本、模型与推理强度已由 [依赖总表](../dependencies/DEPENDENCIES.md#2-当前依赖总表) 固定。第四场已证明该固定配置的容器执行和账号/模型路径可用；Token 刷新、输出保护及剩余生命周期边界仍以[认证接口](./CODEX_AUTHENTICATION.md#63-其他尚待实测项)为准。
 
 ### 7.1 已核验官方接口
 
@@ -338,27 +352,19 @@ P2 自研 Agent 必须固定 Git commit、登记模型提供方/模型和关键�
 | 非交互单任务 | 由我们实现 | ✅ 官方 | ✅ 官方 | ✅ 官方 |
 | 任务可从 stdin 直接读 | ✅ | ✅ | ❌，用 message file | ✅ |
 | 官方结构化事件流 | 由我们定义 | ✅ JSONL | ❌ | ✅ stream-json |
-| 可可靠统计公开工具调用 | 取决于自研实现 | ✅/待固定版本实测 | ❌ 当前无统一口径 | ✅/待子 Agent 口径实测 |
+| 可可靠统计公开工具调用 | 取决于自研实现 | 已有单题事件证据，统一计数口径待验收 | ❌ 当前无统一口径 | ✅/待子 Agent 口径实测 |
 | 原生 stdout 是 patch | 可实现 | ❌ | ❌ | ❌ |
 | 统一 Git patch 提取 | ✅ | Adapter | Adapter | Adapter |
-| 真实账号/模型已测试 | 待自研 | ❌ | ❌ | ❌ |
-| SWE-Gym E2E 已通过 | ❌ | ❌ | ❌ | ❌ |
+| 真实账号/模型已测试 | 待自研 | ✅，限第四场固定配置 | ❌ | ❌ |
+| SWE-Gym E2E 已通过 | ❌ | ✅，限 M0 固定单题核心链路 | ❌ | ❌ |
+
+Codex 运行能力依据[第四场记录](./HARBOR_EXECUTION.md#第四次授权运行真实补丁与独立判卷通过2026-09-08)，不是全量题库、全部网络/安全验收或 MVP 通过。
 
 因此页面不能把“工具调用数”当成所有 Agent 天然等价的指标。过程指标只展示、不参与排序；缺失值必须显示为“不支持/未知”，不能记成 0。
 
 ## 12. Adapter 错误映射
 
-| 上游现象 | 统一终止原因 | 是否进入 Evaluator |
-|---|---|---:|
-| CLI/镜像不存在、认证缺失 | `agent_unavailable` | ❌ |
-| 上游明确失败/非零退出且无可信完成结果 | `agent_failed` | ❌ |
-| 外层达到墙钟超时 | `timed_out` | ❌ |
-| 触发路径/网络/资源策略 | `sandbox_violation` | ❌ |
-| Agent 正常结束，提取 diff 失败 | `patch_extraction_failed` | ❌ |
-| 文本 patch 超过 1 MiB | `PATCH_TOO_LARGE` 无效 Agent 输出 | ❌ |
-| 二进制 patch | `BINARY_PATCH_NOT_ALLOWED` 无效 Agent 输出 | ❌ |
-| Agent 正常结束，补丁为空 | `completed` | ✅，记录 empty patch/unresolved |
-| Agent 正常结束，有补丁 | `completed` | ✅ |
+Harbor/Adapter 的状态和错误映射唯一维护在 [Harbor 第 9 节](./HARBOR_EXECUTION.md#9-状态与错误映射)，包括 `sandbox_failed` / `policy_failed` 等当前执行结果。此前本表沿用的 `sandbox_violation` 不能作为 Harbor 领域枚举使用；它属于 [后备/P2 Runner 协议](./RUNNER_PROTOCOL.md) 的独立边界，不能因为名称相近就视为同一个字段。本次只纠正文档指针，不修改 Runner 协议或代码。
 
 不能只看上游 exit 0：Aider/Codex/Claude 都可能正常结束但没有修好；也不能因为测试失败就把 Adapter 运行标成平台失败。
 
@@ -366,7 +372,7 @@ P2 自研 Agent 必须固定 Git commit、登记模型提供方/模型和关键�
 
 每类 Agent 按同样四层推进，但进入开发的先后固定：
 
-1. **官方接口/源码核验**：本文当前覆盖的级别。
+1. **官方接口/源码核验**：读取固定版本的真实入口、参数与输出定义。
 2. **Adapter 契约测试**：用 Fake executable 验证参数、事件、退出、超时、patch 和脱敏，不消耗模型额度。
 3. **真实 CLI 小仓库测试**：固定版本和真实凭据，在极小仓库完成一次修改。
 4. **SWE-Gym E2E**：一条固定任务，保存 Runner 证据并由固定 SWE-Bench-Fork 判卷。
@@ -387,12 +393,12 @@ P2 自研 Agent 必须固定 Git commit、登记模型提供方/模型和关键�
 
 ## 15. 当前未解决接口问题
 
-网络进展：2026-09-07 的显式无凭据真实 Harbor 网络测试使用受控 HTTP 对照和已解析 IPv4 排除 DNS 失败的假阳性。生产 Adapter 已接入受限配置和固定源码引导，并通过无模型正常、串联及超时回归；真实模型端点与其他协议仍未验收。逐项事实统一见 [Harbor 执行接口](./HARBOR_EXECUTION.md#无凭据网络探针2026-09-07)。`--check-network` 仍然只代表内核前提，不改成完整就绪信号。
+当前固定单题、补丁出口和真实 Codex → 固定 Fork 核心链路已通过；未解决项不再包括“真实入口尚未接通”。完整验收对账统一见 [Harbor 执行接口](./HARBOR_EXECUTION.md#暂停后的验收对账2026-09-08)，`--check-network` 仍只代表内核前提。
 
-1. Lite revision、`train` split、候选 `python__mypy-15413`、Parquet 哈希与镜像 digest 已固定；候选能否成为 M0 正式首题取决于真实闭环。
-2. 固定 Fork 已通过现有 Ubuntu WSL2 载体及 Evaluator 内部镜像/资源适配完成五类真实补丁判卷；下一步连接真实 Codex 的最终 patch，不能将无模型测试视作完整 M0。
-3. Harbor 固定环境、实际 Job/Trial 目录、空 `model.patch` 受控提取及 Trial→`run_id` 结果映射已由 NOP 验证；CLI 进程 Adapter 已实现有界日志、宿主进程树终止和外层超时精确 Compose 清理，生产执行器的正常与阻塞 collect 超时路径均接真实 Harbor NOP 通过；固定摘要、禁网容器已覆盖修改/新建/删除/Agent commit 四类非空 patch。仍须验证真实 Codex 路径。
-4. Codex 首轮 CLI 版本、模型与推理强度已由用户确认，固定制品与无凭据安装见依赖总表第 2.1 节；接下来核验端点白名单、账号实际可用性、完整 Trial 工具/资源兼容、ChatGPT 登录 Token 刷新、日志脱敏及成功/失败/超时清理路径。
+1. 扩展任务来源时补齐第 4.1 节的输入类型兼容；当前固定 Parquet 单题可用不代表全题库适配完成。
+2. M0 完整制品限制、网络及异常路径的覆盖差距，见 Harbor 验收对账；不自动把所有未验收项判作 M0 阻塞。
+3. 当前诊断的旧 `pending` 提示仍待代码同步；诊断不授予真实运行许可，具体位置见 Harbor 验收对账。
+4. Token 刷新与完整凭据生命周期仍有缺口；既有私有输出阶段例外和待验证部分见[认证接口](./CODEX_AUTHENTICATION.md#62-2026-09-07-假凭据安全收尾)，不自动新增清洗工程。
 5. Aider 仓库内 `.aider.conf.yml`/`.env` 的彻底隔离方式。
 6. Claude Code `--restricted` 与评测所需工具组合、账号/费用/网络策略。
 7. P2 `agent-exam.yaml` 的完整 schema、Python 版本、依赖锁格式，以及平台怎样把已确认进程 Interface 包装进 Harbor；不再待选 Harbor `BaseAgent` 或进程协议，且不阻塞 MVP。

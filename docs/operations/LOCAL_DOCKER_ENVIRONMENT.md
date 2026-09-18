@@ -1,8 +1,9 @@
 # 本机 Docker / WSL 运行环境
 
-> 状态：已动态验证
+> 状态：Docker/WSL 历史动态验证保留；2026-09-17 补充容量盘点和持久化准备的限定只读核对
 >
-> 最后核验：2026-09-07
+> 最后核验：文件系统元数据、Docker Client/Server 与 Compose 版本 2026-09-17；其他 Docker/WSL 动态值沿用下文注明的历史日期
+> 文档同步：2026-09-17；只读检查不代表服务健康或持久化验收。任务 13 的 `-04` 历史验收不变
 > 权威范围：本机 Docker/WSL 的实际版本、数据位置、资源上限、磁盘余量和验证状态
 
 ## 1. 这份文档解决什么问题
@@ -25,12 +26,47 @@
 | Docker CLI 容器代理 | `http://http.docker.internal:3128` | 新的 CLI 创建容器/构建自动注入 HTTP(S) 代理；Harbor 动态 Trial 仍须显式映射 |
 | WSL 内存上限 | `10GB` | 所有 WSL2 虚拟机可动态使用的上限，不会启动时立刻占满 |
 | Docker 实际可见内存 | `10,425,643,008` bytes，约 `9.710 GiB` | 2026-09-06 更新/重启后 Engine 动态值；WSL 配置仍为 10 GB |
-| Docker 数据目录 | `E:\dockerdata\DockerDesktopWSL\DockerDesktopWSL` | Docker Desktop 实际记录的镜像、容器与卷所在目录 |
-| 主数据盘文件 | `...\disk\docker_data.vhdx`，约 21.34 GiB | 一个虚拟 Linux 磁盘文件；不得在 Docker 运行时手工剪切 |
-| D 盘可用空间 | 约 29.13 GiB | 迁移完成后的核验值 |
-| E 盘可用空间 | `19,116,986,368` bytes，约 17.80 GiB | 2026-09-07 网络探针动态值；会随依赖、镜像和运行制品变化 |
+| Docker 数据目录 | `E:\dockerdata\DockerDesktopWSL\DockerDesktopWSL` | 历史 Docker 设置中的位置；2026-09-17 只核对该路径下文件元数据，未读取当前引擎配置 |
+| 主数据盘文件 | `...\disk\docker_data.vhdx`，当前逻辑长度见第 2.1 节 | 一个虚拟 Linux 磁盘文件；不得在 Docker 运行时手工剪切 |
+| 各盘可用空间 | 最新文件系统查询见第 2.1 节 | 旧迁移/探针数字保留在相应历史段落，不再作为当前余量 |
 
 Docker Desktop 会在用户选择的 `E:\dockerdata\DockerDesktopWSL` 下再创建自己的 `DockerDesktopWSL` 子目录，所以实际路径多一层。这是 Docker Desktop 保存的真实设置，不是重复迁移。
+
+### 2.1 课设容量只读盘点（2026-09-17）
+
+**持久化恢复时的更新快照（21:05 左右，新加坡时间）：** 只运行 `Get-PSDrive -Name D,E` 与目标目录存在性检查，未枚举私人目录或读取正文。D 可用 `37,905,600,512` bytes（约 35.30 GiB），E 可用 `8,254,152,704` bytes（约 7.69 GiB）；`D:\AgentExamData` 不存在。余量变化原因未调查，不推断是谁清理了什么，也不把余量当作增长预算已通过。下表与目录统计为当天较早快照，不作为最新余量。
+
+同一持久化行动此前经批准只读核对 Docker Client/Server 均为 `27.5.1`、Compose 为 `v2.32.4-desktop.1`；旧任务 14 两个专属存储容器处于 Exited，未启动、删除或连接。未复核全机资源/网络健康、未改 Docker/WSL 设置；实际命令权限与结果见[实施行动](../actions/2026-09-17-minimal-local-persistence.md)。
+
+背景：用户确认课设最小方案，先查本机占用和数据位置，云存储暂列可选。本次使用 `Get-PSDrive`、`.NET DriveInfo`、目录枚举及 `Get-Item` 等文件系统元数据；未启动或查询 Docker/WSL、未读取容器内数据、文件正文或秘密，未创建/删除/迁移文件。
+
+| 盘符 | 已用 GiB | 可用 GiB | 文件系统 / 类型 |
+|---|---:|---:|---|
+| C | 258.83 | 60.54 | NTFS / Fixed |
+| D | 52.76 | 27.24 | NTFS / Fixed |
+| E | 44.64 | 5.36 | NTFS / Fixed；项目与历史 Docker 数据路径所在盘 |
+| F | 3.73 | 25.56 | FAT32 / Removable；用途和能否保存本项目数据未获确认 |
+
+`Get-Partition` 和 `Get-Disk` 均返回“拒绝访问”，本轮未提权重试。因此没有确认 C/D/E 对应哪些物理磁盘，不能把另一盘符直接视为防整盘故障的独立备份。F 的可移动类型也不表示已获使用该设备的授权。
+
+对 `E:\9.1agent_exam` 跳过重解析点，只累计可读取文件的逻辑长度；不是磁盘分配量，也不是可清理量：
+
+| 范围 | 逻辑大小 GiB | 说明 |
+|---|---:|---|
+| 项目可读取文件合计 | 7.335 | 7,876,056,986 bytes；包含源码、依赖、缓存和历史证据，不能等同于业务数据库大小 |
+| `runtime/` | 5.797 | 下方子项包含在本行，不能再加到总计 |
+| `runtime/tools/` | 2.671 | 仅路径/长度汇总，未读取正文或判断可删 |
+| `runtime/cache/` | 1.611 | 缓存不等于已授权清理 |
+| `runtime/prototype/` | 1.056 | 历史原型目录，不改变证据保留约束 |
+| `runtime/acceptance/` | 0.459 | 历史验收目录，未读取私有结果内容 |
+| `framework/` | 0.790 | Harbor 0.466、固定 Fork 0.320、SWE-Gym 0.004；都保留 |
+| `apps/` | 0.709 | Web 0.461、backend 0.248；包含依赖，不仅是源码 |
+
+扫描耗时 18.39 秒，读取 156,535 个文件、遍历 17,502 个目录；56 个路径读取失败、8 个重解析点跳过。因此项目总计仅为可读取部分；没有按硬链接去重或计算稀疏文件实际分配量，不承诺扫描原子性。
+
+指定文件 `E:\dockerdata\DockerDesktopWSL\DockerDesktopWSL\disk\docker_data.vhdx` 存在，逻辑长度为 26,996,637,696 bytes（25.143 GiB）。本轮没有打开 VHDX 内部、确认容器运行状态或核算镜像/卷/可回收空间；该长度不能解释为“可删除 25 GiB”，也不能全归属于 AgentExam，历史环境中还有其他应用。
+
+规划含义：E 盘余量有限，但其他本机盘还有空间；尚无证据说明课设业务数据必须搬到云端。用户随后已确认正式根目录 `D:\AgentExamData`，准确约束见[所有者单机架构](../architecture/modules/owner-host-runtime/ARCHITECTURE.md#11-已确认的课设运行约束2026-09-17)；不删除缓存或迁移全局 Docker 磁盘。最终容量还要计入新增题目镜像、运行临时空间和备份副本；仅迁项目源码目录不能证明 Docker 所在盘的增长风险已经解决。
 
 ## 3. 生效配置
 
@@ -162,18 +198,33 @@ docker run --rm --network none busybox:latest sh -c 'test -x /bin/sh && echo doc
 - Agent 容器、判卷容器、Docker/WSL 开销和宿主进程会竞争内存，因此不能因为 `8192 MB < 10GB` 就断言模板稳定可用。
 - 首个真实任务必须实测峰值内存、耗时和磁盘增长，再决定 Harbor Trial 的正式资源模板。
 - 2026-09-06 collect-patch 四场景复测后 E 盘可用 `19,594,158,080` bytes（约 18.25 GiB），不适合批量下载完整 SWE-Gym 镜像集合；M0 只能选择 1 道任务起步、必要时扩至 3 道，并控制镜像缓存。
-- 固定 Harbor 源码/环境/CLI、候选摘要镜像和 NOP Docker Trial 已核验；固定镜像的无网络探针确认 `/testbed` 位于任务 base commit。仍没有验证容器内 Codex CLI、ChatGPT `auth.json`、Token 刷新或完整闭环。
+- 固定 Harbor 与任务镜像的基础验证已完成；后续容器内真实 Codex 及独立判卷证据见[第四场记录](../interfaces/HARBOR_EXECUTION.md#第四次授权运行真实补丁与独立判卷通过2026-09-08)。Token 刷新和剩余凭据生命周期仍见[认证接口](../interfaces/CODEX_AUTHENTICATION.md#63-其他尚待实测项)，不由基础连通探针推断。
 - Docker CLI 自动代理不等于 Harbor 动态 Trial 自动代理；实现时必须核对 Harbor `AgentConfig.env` 的实际容器结果。
 - `host.docker.internal:7890` 可达证明环境变量可以被绕过；闭卷赛道不得把当前配置直接当作端点白名单或防绕过措施。
 - Harbor 原生白名单的内核配置前提已通过（第 3.4 节），但代理可联网或禁网判卷通过均不能替代实际白名单/防绕过验收。
-- 当前最先验证的是 M0 本机 Codex 脚本闭环；Web、PostgreSQL、MinIO、登录和所有者审批属于其后的 M1 平台集成，不应阻塞 M0。
+- 当前处于 M0 核心闭环通过后的剩余验收核对阶段；Web、PostgreSQL、MinIO、登录和所有者审批属于其后的 M1 平台集成，不应阻塞 M0。
 - P2 自研 Agent 只允许 DeepSeek/Kimi，但其真实 Key 不得直接注入被测容器；当前尚未实现或验证受控模型访问路径，不能把一般容器 HTTPS 已通当成该安全要求已满足，也不因此阻塞 Codex MVP。
+
+### 7.1 任务 03 存储测试的发布端口限制（2026-09-12 来源核对）
+
+[Docker 官方端口发布文档](https://docs.docker.com/engine/network/port-publishing/)提示：低于 28.0.0 的引擎，同一二层网络的其他主机可能访问绑定 localhost 的已发布端口。已记录本机 Engine 为 27.5.1，但本次未做网络重现、未重新核对当前版本，不能由一般文档断言这台 Docker Desktop 已被访问或已发生数据泄漏。
+
+此前任务 01/02 的临时 PostgreSQL 确实绑定回环且清理完成，运行与原资源一致性证据保留；这些事实不能额外证明旧引擎回环发布的完整网络隔离。历史测试均为合成账号/数据，不能把本次来源发现改写成此前数据库断言失败。
+
+任务 03 因要验证存在已知风险的固定 MinIO 社区源码，候选采用不发布宿主端口、运行期 `network none` 的共享回环测试安排；具体方案/新增授权范围只在[任务 03 行动](../actions/2026-09-12-m1-task-agent-catalog.md#专属对象存储验证环境)维护。官方说明 [none 网络只提供内部 loopback](https://docs.docker.com/engine/network/drivers/none/)，本机可行性仍需获准后实测。本次不升级 Docker、不改代理/防火墙/WSL，不连接现有数据库。
+
+### 7.2 任务 13 本机编排预检（2026-09-13）
+
+任务 13 先复用不发布端口的专属测试拓扑完成 Job/排行榜/取消/恢复/制品全套 `135 passed`，三个容器均只用 tmpfs、只在专属共享 network namespace 内通信，结束后按标签清理。固定 Codex 离线安装和 Harbor 外层超时清理两个 Docker 门禁分别通过；未读取认证或调用模型。
+
+为让宿主机正式 HTTP/Worker 同时访问一次性 PostgreSQL/MinIO，后续编排预检改用专属临时 bridge，并只把两个随机端口发布到 `127.0.0.1`。Docker Desktop 实测在 `--internal` bridge 下容器内健康但宿主回环持续 `ConnectionTimeout`，所以没有保留该标志；存储镜像和启动命令固定、去全部 capability、禁止提权、只读根、受限 CPU/内存/PID、数据只在 tmpfs，凭据为本次随机合成值。该 bridge 理论上可出站，因此它是本机一次性存储拓扑的已知限制，不可直接当作长期或远程部署模板；模型 Trial 仍使用 Harbor 的独立 allowlist 网络。
+
+完整零模型预检最终记录 `storage=ready`、`http=ready`、`jobs_created=0`、`model_called=false`、`auth_read=false`、`cleanup=verified`。回环 Python HTTP 客户端必须 `trust_env=False`，否则本机代理偶发返回 502；这只让 `127.0.0.1` 直连，不修改机器代理。首次真实 Run 在判卷前因平台本地证据 reader 漏配失败；第二次 Run 的平台 Job/Run 与固定 Fork 完成，但后置验收器误读 Harbor 配置并在页面前退出。上述实现/验收器修复后，`m1-task13-20260914-04` 用新隔离 scope 完成一次且零重试的真实 Job/Run、固定 Fork、PostgreSQL/MinIO 和浏览器闭环；最终摘要核对四个随机回环端口关闭，随后独立按专属标签查询容器、网络和卷均为空。全过程未更改 Docker/WSL/代理/防火墙；证据见[任务 13 行动](../actions/2026-09-13-m1-local-real-acceptance.md)。
 
 ## 8. 尚未验证
 
-- Harbor 固定环境、CLI `0.22.0`、NOP Job/Trial、正式有界进程 Adapter、四类非空 patch 和外层超时后的精确 Compose 清理已通过；真实 Codex 尚未验证。
 - 第四场授权真实 Codex 单题已完成补丁并由固定 Fork 独立判卷通过；本环境文档不维护逐场结果，最新证据见 [执行接口](../interfaces/HARBOR_EXECUTION.md#第四次授权运行真实补丁与独立判卷通过2026-09-08)。该轮未改变 Docker/WSL/代理设置。
-- 固定 SWE-Bench-Fork 的五类判卷已运行并验证（第 3.3 节）；真实 Codex→Fork 完整验收仍未通过。
+- 固定 SWE-Bench-Fork 的五类判卷已运行并验证（第 3.3 节），真实 Codex → Fork 核心链路亦已接通；完整阶段验收仍有[执行接口对账](../interfaces/HARBOR_EXECUTION.md#暂停后的验收对账2026-09-08)所列缺口。
 - 尚未确定单个 Trial 的安全内存、CPU、磁盘和超时上限。
 - 尚未确认 Codex CLI 实际所需的完整域名集合，也未完成只允许登记模型访问且阻断宿主/任意公网直连的网络策略。
 - P2 尚未裁决自研 Agent 的受控 DeepSeek/Kimi 访问采用宿主进程还是可信侧车，也未验证单次运行访问能力、预算限制、撤销、清理和“真实 Key 不进入被测容器”；该项不属于 M0/M1 验收门槛。
