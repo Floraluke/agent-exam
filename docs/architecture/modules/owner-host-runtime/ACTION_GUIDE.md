@@ -50,7 +50,8 @@ apps/backend/tests/jobs/runtime/
   test_worker_command.py         # 已有假 Worker 命令/停止控制验收，不装配真实模型
 infra/                           # 已确认并创建：专属部署工具箱，不是新业务模块
   compose.yaml                   # 正式本机配置：绑定目录/回环端口/密码与许可文件，无自动重启
-  .env.example                   # 已有无秘密模板；固定两张已核验的镜像 digest
+  .env                           # Git 忽略的 owner 本机统一配置；不得提交或发给组员
+  .env.example                   # 公开模板；逐字段解释用途、格式、必填条件和敏感性
   tests/                         # Compose、初始化、权限、生命周期和跨重建真实验收
   local/                         # 已有初始化、启动、停止、状态入口及共享实现
 docs/architecture/modules/owner-host-runtime/
@@ -80,6 +81,34 @@ docs/architecture/modules/owner-host-runtime/
 ### Owner 日常操作
 
 在“以管理员身份运行”的 PowerShell 7 中，从仓库根目录执行。Docker Desktop 必须已经运行；这些脚本不会启动、重启或修改全局 Docker/WSL。
+
+首次使用先从公开模板创建本机配置；已有 `.env` 时 `-NoClobber` 会拒绝覆盖：
+
+```powershell
+Copy-Item -LiteralPath .\infra\.env.example -Destination .\infra\.env -NoClobber
+```
+
+随后只编辑 `infra/.env`。模板中的每个字段都有说明，重点规则如下：
+
+- `AGENTEXAM_DATABASE_URL` 填入应用数据库连接串；密码来自 owner 私有的 `D:\AgentExamData\private\postgres-password`，特殊字符必须先做 URL 编码。
+- `AGENTEXAM_MINIO_SECRET_KEY` 填入 `D:\AgentExamData\private\minio-app-password` 的应用密码，不是 MinIO root 密码。
+- `AGENTEXAM_CODEX_AUTH_PATH` 只填认证文件绝对路径，禁止把 JSON 正文放入 `.env`。
+- `AGENTEXAM_PUBLIC_ORIGIN` 必须等于浏览器实际访问的 Origin；HTTPS tailnet 地址保持 `AGENTEXAM_ALLOW_INSECURE_LOOPBACK=0`，只有本机 HTTP 开发地址才设为 `1`。
+- `.env` 被 Git 忽略不等于任何本机用户都不可读；它只能留在 owner 账号控制的工作区，不得提交、截图或发送给组员。
+
+生命周期脚本会自动把 `infra/.env` 交给 Docker Compose。HTTP、Web 和 Worker 保持既有“从进程环境读取”接口；启动这些进程前，在同一个 PowerShell 窗口把 `.env` 导入当前进程，空值会继续保持安全失败：
+
+```powershell
+Get-Content -LiteralPath .\infra\.env | ForEach-Object {
+    $line = $_.Trim()
+    if ($line -and -not $line.StartsWith('#')) {
+        $name, $value = $line -split '=', 2
+        [Environment]::SetEnvironmentVariable($name, $value, 'Process')
+    }
+}
+```
+
+该导入只影响当前 PowerShell 及其随后启动的子进程，不写入 Windows 用户/机器环境；关闭窗口后失效。公开模板不能作为运行配置，缺少 `infra/.env` 时生命周期命令会明确拒绝。
 
 ```powershell
 # 仅首次空环境执行；完成后重复运行只核对状态，不清库

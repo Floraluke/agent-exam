@@ -64,7 +64,7 @@ Next.js HTTPS 和 PostgreSQL TCP `15432` 通过 Tailscale Serve 对获准设备�
 | PostgreSQL | 账号/会话/邀请、任务与配置索引、Job/Run/事件、确定性结果、制品索引与审计 | 专属长期数据卷；显式 schema 升级；本版无备份 |
 | MinIO | 原始任务快照、patch、公开/原始轨迹、判卷报告和日志对象 | 专属长期对象卷；按对象摘要复核；本版无备份 |
 | owner 私有文件 | Codex 登录、未来 API Key、固定 CLI 归档、受限临时运行证据 | 独立 ACL；秘密不进入 Git、PG 或 MinIO；其个人恢复方式不属于本课设交付 |
-| Git 工作区 | 源码、SQL、配置模板和文档 | 不保存秘密、正式数据卷或真实运行原始输出 |
+| Git 工作区 | 源码、SQL、公开配置模板和文档；忽略的 `infra/.env` 保存 owner 本机配置 | 被 Git 跟踪的文件不保存秘密、正式数据卷或真实运行原始输出；`.env` 不得提交或分享 |
 
 “Docker volume 存在”只解决容器重建后文件是否还在；它不是备份。磁盘故障、误删、损坏和勒索软件仍会同时毁掉容器与本机 volume。
 
@@ -109,7 +109,8 @@ docs/operations/
   LOCAL_DOCKER_ENVIRONMENT.md                         # 机器/Docker 动态事实与历史临时拓扑
 infra/                                                # 已确认并创建：项目专属部署工具箱
   compose.yaml                                        # 正式本机双存储绑定、回环端口、秘密文件，无自动重启
-  .env.example                                        # 固定镜像摘要、D 盘数据根和端口，无真实秘密
+  .env                                                # Git 忽略的 owner 本机统一配置；由公开模板复制，不提交/分享
+  .env.example                                        # 公开配置契约；逐字段说明 Compose、HTTP、MinIO、Worker 与 Web，无真实秘密
   local/
     AgentExam.Local.psm1                              # 固定身份、路径/ACL、Docker/Compose 共享实现
     AgentExam.Initialize.psm1                         # 就绪、schema 和 AIStor 首次初始化内部实现
@@ -155,7 +156,7 @@ infra/                                                # 已确认并创建：项
 - [x] 一次 Windows 整机重启已有可检查结果：项目未自动启动，正式启动后 5 类业务记录和 9 个对象全部读回。
 - [ ] 异常中断、存储不可用与磁盘阈值仍需按未来实际需求分别验收，不由正常重启结果代替。
 - [ ] Tailscale 只暴露 Web HTTPS 与 PostgreSQL `15432`；组员数据库正向、未授权设备负向、应用越权、VPN 开关和离线场景仍待补齐。
-- [x] 存储秘密不在 Git、镜像、argv、共享 env 或页面中，宿主文件为 owner-only；模型凭据不由本轮脚本读取。
+- [x] 存储秘密不在 Git、镜像、argv、共享 env 或页面中，宿主源文件为 owner-only；本机 `.env` 被 Git 忽略且不得分享，模型凭据只记录路径、不复制正文。
 - [x] Worker 命令仍是单重型 Job、一次尝试、零自动重试；假 Worker 已验证停止后不领下一项，本轮未启动真实 Worker。
 - [x] owner 有可执行的初始化、启动、停止、状态和故障说明，且明确告知无备份风险；撤权仍由既有业务入口负责。
 
@@ -173,7 +174,7 @@ infra/                                                # 已确认并创建：项
 | 首次建表 | [bootstrap.py](../../../../apps/backend/src/eval_platform/adapters/persistence/bootstrap.py) 由 [owner.py](../../../../apps/backend/src/eval_platform/delivery/owner.py) 的既有 `init-db` 调用，在空库检查后以单事务执行四份现有 SQL | 正式 D 盘 PostgreSQL 已建立 11 表；重复初始化只核对完成状态、不清库，非空拒绝已在专属测试库验证；AIStor 初始化同入口配套脚本已完成 |
 | 保留既有数据的 schema 升级 | [Job SQL](../../../../apps/backend/src/eval_platform/adapters/persistence/jobs/schema.sql) 主要为 `CREATE TABLE` / `CREATE INDEX`，初始化入口直接执行整份 SQL；仅有特定成员表升级入口 | 尚无完整版本化升级、旧库校验和回退流程；不能对长期库重复执行 init-db 充当迁移 |
 | 中断 Job 收束与到期清理 | [recovery.py](../../../../apps/backend/src/eval_platform/application/job_lifecycle/recovery.py)、[retention.py](../../../../apps/backend/src/eval_platform/application/job_lifecycle/retention.py) | 已有 owner 显式入口；恢复 Job 状态不等于从备份恢复数据库或对象 |
-| 长期数据卷与启动配置 | [compose.yaml](../../../../infra/compose.yaml) 与 [local](../../../../infra/local/) 提供固定镜像、D 盘 bind mount、显式初始化及日常启停/状态 | 两服务实际运行；合成账号、目录、Job/Run、报告和 9 个对象在正常启停、容器删除/重建及 Windows 重启后逐项一致；日常停止不删数据，项目不随系统或 Docker 自动启动 |
+| 长期数据卷与启动配置 | [compose.yaml](../../../../infra/compose.yaml)、[.env.example](../../../../infra/.env.example) 与 [local](../../../../infra/local/) 提供统一本机变量、固定镜像、D 盘 bind mount、显式初始化及日常启停/状态 | Compose 生命周期读取 Git 忽略的 `infra/.env`；两服务既有持久化证据保持有效。HTTP/Web/Worker 仍通过既有进程环境接口读取同名变量，不新增第二套配置解析器 |
 | Worker 持续处理 | [main.py](../../../../apps/backend/src/eval_platform/delivery/worker/main.py) 保留 `run_once`；runtime 委托 [command.py](../../../../apps/backend/src/eval_platform/delivery/worker/command.py)，默认单次、显式 loop/stop-file | 假 Worker 命令测试覆盖顺序领取、空闲等待、停领和失败零重试；停止脚本写标记并等待主库活动 Job 归零。本轮未启动真实 Worker，不把它描述为真实模型验收 |
 | 备份与恢复 | 在项目自有源码、部署候选路径和维护入口中未找到正式 PG+MinIO 备份/恢复实现 | 用户已明确移出课设交付；不是待实现项，也不得描述为已有能力 |
 
