@@ -2,11 +2,11 @@
 
 ## 状态与情况说明
 
-状态：In progress（2026-09-18；P1–P4 的本机实现、跨重建合成读回、本机非回环端口负向、组合回归与差异审阅已完成；正在形成精确本地检查点。电脑整机重启和另一设备负向未执行，不恢复已取消的备份与恢复）。本行动从用户发布持续目标开始，独立于先前已完成的模块/单机规划行动。交付范围与成功标准以[行动指南](../architecture/modules/owner-host-runtime/ACTION_GUIDE.md)为准；本地完成不冒充整个 MVP 或灾难恢复。
+状态：In progress（2026-09-18 12:18；用户已选择执行电脑整机重启验收。P1–P4 的本机实现、跨重建合成读回、本机非回环端口负向、组合回归与差异审阅已完成，并形成精确本地检查点 `af0c1cb`。当前先准备不含凭据的跨重启合成样本和恢复标记，再安全停止专属服务，由用户手动重启；另一设备负向仍未执行。不恢复已取消的备份与恢复）。本行动从用户发布持续目标开始，独立于先前已完成的模块/单机规划行动。交付范围与成功标准以[行动指南](../architecture/modules/owner-host-runtime/ACTION_GUIDE.md)为准；本地完成不冒充整个 MVP 或灾难恢复。
 
-用户已确认新增 `infra/` 作为本地运行工具箱，并确认从初始化、启停、状态命令及现有 Worker/存储接口验收。只放部署配置/脚本，不新增业务 Module、Interface 或表。用户后来明确取消备份、导出、恢复命令和恢复演练：这是课设范围裁剪，不是已经具备备份能力。实际工作区为 `E:\9.1agent_exam`；目标文本中的 `E:\9.1agent\_exam` 不存在，按会话既定工作区处理。D 盘根目录及 private 子目录现已为保存许可而创建；尚无 PostgreSQL/MinIO 业务数据目录或服务，不是已完成业务落盘。
+用户已确认新增 `infra/` 作为本地运行工具箱，并确认从初始化、启停、状态命令及现有 Worker/存储接口验收。只放部署配置/脚本，不新增业务 Module、Interface 或表。用户后来明确取消备份、导出、恢复命令和恢复演练：这是课设范围裁剪，不是已经具备备份能力。实际工作区为 `E:\9.1agent_exam`；目标文本中的 `E:\9.1agent\_exam` 不存在，按会话既定工作区处理。`D:\AgentExamData` 下的 PostgreSQL、AIStor、控制和私有配置目录已经建立并由专属容器实际挂载；合成数据跨容器重建读回已经通过，不能把这些正式数据目录称为备份。
 
-授权：本目标代码、配置、文档与无模型测试；D 盘写入、专属容器部署、整机重启按精确作用域审批。不连接/覆盖旧库、不删除旧数据、不迁移或重启共享 Docker/WSL、不改全局网络、不读真实模型凭据、不消费真实队列、不运行模型或付费。用户末尾“重要节点本地提交”覆盖前文不提交，允许精确本地检查点，仍禁止 push。
+授权：本目标代码、配置、文档与无模型测试；D 盘写入和专属容器部署已经按批准范围完成，用户已于 2026-09-18 选择立即进行整机重启验收。重启前先形成可恢复验收样本并安全停止专属服务；由用户手动重启，避免代理擅自中断整机。不连接/覆盖旧库、不删除旧数据、不迁移或重启共享 Docker/WSL、不改全局网络、不读真实模型凭据、不消费真实队列、不运行模型或付费。用户末尾“重要节点本地提交”覆盖前文不提交，允许精确本地检查点，仍禁止 push。
 
 开工 HEAD：`19a0b63b66f77c3c860e0bffa8f2905757de321d`。产品源码 tracked diff 为空；旧混合文档、未跟踪规划、缓存与 framework/runtime 全部保留，不整批暂存。后续评审须包括现场权威文档和本行动新增文件，不能只看旧提交中的文档。
 
@@ -339,3 +339,21 @@ P4 先以测试助手不存在形成 collection 红灯，再建立与正式主�
 最终普通权限组合回归为 **27 passed、7 skipped、2 个既有依赖弃用警告 / 1.49 秒**：包含假 Worker、Compose、策略和所有新增测试的默认门禁；7 项 skip 均是未显式启用的真实本机测试。owner 权限的重复初始化、真实对象权限和策略组合为 **4 passed / 4.81 秒**。生命周期最终行为由此前 3 项组合及新增竞态单项共同覆盖；最终跨重建复跑为 **1 passed、2 warnings / 46.69 秒**。
 
 Ruff 对 infra/tests 全目录通过，8 个 Python 文件 format check 通过；7 个 PowerShell 脚本/模块 Parser 全部通过。`infra/local` 与 `infra/tests` 各 8 文件；动态文件最大分别为 185 行 PowerShell 和 194 行 Python，均不超过指标。最终只读状态为部署 `complete`、PostgreSQL/AIStor 均 `running`、主库活动 Job 0、停止标记 false；`ae_persist_%` 临时数据库计数为 0。秘密特征扫描对本目标代码/文档 0 命中；许可证和密码正文未进入 Git 或输出。
+
+### 2026-09-18 整机重启验收
+
+用户确认整机重启对当前工作影响可接受，并选择实际执行。为避免只验证“服务能启动”却没有同一业务样本可比对，重启前复用 `local_persistence_scenario.py` 的既有 Repository、应用服务、假 Backend/Evaluator 和真实 `MinioArtifactStore`，在随机隔离数据库及正式私有 bucket 的随机对象键中创建合成账号、任务、Agent 配置、完成的 Job/Run、确定性报告和对象。预期对象保存在 `D:\AgentExamData\control\reboot-acceptance.json`，只包含随机数据库名、业务标识、规范化业务值以及对象键/长度/SHA-256，禁止保存 PostgreSQL 密码、合成登录密码、对象正文或模型凭据。
+
+重启前先调用场景自身 `verify()` 证明样本可读，再通过 `Stop-AgentExam.ps1` 写停止标记、确认活动 Job 为零并安全停止两项服务。由用户手动重启电脑；恢复后先观察容器未随开机自动运行，再用正式 `Start-AgentExam.ps1` 启动并重建 DSN，调用同一 `verify()` 逐项比对。通过后只删除清单记录的随机对象键、随机数据库和本次验收清单；失败时保留清单与样本供诊断，不扩大删除范围。
+
+12:18 的半小时额度查询首次因字段路径假设不匹配而失败；随后启动的隔离 app-server 使用 `CodexSandboxOffline`，`account/rateLimits/read` 明确返回“需要账户认证”。这是检查方法失败，不表示额度不足；辅助进程已按精确 PID 关闭，桌面 Codex 主进程保留。
+
+首次样本准备在写清单前失败：`Scenario` 内部包含不可 pickle 的只读映射。异常路径已删除已记录的随机对象并删除随机数据库；只读复核为旧 pickle 清单不存在、`ae_persist_reboot_%` 数据库计数 0。两次清理复核命令先后因 PowerShell 引号和遗漏测试导入路径失败，修正后才取得上述实际结果，不能把前两次命令描述为通过。后续改用可审阅 JSON 规范化快照。重启前样本、停止状态与跨重启结果：**Pending**。
+
+第二次 JSON 准备的敏感字段门禁按设计拒绝 `Account.password_hash`，仍在创建清单之前失败；异常路径再次清理随机对象和数据库。复核为 pickle/JSON 清单合计 0、`ae_persist_reboot_%` 数据库计数 0。账号预期值因此改为 `actor`、`auth_version`、`active` 的非秘密投影；密码哈希只保留在数据库中，既不输出也不进入清单。
+
+第三次准备被过宽的字段名检查拒绝 `report.process_metrics.usage.n_input_tokens`；该值是合成评测用量数字，不是认证令牌。异常路径复核仍为清单 0、随机重启数据库 0。敏感字段门禁收敛为密码、哈希、secret、API/access/secret key、会话 token 和 DSN 的精确名称，不屏蔽正常的 token 计数指标。
+
+第四次准备成功：随机数据库为 `ae_persist_reboot_9777563a`，清单包含 5 类业务预期值和 9 个对象键/长度/SHA-256，清单 SHA-256 为 `9c8a916882a62d2a4c3e8aae80d2499401332ed60593f83908796d39e9a398d4`。文件 ACL 仅有当前用户与 SYSTEM 的继承 FullControl。随后独立重建 Repository 和对象客户端读回，结果为 `VerifiedBusinessRecords=5`、`VerifiedObjects=9`；只有既有 FastAPI/TestClient 弃用警告。样本现故意保留到整机重启后，不能提前清理。
+
+正式 `Stop-AgentExam.ps1` 在活动 Job 为零时成功返回 `operation=stopped`；随后只读状态为 PostgreSQL/AIStor 均 `stopped`、停止标记 true。`docker inspect` 显示两只专属容器均 `State=exited`、`Restart=no`，清单重算 SHA-256 与写入时一致。当前已到达可安全整机重启的明确停点；重启后先检查容器仍停止，再执行正式启动和 JSON 逐项读回，未验证前不得删除样本或清单。
