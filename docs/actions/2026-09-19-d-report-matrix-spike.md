@@ -59,6 +59,21 @@ git status --short                                                              
 
 预期：新增用例全部通过；全量回归与基线一致（仅 `framework/harbor` 缺失导致的 2 个失败）；`ruff`/`mypy` 无新增错误。
 
+## 追加增量：Markdown 对比报告渲染（2026-09-19）
+
+在同一原型的范围内增加了渲染层，便于任务 08 直接粘贴出"可复查的对比报告"：
+
+```text
+apps/backend/src/eval_platform/application/reporting/
+  matrix_markdown.py               # 新增：把 ReportMatrix 渲染成 Markdown 矩阵表 + 每列覆盖度汇总
+apps/backend/tests/jobs/reporting/
+  test_matrix_markdown.py          # 新增：标签、缺失计数、覆盖度（1/3、3/3）、空矩阵表头
+```
+
+渲染规则：单元格用中文标签（通过 / 未通过 / 基础设施失败 / 未完成 / 缺失），**缺失格不写成 0 或"未通过"**；汇总行给出"有结论 N / 总数 M"的覆盖率，分母保持完整矩阵。
+
+验证（2026-09-19，`apps/backend`）：`pytest tests/jobs/reporting -q` → **6 passed**；`ruff check` → All checks passed；`mypy`（两文件）→ Success；全量回归 → **2 failed / 392 passed / 82 skipped**（失败仍为缺 `framework/harbor` 的既有环境缺口）。
+
 ## 自验证结果
 
 完成时间：2026-09-19（本批次）。逐项实测（命令均在 `apps/backend` 下执行）：
