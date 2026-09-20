@@ -40,6 +40,32 @@ def test_continuous_preset_rejects_empty_and_twenty_one_tasks(jobs_api):
     assert response.status_code == 400 and code(response) == "EMPTY_JOB_SELECTION"
 
 
+def test_continuous_preset_bounds_sixty_runs_and_three_configurations(jobs_api):
+    jobs_api.login()
+    tasks = register_tasks(jobs_api, 20)
+    agents = [
+        jobs_api.register_agent(name)
+        for name in ("verified-codex", "verified-codex-2", "verified-codex-3")
+    ]
+    body = submission(tasks[0]["task_id"], agents[0]["agent_configuration_id"])
+    body["task_ids"] = [item["task_id"] for item in tasks]
+    body["agent_configuration_ids"] = [
+        item["agent_configuration_id"] for item in agents
+    ]
+    body["batch_preset"] = "continuous"
+    response = submit(jobs_api, body, "continuous-60-0001")
+    assert response.status_code == 202
+    assert response.json()["trial_count"] == 60
+
+    fourth = jobs_api.register_agent("verified-codex-4")
+    body["agent_configuration_ids"] = [
+        *[item["agent_configuration_id"] for item in agents],
+        fourth["agent_configuration_id"],
+    ]
+    response = submit(jobs_api, body, "continuous-63-0001")
+    assert response.status_code == 400 and code(response) == "BATCH_PRESET_EXCEEDED"
+
+
 def test_existing_presets_keep_their_task_ranges(jobs_api):
     jobs_api.login()
     agent = jobs_api.register_agent("verified-codex")

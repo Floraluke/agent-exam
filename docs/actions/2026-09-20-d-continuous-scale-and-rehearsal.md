@@ -63,8 +63,8 @@ git status --short
 
 完成时间：2026-09-20。逐项实测（命令在 `apps/backend` 下执行，数据库门禁开启）：
 
-1. 新用例与相关用例：`pytest tests/jobs/scale tests/jobs/reporting -q` → **10 passed**（3 个连续规模用例 + 1 个真实数据库演练 + 既有矩阵用例）。
-2. 含数据库门禁的全量回归：**2 failed / 442 passed / 36 skipped（111.08 秒）**。相比本机数据库基线（2 / 438 / 36）：通过数 +4（本项新增用例），失败集合不变（仍是缺 `framework/harbor` 的既有环境问题）。
+1. 新用例与相关用例：`pytest tests/jobs/scale tests/jobs/reporting -q` → **11 passed**（4 个连续规模用例含边界矩阵 + 1 个真实数据库演练 + 既有矩阵与渲染用例）。边界矩阵覆盖：20 题 × 3 配置 = 60 Run 通过；追加第 4 个配置被拒（`BATCH_PRESET_EXCEEDED`）。
+2. 含数据库门禁的全量回归：**2 failed / 443 passed / 36 skipped（149.69 秒）**。相比本机数据库基线（2 / 438 / 36）：通过数 +5（本项新增用例），失败集合不变（仍是缺 `framework/harbor` 的既有环境问题）。
 3. `ruff check`（改动文件）→ 首轮 1 处 `I001`（导入排序），用 `ruff check --fix` 修复后 **All checks passed**。
 4. `mypy`（`job_presets.py`）→ Success: no issues found。
 5. `git status --short` → 修改 3 个文件、新增 3 项，无其他改动。
