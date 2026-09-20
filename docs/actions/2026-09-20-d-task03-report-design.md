@@ -99,6 +99,28 @@
 - 本稿"现状盘点"的每条引用均可打开对应文件核对（见上表位置）；
 - 矩阵五档语义已由本分支 `tests/jobs/reporting/test_matrix.py` 与真实数据库演练 `test_matrix_rehearsal.py` 覆盖（历史结果见对应行动文档）。
 
+## 实施增量：JobReporting.compare（内部实现，2026-09-20 追加）
+
+按"内部实现不碰公共接口"的边界，先把设计草案中**纯属于 D 模块**的部分落成正式代码：
+
+```text
+apps/backend/src/eval_platform/application/reporting/
+  service.py                        # 修改：新增 compare(actor, job_ids) -> ReportMatrix
+                                    #   - 复用 job() 的可见性、授权与证据校验（任一批次不可读即整体失败，不泄漏是哪一批）
+                                    #   - 去重；空选择 -> EMPTY_COMPARISON_SELECTION；超过 MAX_COMPARISON_JOBS=20 -> COMPARISON_LIMIT_EXCEEDED
+                                    #   - 聚合直接复用 matrix.py 的五档语义（含"缺失"）
+apps/backend/tests/jobs/reporting/
+  test_compare_service.py           # 新增 4 个用例：跨批次聚合与缺失语义、去重、空/超限拒绝、协作者看不到他人 Job（JobNotFound）
+```
+
+验证（2026-09-20，`apps/backend`）：
+
+- `pytest tests/jobs/reporting/test_compare_service.py -q` → **4 passed**；`pytest tests/jobs/reporting -q`（无数据库门禁）→ 11 passed / 2 skipped（跳过为需显式门禁的真实 PG 用例）；
+- `ruff check` → All checks passed；`mypy src/eval_platform/application/reporting/service.py` → Success；
+- 全量回归（含数据库门禁）三次结果如实记录：第 1、2 次 → 3 failed（2 个缺 `framework/harbor` + 1 个 `tests/jobs/cancellation/test_cancel_races.py::test_postgres_cancel_claim_race_never_leaves_an_executable_trial`）；第 3 次 → **2 failed / 449 passed / 36 skipped**（竞态测试通过）。竞态测试单独重跑 **3/3 通过**，定性为全量负载下的时序敏感偶发，与本次只读改动无关；**已标记为 08 回归时需盯的点**，不据此声称"全部通过"。
+
+明确未做：未新增 HTTP 端点、未改 DTO 与 `BatchOutcome` 枚举、未改 `docs/interfaces/HTTP_API.md`——这些仍按"契约先于联调"等待任务 03 发布后与 B 对接。
+
 ## 自验证结果
 
 完成时间：2026-09-20。逐项实测：
