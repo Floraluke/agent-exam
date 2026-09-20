@@ -2,6 +2,8 @@ from uuid import uuid4
 
 import pytest
 from identity.conftest import PASSWORD, WRITE_HEADERS
+from jobs.conftest import job_api
+from jobs.test_http import submission, submit
 from membership.conftest import invite, redeem
 
 
@@ -109,3 +111,59 @@ def test_public_config_omits_credential_reference(identity_api):
         "limit_profile_id",
     }
     assert "private-test-reference" not in response.text
+
+
+HIDDEN_SENTINELS = (
+    "HIDDEN_ANSWER",  # gold_patch / test_patch 与原始记录里的 patch 字段
+    "hidden_test",  # fail_to_pass 名单
+    "hidden_pass",  # pass_to_pass 名单
+    "private-test-reference",  # 凭据逻辑引用
+)
+
+
+@pytest.fixture
+def job_flow_api():
+    with job_api(scope_visible=lambda scope: scope == "internal_test") as api:
+        yield api
+
+
+def test_hidden_evaluation_fields_never_reach_public_surfaces(job_flow_api):
+    """登记并提交后逐条扫描公开读取面：隐藏答案、判卷名单与凭据引用一处都不能出现。"""
+    api = job_flow_api
+    assert api.login().status_code == 200
+    task = api.register_task("verified-task")
+    agent = api.register_agent("verified-codex")
+    body = submission(task["task_id"], agent["agent_configuration_id"])
+    body["batch_preset"] = "continuous"
+    created = submit(api, body, "hidden-surface-0001").json()
+    job_id = created["job_id"]
+    run_id = created["run_ids"][0]
+
+    surfaces = {
+        "tasks": "/api/v1/tasks",
+        "task": "/api/v1/tasks/" + task["task_id"],
+        "agents": "/api/v1/agent-configurations",
+        "agent": "/api/v1/agent-configurations/" + agent["agent_configuration_id"],
+        "options": "/api/v1/job-options",
+        "jobs": "/api/v1/jobs",
+        "job": "/api/v1/jobs/" + job_id,
+        "job_report": "/api/v1/reports/jobs/" + job_id,
+        "run_report": "/api/v1/reports/runs/" + run_id,
+        "comparison": "/api/v1/reports/comparisons?job_ids=" + job_id,
+        "artifacts": f"/api/v1/runs/{run_id}/artifacts",
+        "trajectory": f"/api/v1/runs/{run_id}/trajectory",
+    }
+    responses = {name: api.client.get(path) for name, path in surfaces.items()}
+    refused = {}
+    for name, response in responses.items():
+        if response.status_code != 200:
+            refused[name] = response.status_code
+        for sentinel in HIDDEN_SENTINELS:
+            assert sentinel not in response.text, (name, sentinel)
+    # 内容尚未产出的端点可以按契约拒绝（未执行 Run 的轨迹即如此）；
+    # 此处如实记录拒绝集合，不把 409 当作通过
+    assert set(refused) <= {"trajectory"}, refused
+
+    # 对照：公开题面仍然在读回结果里，说明上面的断言不是因为响应为空而通过
+    assert "Fix the visible bug." in responses["task"].text
+    assert "Fix the visible bug." in responses["job"].text
