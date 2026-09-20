@@ -1,31 +1,20 @@
 import { expect, test } from "@playwright/test";
+import {
+  loginOwner, navigation, openWizard, registerCatalog, reviewSelection,
+} from "../support/workbench";
 
 test("official-looking leaderboard stays comparable and links to its source", async ({
   page,
 }) => {
-  await page.goto("/");
-  await page.getByLabel("账号", { exact: true }).fill("owner");
-  await page.getByLabel("密码", { exact: true }).fill("synthetic browser password");
-  await page.getByRole("button", { name: "登录", exact: true }).click();
-  await page.getByRole("button", { name: "登记已核验题目" }).click();
-  const secondTask = await page.request.post("/api/v1/tasks/register", {
-    data: { preset_id: "swe-gym-lite-example-2" },
-    headers: {
-      Origin: "https://127.0.0.1:3100",
-      "X-AgentExam-Request": "1",
-    },
-  });
-  expect(secondTask.ok()).toBeTruthy();
-  await page.getByRole("button", { name: "登记固定 Codex 配置" }).click();
-  const jobs = page.getByRole("region", { name: "提交评测" });
-  await jobs.getByRole("button", { name: "刷新可提交选项" }).click();
-  await jobs.getByLabel("任务 example__repo-1").check();
-  await jobs.getByLabel("配置 Synthetic Codex").check();
+  await loginOwner(page);
+  await registerCatalog(page, true);
+  const jobs = await openWizard(page);
+  await reviewSelection(jobs, ["example__repo-1"]);
   const submitted = page.waitForResponse((response) =>
     response.request().method() === "POST" &&
     new URL(response.url()).pathname === "/api/v1/jobs",
   );
-  await jobs.getByRole("button", { name: "提交等待批准" }).click();
+  await jobs.getByRole("button", { name: "提交并等待批准" }).click();
   const job = await (await submitted).json();
   await jobs.getByRole("button", { name: "批准并排队" }).click();
   await expect.poll(async () => {
@@ -33,6 +22,7 @@ test("official-looking leaderboard stays comparable and links to its source", as
     return (await response.json()).status;
   }).toBe("COMPLETED");
 
+  await navigation(page).getByRole("button", { name: "排行榜" }).click();
   const leaderboard = page.getByRole("region", { name: "基础排行榜" });
   await expect(leaderboard).toBeVisible({ timeout: 5_000 });
   await leaderboard.getByLabel("数据集 ID").fill("synthetic-dataset");
@@ -74,10 +64,8 @@ test("official-looking leaderboard stays comparable and links to its source", as
 });
 
 test("leaderboard explains empty and dependency-error states", async ({ page }) => {
-  await page.goto("/");
-  await page.getByLabel("账号", { exact: true }).fill("owner");
-  await page.getByLabel("密码", { exact: true }).fill("synthetic browser password");
-  await page.getByRole("button", { name: "登录", exact: true }).click();
+  await loginOwner(page);
+  await navigation(page).getByRole("button", { name: "排行榜" }).click();
   const leaderboard = page.getByRole("region", { name: "基础排行榜" });
   await leaderboard.getByLabel("数据集 ID").fill("missing-dataset");
   await leaderboard.getByLabel("数据集 revision").fill("missing-revision");

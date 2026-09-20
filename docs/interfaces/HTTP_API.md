@@ -2,7 +2,7 @@
 
 > 文档状态：Job/Run 资源边界已确认；HTTP 契约 v0.3。任务 01–13 已验收；任务 13 的 `-04` 真实提交、批准、完成终态、持久化报告、页面读回和双轴终审均通过
 >
-> 最后更新：2026-09-17（追加扩展规划；HTTP行为尚未变更）
+> 最后更新：2026-09-18（增加当前已注册端点与 Web 调用位置清单；HTTP 行为未变更）
 > 权威范围：本文件只维护 Next.js Web 与 FastAPI 交付层之间的 HTTP 契约。内部模块行为见 [`MODULE_CONTRACTS.md`](../architecture/MODULE_CONTRACTS.md)，存储字段见 [`DATA_MODEL.md`](../architecture/DATA_MODEL.md)。
 
 ## 规划增量与当前接口
@@ -36,6 +36,48 @@
 | 字段命名 | JSON 使用 `snake_case`，与后端 schema 保持一致 |
 | 未知字段 | 写请求默认拒绝，防止拼写错误被静默忽略 |
 | OpenAPI | FastAPI 生成的 schema 上线时必须与本文契约检查一致 |
+
+### 2.1 当前前后端 API 清单（已注册、可由产品 UI 使用）
+
+本表以当前 FastAPI 路由装配和 `apps/web/src/lib` 调用代码为准，只列已经注册的 31 个 HTTP 端点。详细请求/响应形状仍由本文件后续对应章节维护，本表只维护“Web 从哪里调用、页面为什么调用、谁能调用”的追踪关系，避免复制 schema。
+
+硬规则：产品 UI 只有在本表存在对应端点时才可提供改变业务事实的按钮或交互；不得用前端假数据、假成功或占位动作模拟未完成能力。导航、菜单开关、URL 切换和向导前后步不改变业务事实，明确属于无 HTTP 请求的本地界面动作。
+
+| 方法与路径 | Web 调用函数 | 当前页面/用途 | 权限 |
+|---|---|---|---|
+| `POST /api/v1/auth/login` | `api-client.login` | 登录表单建立会话 | 未登录用户；同源写请求 |
+| `GET /api/v1/auth/me` | `api-client.currentActor` | 首次载入/刷新恢复可信 Actor | 有效会话；无会话返回 401 |
+| `POST /api/v1/auth/logout` | `api-client.logout` | 退出并清除本地私有 URL 状态 | 有效会话；重复退出幂等 |
+| `POST /api/v1/invitations` | `membership-client.invite` | 成员管理创建一次性邀请 | owner |
+| `POST /api/v1/invitations/redeem` | `membership-client.redeem` | 登录页使用邀请建立 collaborator | 未登录用户；同源写请求 |
+| `GET /api/v1/invitations` | `membership-client.invitations` | 成员管理读取/翻页邀请 | owner |
+| `POST /api/v1/invitations/{invitation_id}/revoke` | `membership-client.revoke` | 成员管理撤销邀请 | owner |
+| `GET /api/v1/members` | `membership-client.members` | 成员管理读取/翻页协作者 | owner |
+| `POST /api/v1/members/{user_id}/disable` | `membership-client.disable` | 成员管理停用协作者 | owner |
+| `POST /api/v1/tasks/register` | `catalog-client.registerTask` | 任务目录登记固定 preset | owner |
+| `GET /api/v1/tasks` | `catalog-client.tasks` | 任务目录筛选/翻页；新建向导读取题目 | 已登录用户 |
+| `GET /api/v1/tasks/{task_id}` | `catalog-client.taskDetail` | 任务目录查看公开详情 | 已登录用户 |
+| `POST /api/v1/agent-configurations` | `catalog-client.registerAgent` | 配置目录登记固定 Codex preset | owner |
+| `GET /api/v1/agent-configurations` | `catalog-client.agents` | 配置目录筛选/翻页；新建向导读取启用配置 | 已登录用户 |
+| `GET /api/v1/agent-configurations/{configuration_id}` | `catalog-client.agentDetail` | 配置目录查看公开详情 | 已登录用户 |
+| `POST /api/v1/agent-configurations/{configuration_id}/disable` | `catalog-client.disableAgent` | 配置目录禁用配置，保留历史 | owner |
+| `GET /api/v1/job-options` | `job-client.jobOptions` | 新建向导读取服务端批次、赛道和资源限制 | 已登录用户 |
+| `POST /api/v1/jobs` | `job-client.submitJob` | 三步向导创建等待批准的 Job | 已登录用户；要求幂等键 |
+| `GET /api/v1/jobs` | `job-client.jobs` | 角色首页当前可见页、owner 按状态分组、评测列表筛选/游标翻页；接口不承诺按创建时间排序 | owner 可见全部；collaborator 仅本人范围 |
+| `GET /api/v1/jobs/{job_id}` | `job-client.jobDetail` | Job 详情、刷新、可分享 URL 恢复 | owner 可见全部；collaborator 仅本人 Job |
+| `POST /api/v1/jobs/{job_id}/approve` | `job-client.decideJob(approve)` | 所有者批准并排队 | owner；待批准状态；要求幂等键 |
+| `POST /api/v1/jobs/{job_id}/reject` | `job-client.decideJob(reject)` | 所有者拒绝 Job | owner；待批准状态；要求幂等键 |
+| `POST /api/v1/jobs/{job_id}/cancel` | `job-client.cancelJob` | 详情页请求取消 | owner 任意可见 Job；collaborator 仅本人；要求幂等键 |
+| `POST /api/v1/jobs/{job_id}/recover` | `job-client.recoverJob` | 所有者检查并收束租约已过期的中断 Job | owner；限定状态/过期租约 |
+| `POST /api/v1/jobs/{job_id}/retry` | `job-client.retryJob` | 从已显式收束的旧 Job 新建重试 Job | owner；要求幂等键；新 Job 重新待批准 |
+| `GET /api/v1/reports/jobs/{job_id}` | `job-client.jobReport` | Job 详情读取批次进度 | 与 Job 可见范围相同 |
+| `GET /api/v1/reports/runs/{run_id}` | `job-client.runReport` | 批次/详情读取单题运行报告 | 与来源 Job 可见范围相同 |
+| `GET /api/v1/runs/{run_id}/artifacts` | `job-client.runArtifacts` | 安全证据读取制品元数据和保留状态 | 与来源 Job 可见范围相同 |
+| `GET /api/v1/runs/{run_id}/trajectory` | `job-client.runTrajectory` | 安全证据分页读取脱敏轨迹 | 与来源 Job 可见范围相同 |
+| `GET /api/v1/artifacts/{artifact_id}/content` | 报告页同源下载链接 | 下载公开补丁/测试摘要/公开轨迹正文 | 与来源 Job 可见范围相同；仅公开白名单类型 |
+| `GET /api/v1/leaderboard` | `leaderboard/client.leaderboard` | 排行榜按完整冻结条件查询/翻页 | 任一已登录用户；仅正式结果 |
+
+当前明确**未注册、产品 UI 不得提供入口**：`/agent-submissions*`、`/reviews*`、普通用户 `POST /runs`，以及第 8 节保留形状中的通用 `GET /runs` / `GET /runs/{run_id}`。这些是后续契约或历史候选，不是当前已完成 API。HTTP 也没有制品删除接口；到期清理由 owner 在评测机执行本地维护命令，因此 Web 不显示“删除制品”按钮。
 
 ## 3. 统一错误格式
 
