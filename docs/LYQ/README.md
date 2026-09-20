@@ -32,6 +32,7 @@
 | [`02-module/`](02-module/) | 我负责模块的架构、输入输出契约、接口的**个人视图**；正文仍在权威文档 |
 | [`03-progress/`](03-progress/) | 进度日志，按日期倒序追加，只记事实与实际结果 |
 | [`04-issues/`](04-issues/) | 已记录的问题：现象、证据、处理过程、遗留风险 |
+| [`05-sessions/`](05-sessions/) | 与 AI 助手的协作过程记录：按阶段记问了什么、查到什么事实、做了什么改动 |
 
 ## 当前状态
 
@@ -40,6 +41,7 @@
 - 状态：**准备阶段，产品开发未开工**。任务 04 尚未发布独立 issue，按项目规则不提前修改后续任务代码
 - 计划书：[`01-plan/PLAN.md`](01-plan/PLAN.md)
 - 未决问题：[`04-issues/KNOWN_ISSUES.md`](04-issues/KNOWN_ISSUES.md)
+- 协作过程记录：[`05-sessions/2026-09-19_20-collaboration-record.md`](05-sessions/2026-09-19_20-collaboration-record.md)
 - 对应行动记录：[任务 04 行动文档](../actions/2026-09-19-task-04-catalog-candidates-and-scale.md)
 
 ## 日常 git 操作
