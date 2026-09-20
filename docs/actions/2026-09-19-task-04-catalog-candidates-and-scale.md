@@ -45,6 +45,8 @@
 5. 规模侧（2026-09-20 核对后收窄）：连续预设 `continuous(1–20)` 及其边界用例**已由 D 合入上游**——4/6/9 题通过、0/21 题拒绝、20×3=60 允许、第 4 个配置拒绝均已有测试；「未知条目」「停用条目」的拒绝也已覆盖（`tests/jobs/test_security.py:60`、`tests/jobs/test_concurrency.py:58`）。剩余工作改为：**核对**上述既有覆盖是否覆盖计划要求的全部拒绝项，以及补「0 个配置」这一空白用例（代码侧由 `application/job_submission.py:60` 的 `EMPTY_JOB_SELECTION` 处理，目前无对应测试）。**注意**：「重复 ID」的现有行为是**去重**而不是拒绝（`tests/jobs/test_security.py:66` 断言 `task_ids` 翻倍后 `trial_count == 1`），本行动 09-19 版写的「重复题目必须拒绝」与既有断言冲突，处理方式需先与 D 确认，不擅自改动既有断言。
 6. 打通目录 → HTTP options → 三步向导 → 冻结 Job/全部 Runs/初始事件的事务；创建只返回“等待批准”。验证读取旧 Job、恢复新 Job、双存储一致性与指纹/摘要防漂移；同步权威文档后收尾。**进展（2026-09-20）：C 侧打通链已实现并测试**——新增 `apps/backend/tests/catalog/test_catalog_job_flow.py`，用目录列表与 HTTP 选项驱动 6 题 × 2 配置提交，断言创建只返回 `AWAITING_OWNER_APPROVAL`、全部 Runs 恰好覆盖笛卡尔积、Job 与每个 Run 都带 `JOB_SUBMITTED`、冻结身份与目录记录逐字段一致；并覆盖“配置停用后旧 Job 不被改写、新提交被拒”。剩余：三步向导的浏览器动线（与 B 交接）、恢复新 Job 与双存储一致性。
 
+7. 暴露面收敛的 HTTP 层断言（2026-09-20 第二增量，实施中）：现有断言只在契约层（`tests/contract/test_m0_pipeline.py:47` 的 `not hasattr(request.runs[0].task, "gold_patch")`）与个别响应上成立，**没有任何测试逐条扫描公开读取面**。做法：用带哨兵值的合成目录（`HIDDEN_ANSWER`、`hidden_test`、`hidden_pass`、`private-test-reference` 分别来自 `gold_patch`/`test_patch`、`fail_to_pass`、`pass_to_pass`、`credential_profile_id`）登记并提交后，逐条请求目录、配置、选项、Job、报告、对比、制品索引与轨迹端点，断言哨兵一处都不出现，并用公开题面仍在作为对照，避免"响应为空所以通过"。加在既有 `tests/catalog/test_security.py`（该文件已负责"隐藏答案与 Key 不进入公开输出"，且 `tests/catalog/` 内容文件数已达 8 的上限，不再新增第 9 个）。浏览器页面与其他读取面仍归 B/后续任务。
+
 ## 需要修改的文件树（计划；实施时按实际回填）
 
 ```text
@@ -61,7 +63,7 @@ apps/backend/tests/
 ├─ catalog/test_http.py             # 目录 HTTP：六题可选、未知/停用拒绝
 ├─ catalog/test_catalog_job_flow.py # 新增（2026-09-20 已实现）：目录→options→提交→冻结 Job/Runs/初始事件的打通链
 ├─ catalog/test_consistency.py      # 目录记录与对象摘要一致
-├─ catalog/test_security.py         # 隐藏答案与 Key 不进入公开输出（05–07 也会触及）
+├─ catalog/test_security.py         # 隐藏答案与 Key 不进入公开输出（2026-09-20 新增公开读取面全量扫描用例）
 ├─ integration/test_swe_bench_integration.py  # 新题固定 Fork 离线判卷（E 执行，C 收证据）
 ├─ jobs/scale/test_continuous_preset.py  # （D 已建，不改）规模边界覆盖现状见实施措施第 5 条
 ├─ jobs/test_concurrency.py         # 并发批准/claim 只有一个合法结果
@@ -134,3 +136,12 @@ HANDOFF.md                          # 当前停点与下一步（收尾时更新
 - 实测结果：`pytest tests/catalog -q`（带 `AGENTEXAM_RUN_IDENTITY_POSTGRES=1`）→ **35 passed / 7 skipped**（此前 33 passed，新增 2 个）；全量 `pytest -q` → **454 passed / 36 skipped / 2 failed**（103.73s，失败项与本次改动前完全相同，无回归）；`ruff check`、`ruff format --check`、`mypy src/eval_platform` 对新增文件均通过。
 - **变异检查**（确认断言有效，非空跑）：把 `base_commit` 比对改成必然不等的值和把笛卡尔积期望缩小一格后跑测试，结果 `1 failed, 1 passed`，探针文件已删除。
 - 未覆盖（如实记录）：三步向导的浏览器动线（B）、恢复新 Job、双存储一致性（MinIO 集成在本机跳过）、五道题的三补丁门禁。
+
+### 本次代码增量 2（2026-09-20，暴露面收敛的 HTTP 层断言）
+
+- 修改 `apps/backend/tests/catalog/test_security.py`（只加测试）：新增 `test_hidden_evaluation_fields_never_reach_public_surfaces`。
+- 做法：用带哨兵值的合成目录登记并提交一道题（`HIDDEN_ANSWER` 来自 `gold_patch`/`test_patch` 与原始记录的 `patch` 字段、`hidden_test` 来自 `fail_to_pass`、`hidden_pass` 来自 `pass_to_pass`、`private-test-reference` 来自 `credential_profile_id`），随后逐条请求 12 个公开读取面——`/tasks`、`/tasks/{id}`、`/agent-configurations`、`/agent-configurations/{id}`、`/job-options`、`/jobs`、`/jobs/{id}`、`/reports/jobs/{id}`、`/reports/runs/{id}`、`/reports/comparisons?job_ids=`、`/runs/{id}/artifacts`、`/runs/{id}/trajectory`——断言四个哨兵一处都不出现。
+- 实测结果：`pytest tests/catalog -q` → **36 passed / 7 skipped**（此前 35）；全量 `pytest -q` → **455 passed / 36 skipped / 2 failed**（104.16s，失败项与改动前完全相同）；`ruff check`、`ruff format --check` 通过。
+- 如实记录：`/runs/{id}/trajectory` 对**未执行**的 Run 按契约返回 **409**（内容尚未产出），本用例把拒绝集合显式断言为 `⊆ {trajectory}` 并**不把 409 当作通过**，只验证"拒绝响应里同样不含隐藏字段"；一旦 Run 真正产出制品，读取成功路径由 D 的 `tests/jobs/artifacts/test_http_limits.py`、`tests/jobs/execution/test_evidence_publication.py` 覆盖。
+- **变异检查**：把公开题面 `"Fix the visible bug."` 混入哨兵列表后跑该用例，结果 `1 failed`（说明断言确实在扫描响应体，不是空跑）；探针文件已删除。
+- 未覆盖（如实记录）：网页（Web 页面）读取面归 B；`/api/v1/leaderboard` 未在本夹具中装配，未纳入本轮扫描；提供方凭据的实际字段（05–07）在任务发布后另行覆盖。

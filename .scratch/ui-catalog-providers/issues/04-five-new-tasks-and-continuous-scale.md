@@ -14,7 +14,7 @@ Status: needs-info
 - [ ] 只有通过门禁的题进入受控目录白名单；保留旧题身份与 M0 单题入口。候选不合格时从同一固定 mypy 集合选替补并重走全部门禁；不足五题时停止汇报，不无声更换项目或数据集。
 - [ ] 规模侧已由 D 于 2026-09-20 实现并合入 `main`，本任务**不重复实现、不改写 D 的测试**；剩余范围收窄为「核对既有覆盖 + 补空白」。已覆盖（逐条核对现有测试）：4/6/9 题通过、0 题与 21 题拒绝、20×3=60 允许、第 4 个配置拒绝（`tests/jobs/scale/test_continuous_preset.py`）；未知条目（`tests/jobs/test_security.py:60`）与停用条目（`tests/jobs/test_concurrency.py:58`）拒绝。空白项：「0 个配置」——`application/job_submission.py:60` 的 `EMPTY_JOB_SELECTION` 已处理，但无对应测试。**注意：重复 ID 的现有行为是去重而不是拒绝**（`tests/jobs/test_security.py:66` 断言 `task_ids` 翻倍后 `trial_count == 1`）；若规格确需拒绝，须先与 D 确认行为取向并同步权威文档，不得直接改既有断言。
 - [ ] 打通目录 → HTTP options → 三步向导 → 冻结 Job/全部 Runs/初始事件的事务；创建只返回“等待 owner 批准”。验证读取旧 Job、恢复新 Job、双存储一致性与指纹/摘要防漂移。**（进程更新 2026-09-20：C 侧打通链已实现并测试——`apps/backend/tests/catalog/test_catalog_job_flow.py` 覆盖“目录列表与 HTTP 选项驱动 6 题 × 2 配置提交 → 创建只返回 `AWAITING_OWNER_APPROVAL` → 全部 Runs 恰好覆盖笛卡尔积 → Job 与每个 Run 都带 `JOB_SUBMITTED` → 冻结身份与目录记录逐字段一致”，并覆盖“配置停用后旧 Job 不被改写、新提交被拒”。剩余：三步向导的浏览器动线（与 B 交接）、恢复新 Job 与双存储一致性。）**
-- [ ] 暴露面收敛：`gold_patch`、`test_patch`、测试名单、环境对象键、凭据逻辑引用均不进入做题侧、HTTP、网页与制品。
+- [ ] 暴露面收敛：`gold_patch`、`test_patch`、测试名单、环境对象键、凭据逻辑引用均不进入做题侧、HTTP、网页与制品。**（进程更新 2026-09-20：C 侧 HTTP 读取面已加全量扫描用例——`tests/catalog/test_security.py::test_hidden_evaluation_fields_never_reach_public_surfaces` 逐条请求 12 个公开端点，断言 `HIDDEN_ANSWER` / `hidden_test` / `hidden_pass` / `private-test-reference` 一处都不出现，并用公开题面作为对照。剩余：网页读取面（B）、Run 产出制品后的制品/轨迹读取路径（D 已覆盖，需在验收时合并结论）、提供方凭据相关字段（05–07）。）**
 - [ ] 同步权威文档（模块架构、模块契约、数据模型、HTTP API、依赖总表）并建立独立行动记录；不读真实 `auth.json`、不调用模型。
 
 ## Comments

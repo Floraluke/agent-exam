@@ -19,12 +19,21 @@
 
 ### 开工增量（用户明确要求“直接安排我开工”后实施）
 
+#### 增量 1：目录 → options → 提交 → 冻结 Job 打通链
+
 - 新增 `apps/backend/tests/catalog/test_catalog_job_flow.py`（**只加测试，未改任何产品代码**），补上任务 04 第 6 条里确实没人走过的一段——目录 → HTTP options → 提交 → 冻结 Job/Runs/初始事件：
   1. `test_catalog_and_options_drive_one_frozen_submission`：登记 6 题 + 2 配置 → 读目录列表 → 读 `/api/v1/job-options` → 按选项用 `continuous` 提交 → 断言 `202`、`AWAITING_OWNER_APPROVAL`、`trial_count == 12`；读回详情后断言冻结的题目身份（instance_id / dataset_id / dataset_revision / split / base_commit / problem_statement）与配置指纹与目录记录**逐字段一致**；断言 12 个 Runs 恰好覆盖 题目 × 配置 的笛卡尔积，Job 与每个 Run 都带 `JOB_SUBMITTED`。
   2. `test_frozen_job_keeps_its_snapshot_when_the_catalog_changes`：提交后停用配置 → 旧 Job 冻结快照与状态不变；新提交返回 `409 AGENT_CONFIGURATION_DISABLED`。
 - 实测：目录模块 **35 passed / 7 skipped**（改动前 33 passed，新增 2 个）；全量 `pytest -q` **454 passed / 36 skipped / 2 failed**（103.73s，失败的仍是缺 `framework/harbor` 那 2 项，与改动前完全相同，**无回归**）；`ruff check`、`ruff format --check`、`mypy src/eval_platform` 对新增文件均通过。
 - 做了**变异检查**确认断言有效（不是空跑）：把 `base_commit` 比对改成必然不等的值、把笛卡尔积期望缩小一格，跑出来 `1 failed, 1 passed`；探针文件已删除。
 - 如实记录未覆盖：三步向导的浏览器动线（B 的）、恢复新 Job、双存储一致性（MinIO 集成在本机按设计跳过）、五道候选题的三补丁门禁（需组长机器）。
+
+#### 增量 2：暴露面收敛的 HTTP 层断言
+
+- 修改 `apps/backend/tests/catalog/test_security.py`（只加测试）：新增 `test_hidden_evaluation_fields_never_reach_public_surfaces`——用带哨兵值的合成目录（`HIDDEN_ANSWER` / `hidden_test` / `hidden_pass` / `private-test-reference`，分别来自 `gold_patch`+`test_patch`+原始记录、`fail_to_pass`、`pass_to_pass`、`credential_profile_id`）登记并提交后，逐条请求 **12 个公开读取面**（目录列表与详情、配置列表与详情、`job-options`、Job 列表与详情、批次报告、单 Run 报告、对比报告、制品索引、轨迹），断言哨兵一处都不出现，并用公开题面仍在响应中作为对照（防止"响应为空所以通过"）。
+- 实测：目录模块 **36 passed / 7 skipped**；全量 **455 passed / 36 skipped / 2 failed**（104.16s，失败集合不变）；`ruff check`、`ruff format --check` 通过。
+- 如实记录：`/runs/{id}/trajectory` 对**未执行**的 Run 返回 **409**（内容尚未产生），用例把拒绝集合显式断言为 `⊆ {trajectory}`，**不把 409 当作通过**；Run 产出制品后的读取路径归 D 的 `test_http_limits.py` / `test_evidence_publication.py`。网页读取面归 B；`leaderboard` 未在本夹具装配，未扫描。
+- **变异检查**：把公开题面混进哨兵列表后，用例确实失败（`1 failed`），证明断言真的在扫响应体。
 - 同步更新了 04 草案：`Blocked by` 区分题库侧与目录/规模侧、规模侧范围收窄为“核对已有覆盖 + 补 `0 配置` 空白”、标明「重复 ID 现有行为是去重」需与 D 确认、并记录打通链进展。草案状态如实保留 `needs-info`（数据/镜像/Fork 仍未取得）。
 
 ### 事实更正
