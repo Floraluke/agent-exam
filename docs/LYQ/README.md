@@ -41,3 +41,24 @@
 - 计划书：[`01-plan/PLAN.md`](01-plan/PLAN.md)
 - 未决问题：[`04-issues/KNOWN_ISSUES.md`](04-issues/KNOWN_ISSUES.md)
 - 对应行动记录：[任务 04 行动文档](../actions/2026-09-19-task-04-catalog-candidates-and-scale.md)
+
+## 日常 git 操作
+
+仓库有两个远端：`upstream` 是团队仓库（`anphuchoang5-sys/agent-exam`），`origin` 是我自己的 fork（只作快照，不作为交付目标）。我个人的工作分支是 `lyq`。
+
+```bash
+git branch                 # 看当前在哪个分支，应该是 lyq
+git fetch upstream         # 拉取团队最新提交（不动我的工作区）
+git rebase upstream/main   # 把我的提交挪到团队最新之上
+git status                 # 看改了哪些文件
+git add <文件>              # 把改动放进待提交区
+git commit -m "说明"        # 提交
+git push                   # 推到团队仓库的 lyq 分支，PR 会自动更新
+```
+
+注意事项：
+
+- 本仓库已配置 `http.proxy` 走本机代理（原因见 [ISSUE-01](04-issues/KNOWN_ISSUES.md)），所以上面这些命令能正常联网；若代理端口变了需要改配置。
+- 不要在没有明确授权时 `git push` 到 `main`；合并由组长在 PR 页面操作。
+- 写文档前先确认事实来源：能查代码的查代码，需要人类判断的（业务规则、范围）先问组长。
+
