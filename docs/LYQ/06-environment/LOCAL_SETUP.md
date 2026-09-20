@@ -1,0 +1,92 @@
+# 本机开发环境（Python 3.13 + 便携 PostgreSQL）
+
+> 目标：在本机建立一套**不依赖 Tailscale、不依赖 Docker、不依赖共享库**的后端开发环境，能写代码、跑静态检查、跑 PostgreSQL 集成测试和默认回归。
+>
+> 状态：**已建立并验证**（2026-09-20）。过程与逐项证据见[行动文档](../../actions/2026-09-20-local-environment-setup.md)。
+>
+> **当前运行状态的唯一来源：** 2026-09-20 最后一次核对时，PostgreSQL 15.14 正在 `127.0.0.1:55432` 运行（`pg_isready` 返回 accepting connections）。数据库以后停止或重启时只更新本段。
+>
+> 方案参照成员 E 的 `docs/LLY/02-environment/LOCAL_SETUP.md`（该目录只存在于 E 的 `lly/dev` 分支，不在上游 `main`）。本目录编号为 `06-environment`，与 `docs/LYQ/` 既有编号衔接。
+
+## 1. 这套环境是什么
+
+| 组件 | 位置 | 说明 |
+|---|---|---|
+| Python 3.13.15 + 锁定依赖 | `apps/backend/.venv` | 由 `uv sync --frozen` 按仓库 `uv.lock` 安装，不进 Git |
+| uv 0.12.17 | 系统（pip 安装） | 自动准备项目要求的 Python 版本 |
+| PostgreSQL 15.14 便携版 | `D:\pgsql`（bin/lib/share + `data`） | 只监听 `127.0.0.1:55432`，不注册 Windows 服务、不开机自启 |
+| 测试库 | `agentexam_identity_test` | 角色 `LOGIN + CREATEDB`；测试夹具会在此库中创建随机临时库并在跑完后删除，**日常数据不要写这里** |
+| 开发库 | `agentexam_dev` | 角色仅 `LOGIN`，无超级用户/建库/建角色权限 |
+| 安装包留档 | `D:\agentexam-env\…binaries.zip` | 320,461,864 字节，可删 |
+
+## 2. 为什么这么选
+
+| 决策 | 理由 |
+|---|---|
+| 便携版 PostgreSQL（zip 解包），不用安装包 | 不需管理员权限、不注册服务、删目录即卸载 |
+| 端口 **55432** 而非默认 5432 | 测试夹具明确拒绝默认端口 5432，只接受非默认端口的专属隔离库 |
+| 回环 trust 认证（仅 `127.0.0.1`） | 只有本机进程能连，因此不需要创建或传递任何数据库密码；这是开发库取舍，**不得**用于共享或长期环境 |
+| 不装 Docker | Docker Desktop 未运行；且容器类验证本来就不在开发机做 |
+| `uv sync --frozen` 而非 `pip install` | 仓库自带 `uv.lock`，锁文件保证与团队基线一致；uv 会自动准备 Python 3.13 |
+
+## 3. 日常命令
+
+```bash
+# 启动数据库
+D:/pgsql/bin/pg_ctl.exe -D "D:/pgsql/data" -l "D:/pgsql/data/pg_ctl-start.log" \
+  -o "-p 55432 -c listen_addresses=127.0.0.1" start
+
+# 停止数据库
+D:/pgsql/bin/pg_ctl.exe -D "D:/pgsql/data" stop
+
+# 就绪检查
+D:/pgsql/bin/pg_isready.exe -h 127.0.0.1 -p 55432
+```
+
+```bash
+# 跑测试（在 apps/backend 下）
+cd apps/backend
+AGENTEXAM_RUN_IDENTITY_POSTGRES=1 \
+AGENTEXAM_TEST_DATABASE_URL="postgresql://agentexam_identity_test@127.0.0.1:55432/agentexam_identity_test" \
+./.venv/Scripts/python.exe -m pytest -q
+
+# 只跑目录模块（我负责）
+./.venv/Scripts/python.exe -m pytest tests/catalog -q        # 同样带上上面两个环境变量
+
+# 静态检查
+./.venv/Scripts/python.exe -m ruff check .            # 通过
+./.venv/Scripts/python.exe -m ruff format --check .    # 本机当前 5 个文件不合格，见第 4 节
+./.venv/Scripts/python.exe -m mypy src/eval_platform   # 注意：必须给显式路径，见下
+```
+
+**mypy 的坑**：直接跑 `mypy`（按 `pyproject.toml` 的 `packages = ["eval_platform"]`）会报
+`Package 'eval_platform' cannot be type checked due to missing py.typed marker`。原因是 editable 安装让 mypy 把它当成第三方包。改成 `mypy src/eval_platform`（显式路径）即可：实测 `Success: no issues found in 166 source files`。
+
+## 4. 当前基线（2026-09-20 实测）
+
+| 范围 | 结果 |
+|---|---|
+| `tests/catalog` | **33 passed, 7 skipped**（7 个为需 MinIO 的集成用例，按设计跳过） |
+| 全量 `pytest -q` | **452 passed, 36 skipped, 2 failed**，119.75s |
+| 2 个失败 | `tests/contract/test_execution_network.py` 两项，原因是缺 `framework/harbor`（该目录不进 Git，只在组长机器上）。属既有环境失败，与 D 记录的基线同类 |
+| `ruff check .` | **All checks passed!** |
+| `ruff format --check .` | **5 个文件不合格**：`src/eval_platform/adapters/persistence/jobs/__init__.py`、`src/eval_platform/delivery/http/routes/jobs/report_comparisons.py`、`tests/jobs/cancellation/test_cancel_races.py`、`tests/jobs/reporting/test_comparison_http.py`、`tests/jobs/reporting/test_matrix_rehearsal.py`。这 5 个都是 D 近期合入的文件，**不是我引入的**，也不在我的改动范围内；已记录，供 D/组长决定何时统一格式化 |
+| `mypy src/eval_platform` | **Success: no issues found in 166 source files** |
+
+## 5. 仍然做不到的事（不要在本机浪费时间）
+
+- 容器类验证：需要 Docker Desktop + 题目镜像，本机没有，也不在开发机范围。
+- 固定数据快照类验证：需要 `framework/`、固定 Parquet 快照，只在组长机器上。
+- 真实模型调用与真实凭据：需单独授权，且与本机环境无关。
+- 共享 PostgreSQL（`sss.tail03c757.ts.net:15432`）：本机 Tailscale 在正确的 tailnet 内但看不到任何其他设备（netmap `Peers = 0`），问题在 host 侧，见 [ISSUE-06](../04-issues/KNOWN_ISSUES.md)。
+- 只在组长机器上或由 E 执行的门禁：五道候选题的参考/空/错误补丁资格验证（任务 04 的判卷半边）。
+
+## 6. 清理方式
+
+```text
+删除 D:\pgsql                        # 连数据库带数据一起删；删前先 pg_ctl stop
+删除 D:\agentexam-env                # 安装包留档
+删除 apps/backend/.venv              # 虚拟环境
+```
+
+删除后按第 3 节命令即可重建（安装包可从 get.enterprisedb.com 重新下载，sha256 见行动文档）。

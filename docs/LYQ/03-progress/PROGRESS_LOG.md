@@ -3,6 +3,43 @@
 > 只记录事实与实际结果：做了什么、实际输出是什么、遇到什么。计划见 [`01-plan/PLAN.md`](../01-plan/PLAN.md)。
 > 格式：按日期倒序追加，最新在最上面。
 
+## 2026-09-20（晚间补记：本机开发环境与事实更正）
+
+### 已完成
+
+- 拉取上游：`upstream/main` 前进到 `beed93f`（含 B 的 `ff46cec` 工作台合并、D 的连续规模预设与对比端点等）。我的 `lyq` 已包含上游全部提交（落后 0），fork 的 `main` 也已同步；上游 PR #2 仍开着、**0 条评论 0 个评审**。
+- **恢复 `http.proxy`**：仓库本地 git 配置里的代理设置已丢失，导致 `git fetch` 直连失败（21s 超时）。按 [ISSUE-01](../04-issues/KNOWN_ISSUES.md) 的记录重新写入 `http.proxy=http://127.0.0.1:7892`，两个远端 fetch 恢复正常。
+- **建立本机开发环境**（本轮最大变化）：
+  - 装 uv 0.12.17；在 `apps/backend` 执行 `uv sync --frozen` → Python 3.13.15 + 锁定依赖（此前系统只有 3.11.9，`import eval_platform` 直接失败）。
+  - 下载并解压便携 PostgreSQL 15.14 到 `D:\pgsql`（320,461,864 字节，sha256 `234ccc7a5cf07fce70f93faea701fd75fad6bec968359b06cdfc208ed7dfbc30`，来源 get.enterprisedb.com），`initdb` 后只监听 `127.0.0.1:55432`，不注册 Windows 服务、不开机自启。
+  - 建库：`agentexam_identity_test`（LOGIN+CREATEDB，测试夹具用）、`agentexam_dev`（仅 LOGIN，日常开发用）。
+  - 解压用 7-Zip（`D:\7-Zip\7z.exe`）；Windows 自带 `bsdtar` 在这台机器上创建文件失败，已弃用。
+- **实测基线**：`tests/catalog` → **33 passed / 7 skipped**（跳过的是需 MinIO 的用例）；全量 `pytest -q` → **452 passed / 36 skipped / 2 failed**（119.75s）。2 个失败是 `tests/contract/test_execution_network.py` 缺 `framework/harbor` 的既有环境失败，与 D 记录的基线同类，非代码缺陷。
+- 记录：新建[环境行动文档](../../actions/2026-09-20-local-environment-setup.md)与[本机开发环境](../06-environment/LOCAL_SETUP.md)，并更新 README 与问题记录。**未修改任何产品代码、测试或依赖清单。**
+
+### 开工增量（用户明确要求“直接安排我开工”后实施）
+
+- 新增 `apps/backend/tests/catalog/test_catalog_job_flow.py`（**只加测试，未改任何产品代码**），补上任务 04 第 6 条里确实没人走过的一段——目录 → HTTP options → 提交 → 冻结 Job/Runs/初始事件：
+  1. `test_catalog_and_options_drive_one_frozen_submission`：登记 6 题 + 2 配置 → 读目录列表 → 读 `/api/v1/job-options` → 按选项用 `continuous` 提交 → 断言 `202`、`AWAITING_OWNER_APPROVAL`、`trial_count == 12`；读回详情后断言冻结的题目身份（instance_id / dataset_id / dataset_revision / split / base_commit / problem_statement）与配置指纹与目录记录**逐字段一致**；断言 12 个 Runs 恰好覆盖 题目 × 配置 的笛卡尔积，Job 与每个 Run 都带 `JOB_SUBMITTED`。
+  2. `test_frozen_job_keeps_its_snapshot_when_the_catalog_changes`：提交后停用配置 → 旧 Job 冻结快照与状态不变；新提交返回 `409 AGENT_CONFIGURATION_DISABLED`。
+- 实测：目录模块 **35 passed / 7 skipped**（改动前 33 passed，新增 2 个）；全量 `pytest -q` **454 passed / 36 skipped / 2 failed**（103.73s，失败的仍是缺 `framework/harbor` 那 2 项，与改动前完全相同，**无回归**）；`ruff check`、`ruff format --check`、`mypy src/eval_platform` 对新增文件均通过。
+- 做了**变异检查**确认断言有效（不是空跑）：把 `base_commit` 比对改成必然不等的值、把笛卡尔积期望缩小一格，跑出来 `1 failed, 1 passed`；探针文件已删除。
+- 如实记录未覆盖：三步向导的浏览器动线（B 的）、恢复新 Job、双存储一致性（MinIO 集成在本机按设计跳过）、五道候选题的三补丁门禁（需组长机器）。
+- 同步更新了 04 草案：`Blocked by` 区分题库侧与目录/规模侧、规模侧范围收窄为“核对已有覆盖 + 补 `0 配置` 空白”、标明「重复 ID 现有行为是去重」需与 D 确认、并记录打通链进展。草案状态如实保留 `needs-info`（数据/镜像/Fork 仍未取得）。
+
+### 事实更正
+
+- **ISSUE-02 已解决**：上游 `main` 现在包含 `issues/01`、`issues/02`，且 `plan.md` 与我手上那份更新版逐字节相同（随 `ff46cec` 于 09-20 20:42 进入上游）。此前「请组长推送更新版」的请求作废。
+- **任务 04 的规模侧剩余范围被高估**：逐条查测试后确认「4 个配置被拒」「未知条目被拒」「停用条目被拒」都已有测试（`tests/jobs/scale/test_continuous_preset.py:43`、`tests/jobs/test_security.py:60`、`tests/jobs/test_concurrency.py:58`）；而「重复 ID」的**现有行为是去重而不是拒绝**（`tests/jobs/test_security.py:66` 断言 `trial_count == 1`），我 09-19 草案里写的「重复题目必须拒绝」与之冲突，不能照草案实现。真正空白的是「0 个配置」的用例（代码有 `EMPTY_JOB_SELECTION`，`application/job_submission.py:60`，无对应测试）。
+- **本机确实没人做过的 C 侧交付**：目录 → HTTP options → 提交 → 冻结 Job / 全部 Runs / 初始事件的事务打通。现有测试只在 `tests/jobs/test_http.py` 断言过 options 的响应形状，没有走完这条链。
+- **静态检查基线**：`ruff check .` 全通过；`mypy src/eval_platform` 166 个源文件无问题（直接跑 `mypy` 会因 editable 安装缺 `py.typed` 报错，须给显式路径）；但 `ruff format --check .` **有 5 个文件不合格**——`adapters/persistence/jobs/__init__.py`、`delivery/http/routes/jobs/report_comparisons.py`、`tests/jobs/cancellation/test_cancel_races.py`、`tests/jobs/reporting/test_comparison_http.py`、`tests/jobs/reporting/test_matrix_rehearsal.py`。这 5 个都是 D 近期合入的文件，不是我引入的，我也没有格式化它们（不擅自改他人文件）。
+- **共享库仍不可达**（记为 [ISSUE-06](../04-issues/KNOWN_ISSUES.md)）：本机 tailnet 正确（`tail03c757.ts.net`）但 netmap `Peers = 0` 且 `Cached = false`（实时从控制面取回），`sss.tail03c757.ts.net` 解析不到，需 host 侧处理。
+
+### 当前停点
+
+- 环境已就绪；产品代码未开工，未下载任何题目镜像、未调用模型、未连接共享库。
+- 任务 04 仍无任务单；下一步是本机可做的那条打通链，以及向组长确认规模侧收口与「重复 ID」的行为取向。
+
 ## 2026-09-20
 
 ### 已完成

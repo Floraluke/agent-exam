@@ -2,7 +2,7 @@
 
 ## 状态与情况说明
 
-- 状态：In progress（准备阶段，未获实施授权）。本行动由 C（目录与配置 DRI、任务 04 任务 DRI）建立，先记录范围、前置门禁、计划文件树与验证方式。**本轮未修改任何产品代码、未下载镜像或数据、未调用模型、未读取真实凭据。**
+- 状态：In progress（准备阶段，未获实施授权；本机开发环境已于 2026-09-20 建立）。本行动由 C（目录与配置 DRI、任务 04 任务 DRI）建立，先记录范围、前置门禁、计划文件树与验证方式。**截至当前未修改任何产品代码、未下载镜像或数据、未调用模型、未读取真实凭据、未连接共享数据库。**
 - 对应任务：[执行计划](../../.scratch/ui-catalog-providers/plan.md)第 6 节任务 04；分工见[团队分工](../architecture/modules/TEAM_WORK_ALLOCATION.md)第 4.2 与第 5 节。任务 04 当前为“已规划、未发布 issue”，按计划第 1 节第 5 条与第 5.2 节，任务单发布且用户安排前不进入实施。
 - 本行动是独立实施任务的行动文档；`ui-catalog-providers` 的规划正文仍由[规划行动](2026-09-17-ui-catalog-provider-planning.md)维护，本文件不复制规则正文，只记录 04 的实施、偏差与验证证据。
 - 实施基线（2026-09-20 更新）：团队上游仓库 `anphuchoang5-sys/agent-exam`，只作只读同步、不直接推送；交付分支为个人 fork `Floraluke/agent-exam` 的 `lyq`，基于上游 `main` 的 `a49b000`；PR 从 fork 提到上游 `main`。本机克隆 `C:\Users\陆泳倩\Desktop\agent-exam`。
@@ -12,9 +12,9 @@
 - 受控题目目录只有一道题：`delivery/catalog_presets.py` 的 `TASK_PRESETS` 仅含 `swe-gym-lite-mypy-15413`；`adapters/tasks/swe_gym.py` 用单一常量 `CANDIDATE_INSTANCE_ID` / `CANDIDATE_IMAGE` 冻结该题身份。固定数据源为 `SWE-Gym/SWE-Gym-Lite` `train`，revision `61231f2c…`，快照 931193 字节、sha256 `f3a7cd93…`，并按实例 id 过滤读取。
 - 受控配置目录只有一个配置：`codex-0153-terra-medium`（Codex 0.153.0 / gpt-5.6-terra / medium）。
 - 规模策略：`delivery/job_presets.py` 当前给 `demo(1,3)`、`quick(5,5)`、`standard(10,20)` 三个 `BatchPreset`；`domain/jobs/policy.py` 的 `SubmissionPolicy` 已有 `maximum_agent_configurations=3` 与 `maximum_runs=60`。缺的是“连续 1–20 题”这一档，不是 60 次上限本身。
-- 本机不具备 04 的运行条件：无 `framework/`、`runtime/`、`infra/data/`、`infra/volumes/`；未发现固定 Parquet 数据快照；Docker Desktop 未运行（`dockerDesktopLinuxEngine` 管道不存在）。因此资格验证类步骤在本机无法执行，也未尝试执行。
-- 上游 `main` 的 `.scratch/ui-catalog-providers/` 仍是 2026-09-17 草案版本（表头写作「计划草案，未开工」，任务 01、02 未标完成），且**没有** `issues/` 目录；组长 2026-09-19 提供的同目录更新版（plan/spec/implementation-map 更新，verification 仅换行符差异，新增 `issues/01`、`issues/02`）经逐分支核对**不在上游任何分支上**。仓库看到的“前项状态”落后于最新事实，本行动的引用以实施时的权威版本为准；差异记录见 [ISSUE-02](../LYQ/04-issues/KNOWN_ISSUES.md)。
-- 上游 `main` 在 2026-09-20 有 12 个新提交（作者 `noachlola`），内容涉及任务 03 报告语义设计、对比报告服务与端点、以及给任务 08 用的 D 侧 runbook。即有人正按单项授权推进 03 方向的工作，计划文档尚未同步。任务 04 本身的机制现状未变。
+- 本机运行条件（2026-09-20 晚间更新）：**已建立本机开发环境**——`apps/backend/.venv`（Python 3.13.15 + `uv.lock` 锁定依赖）、便携 PostgreSQL 15.14 于 `127.0.0.1:55432`、测试库 `agentexam_identity_test` 与开发库 `agentexam_dev`；`tests/catalog` 33 passed / 7 skipped，全量 452 passed / 36 skipped / 2 failed（2 项为缺 `framework/harbor` 的既有环境失败）。见[本机开发环境](../LYQ/06-environment/LOCAL_SETUP.md)与[环境行动文档](2026-09-20-local-environment-setup.md)。**仍不具备**：`framework/`、`runtime/`、`infra/data/`、固定 Parquet 快照与 Docker Desktop——容器类、固定数据类与判卷类步骤仍只能由组长机器或 E 执行。
+- 上游 `.scratch/ui-catalog-providers/` **已同步**（2026-09-20 晚间复核）：`issues/01`、`issues/02` 与更新版 `plan.md` 已随 `ff46cec` 进入上游 `main`；我方与上游在该目录下的唯一差异是本人起草的 `issues/04-*` 草案。[ISSUE-02](../LYQ/04-issues/KNOWN_ISSUES.md) 因此关闭。
+- 上游 `main` 当前为 `beed93f`（2026-09-20 20:49）：除 D 的任务 03 报告语义设计、对比服务与对比端点、任务 08 runbook 外，还包含 D 的 `continuous(1–20)` 预设与其边界测试、B 的工作台合并。任务 03 仍无任务单，`01 → 02 → 03 → 04` 的顺序门禁未解除。
 
 ### 上游门禁（未满足前不进入实施）
 
@@ -25,8 +25,9 @@
 
 ### 待确认
 
-- 任务 04 的独立任务单（`.scratch/ui-catalog-providers/issues/04-*.md`）由谁发布；发布前不进入实施。
-- 镜像/数据的下载授权范围与磁盘配额，以及 `2026-09-19` 更新版文档何时进入仓库。
+- 任务 04 的独立任务单（`.scratch/ui-catalog-providers/issues/04-*.md`）由谁发布、以何范围发布；本人已起草草案（`Status: needs-info`）并随 PR #2 提交给上游，**尚无评论与评审**。计划第 5.2 节的措辞是「任务未发布/用户未安排时」不提前改产品代码，即发布或明确安排任一满足即可开工。
+- 镜像/数据的下载授权范围与磁盘配额；以及五道候选题三补丁门禁的执行安排（E 主责，需组长机器的执行窗口）。
+- 规模侧收口口径（见实施措施第 5 条）：既有覆盖是否已满足计划要求，以及「重复 ID」应维持去重还是改为拒绝。
 - 05–07 提供方配置的最终型号与协议以规格 Q8–Q10 为准，C 的受控配置部分需在其任务发布后另行建立或并入本行动。
 
 ### 明确排除
@@ -41,8 +42,8 @@
 2. 资格验证候选顺序：`python__mypy-15184`、`python__mypy-15208`、`python__mypy-15131`、`python__mypy-15139`、`python__mypy-15876`。同项目不共用旧题镜像；`15876` 额外确认存在真实 FAIL_TO_PASS，不用仅文档修改凑数量。
 3. 每题独立容器、固定 Fork、外网关闭，依次跑参考补丁、空补丁、可应用但错误的补丁；确认测试确实执行且参考通过、负例未解决。基础设施错误不算负例成功；空补丁本来就通过的题不合格。记录镜像/数据/报告身份与精确清理结果（执行由 E 主责，C 组织交接并收口证据）。
 4. 只有通过门禁的题进入受控目录白名单；保留旧题身份与 M0 单题入口。候选不合格时从同一固定 mypy 集合选替补并重走全部门禁。
-5. 引入新的连续规模预设，保留旧 preset ID 对历史冻结值的解释：`4/6/9` 题请求必须通过，`0/21` 题、`0/4` 配置、重复题目、未知或停用条目的请求必须拒绝，总上限 20×3=60。用合成受控目录验证，不要求现在准备 20 道真实题。
-6. 打通目录 → HTTP options → 三步向导 → 冻结 Job/全部 Runs/初始事件的事务；创建只返回“等待批准”。验证读取旧 Job、恢复新 Job、双存储一致性与指纹/摘要防漂移；同步权威文档后收尾。
+5. 规模侧（2026-09-20 核对后收窄）：连续预设 `continuous(1–20)` 及其边界用例**已由 D 合入上游**——4/6/9 题通过、0/21 题拒绝、20×3=60 允许、第 4 个配置拒绝均已有测试；「未知条目」「停用条目」的拒绝也已覆盖（`tests/jobs/test_security.py:60`、`tests/jobs/test_concurrency.py:58`）。剩余工作改为：**核对**上述既有覆盖是否覆盖计划要求的全部拒绝项，以及补「0 个配置」这一空白用例（代码侧由 `application/job_submission.py:60` 的 `EMPTY_JOB_SELECTION` 处理，目前无对应测试）。**注意**：「重复 ID」的现有行为是**去重**而不是拒绝（`tests/jobs/test_security.py:66` 断言 `task_ids` 翻倍后 `trial_count == 1`），本行动 09-19 版写的「重复题目必须拒绝」与既有断言冲突，处理方式需先与 D 确认，不擅自改动既有断言。
+6. 打通目录 → HTTP options → 三步向导 → 冻结 Job/全部 Runs/初始事件的事务；创建只返回“等待批准”。验证读取旧 Job、恢复新 Job、双存储一致性与指纹/摘要防漂移；同步权威文档后收尾。**进展（2026-09-20）：C 侧打通链已实现并测试**——新增 `apps/backend/tests/catalog/test_catalog_job_flow.py`，用目录列表与 HTTP 选项驱动 6 题 × 2 配置提交，断言创建只返回 `AWAITING_OWNER_APPROVAL`、全部 Runs 恰好覆盖笛卡尔积、Job 与每个 Run 都带 `JOB_SUBMITTED`、冻结身份与目录记录逐字段一致；并覆盖“配置停用后旧 Job 不被改写、新提交被拒”。剩余：三步向导的浏览器动线（与 B 交接）、恢复新 Job 与双存储一致性。
 
 ## 需要修改的文件树（计划；实施时按实际回填）
 
@@ -52,16 +53,17 @@ apps/backend/src/eval_platform/
 ├─ adapters/tasks/collect_patch.sh  # 题目侧 patch 收集；多题时核对参数与路径假设
 ├─ delivery/catalog_presets.py      # TASK_PRESETS 扩展为旧题+合格新题；AGENT_PRESETS 预留 05–07
 ├─ application/task_catalog.py      # 白名单登记与校验；多题语义按需扩展，不放松 allowlist
-├─ domain/jobs/policy.py            # BatchPreset 连续 1–20；保留旧 preset 解释
-├─ delivery/job_presets.py          # 新增连续规模预设组合；保留 demo/quick/standard
-├─ application/job_submission.py    # 题数×配置计数、边界与拒绝语义
+├─ domain/jobs/policy.py            # （已由 D 完成，本行动不改）BatchPreset 连续 1–20 与既有区间解释
+├─ delivery/job_presets.py          # （已由 D 完成，本行动不改）continuous(1,20) 已于 2026-09-20 合入上游
+├─ application/job_submission.py    # 仅在被确认归属后，补「0 个配置」等边界用例；不放松既有校验
 └─ delivery/http/routes/jobs/routes.py  # job-options 暴露新预设（与 B 交接前端展示）
 apps/backend/tests/
 ├─ catalog/test_http.py             # 目录 HTTP：六题可选、未知/停用拒绝
+├─ catalog/test_catalog_job_flow.py # 新增（2026-09-20 已实现）：目录→options→提交→冻结 Job/Runs/初始事件的打通链
 ├─ catalog/test_consistency.py      # 目录记录与对象摘要一致
 ├─ catalog/test_security.py         # 隐藏答案与 Key 不进入公开输出（05–07 也会触及）
 ├─ integration/test_swe_bench_integration.py  # 新题固定 Fork 离线判卷（E 执行，C 收证据）
-├─ jobs/test_http.py                # 1/4/6/9/20 通过；0/21、0/4、重复、未知/停用拒绝
+├─ jobs/scale/test_continuous_preset.py  # （D 已建，不改）规模边界覆盖现状见实施措施第 5 条
 ├─ jobs/test_concurrency.py         # 并发批准/claim 只有一个合法结果
 ├─ jobs/test_postgres.py            # 真实 PG 下的快照与事务
 └─ jobs/recovery/test_retry.py      # 恢复不自动续跑旧 Job
@@ -117,4 +119,18 @@ HANDOFF.md                          # 当前停点与下一步（收尾时更新
 
 ## 自验证情况
 
-Pending（本轮为准备阶段，未修改代码、未运行任何检查；上述命令均未执行）。
+- 2026-09-19 至 09-20 白天：准备阶段，未修改代码，未运行任何检查。
+- **2026-09-20 晚间：本机环境已建立并实测**（只建立环境、只跑既有测试，未改任何产品代码）：
+  - `pytest tests/catalog -q`（带 `AGENTEXAM_RUN_IDENTITY_POSTGRES=1` 与专属回环测试库 DSN）→ **33 passed, 7 skipped**；7 项为需 MinIO 的集成用例，按设计跳过，不计为通过。
+  - 全量 `pytest -q` → **452 passed, 36 skipped, 2 failed**（119.75s）。2 个失败为 `tests/contract/test_execution_network.py` 缺 `framework/harbor` 的既有环境失败；已用 `--tb=line` 核对报错为 `git -C .../framework/harbor rev-parse HEAD` 失败，非代码缺陷，也无法在本机修复。
+  - 静态检查（同期补跑）：`ruff check .` → **All checks passed**；`mypy src/eval_platform` → **Success: no issues found in 166 source files**（直接跑 `mypy` 会因 editable 安装缺 `py.typed` 标记报错，须给显式路径）；`ruff format --check .` → **5 个文件不合格**（`adapters/persistence/jobs/__init__.py`、`delivery/http/routes/jobs/report_comparisons.py`、`tests/jobs/cancellation/test_cancel_races.py`、`tests/jobs/reporting/test_comparison_http.py`、`tests/jobs/reporting/test_matrix_rehearsal.py`）。这 5 个均来自 D 近期合入的对比端点与取消竞争修复，**非本行动引入，本行动不擅自格式化他人文件**，已如实记录供 D/组长处置。
+- 任务 04 的题库侧与判卷侧验收项**未开始**（需组长机器/E）；目录侧的打通链已按实施措施第 6 条落地，其余目录侧项未开始。
+
+### 本次代码增量（2026-09-20，用户明确要求开工后实施）
+
+- 新增 `apps/backend/tests/catalog/test_catalog_job_flow.py`（2 个用例，只加测试、未改任何产品代码）：
+  1. `test_catalog_and_options_drive_one_frozen_submission`：登记 6 题 + 2 配置 → 读目录列表 → 读 `/api/v1/job-options` → 按选项提交 `continuous` → 断言 `202` 且 `AWAITING_OWNER_APPROVAL`、`trial_count == 12`；读回 Job 详情后断言冻结的题目身份（instance_id / dataset_id / dataset_revision / split / base_commit / problem_statement）与配置指纹与目录记录逐字段一致；断言 12 个 Runs 恰好覆盖 题目 × 配置 的笛卡尔积，且 Job 与每个 Run 都带 `JOB_SUBMITTED` 初始事件。
+  2. `test_frozen_job_keeps_its_snapshot_when_the_catalog_changes`：提交后停用该配置 → 旧 Job 的冻结快照与状态不变（不被目录变更改写）；新提交返回 `409 AGENT_CONFIGURATION_DISABLED`。
+- 实测结果：`pytest tests/catalog -q`（带 `AGENTEXAM_RUN_IDENTITY_POSTGRES=1`）→ **35 passed / 7 skipped**（此前 33 passed，新增 2 个）；全量 `pytest -q` → **454 passed / 36 skipped / 2 failed**（103.73s，失败项与本次改动前完全相同，无回归）；`ruff check`、`ruff format --check`、`mypy src/eval_platform` 对新增文件均通过。
+- **变异检查**（确认断言有效，非空跑）：把 `base_commit` 比对改成必然不等的值和把笛卡尔积期望缩小一格后跑测试，结果 `1 failed, 1 passed`，探针文件已删除。
+- 未覆盖（如实记录）：三步向导的浏览器动线（B）、恢复新 Job、双存储一致性（MinIO 集成在本机跳过）、五道题的三补丁门禁。
