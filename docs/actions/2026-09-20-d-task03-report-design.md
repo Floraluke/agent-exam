@@ -50,29 +50,8 @@
 
 ### 3. 候选响应形状（方案 A，供 B 对齐，待确认）
 
-```json
-{
-  "columns": [
-    {"job_id": "...", "agent_configuration_id": "...", "agent_display_name": "..."}
-  ],
-  "rows": [
-    {
-      "task_instance_id": "python__mypy-15413",
-      "repo": "python/mypy",
-      "cells": [
-        {"outcome": "resolved", "resolved": true, "report_path": "/api/v1/reports/runs/..."},
-        {"outcome": "missing", "resolved": null, "report_path": null}
-      ]
-    }
-  ],
-  "totals": [
-    {"resolved": 6, "unresolved": 0, "infrastructure_error": 0,
-     "incomplete": 0, "missing": 0, "decided": 6, "coverage": "6/6"}
-  ]
-}
-```
+> 2026-09-20：本节形状已细化为独立的交接提案 [《跨批次对比报告接口提案》](2026-09-20-d-comparison-api-proposal.md)，并直接发送给 B 确认；确认后由 B 落入 `docs/interfaces/HTTP_API.md` §10.4。此处只保留分析结论，不再复制形状。
 
-- 字段名按项目中文注释习惯补充到 HTTP 文档；`coverage` 用"有结论/总数"字符串或两个整数字段（由 B 在文档中定夺）。
 - 指标汇总（用量/费用/耗时）沿用 `MetricValueResponse` 的 value+coverage 模式；任一组成值缺失 → value 为 null，coverage 反映实际可用数，**不写 0**。
 
 ### 4. 权限与可见性
