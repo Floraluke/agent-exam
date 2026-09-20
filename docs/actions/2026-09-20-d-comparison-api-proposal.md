@@ -105,9 +105,9 @@
 
 | 内容 | 状态 | 归属 |
 |---|---|---|
-| 五档分类、缺失语义、去重/上限、授权（`JobReporting.compare` + `matrix.py`） | ✅ 已实现并测试（4 用例；全量回归 449 passed / 36 skipped / 2 failed，2 个失败为缺 `framework/harbor` 的环境问题） | D 已完成 |
-| 本接口的路由、DTO、错误映射、OpenAPI | ⬜ 待实现 | **B**（Web/HTTP Module） |
-| 本文落入 `HTTP_API.md` §10.4 | ⬜ 待 B 确认后落笔 | **B** |
+| 五档分类、缺失语义、去重/上限、授权（`JobReporting.compare` + `matrix.py`） | ✅ 已实现并测试 | D |
+| 本接口的路由、DTO、错误映射、OpenAPI | ✅ 已实现（2026-09-20，B 批准本方案后） | D 实施（文件在 B 的 HTTP 层，经 B 批准） |
+| 本文落入 `HTTP_API.md` §10.4 | ⬜ 待 B 落笔 | **B** |
 | 对比页 UI（列头、单元格、覆盖率、钻取） | ⬜ 待实现 | B（任务 03 主责） |
 | 每列指标汇总（用量/费用/耗时 `{value, coverage}`） | ⬜ 可后续增量；v1 不含，页面可经既有单 Run 报告惰性取得 | 待定 |
 
@@ -123,3 +123,25 @@
 - 不改既有端点、不改 `BatchOutcome`、不改数据库 schema、不加新表；
 - 不在对比响应中返回对象键、秘密路径或原始正文（下载仍走 §9.3 公开三类制品）；
 - 不引入 Judge 分或"公平排名"（不同限制的对比差异由界面提示，见规格 story 27 与已确认范围）。
+
+## 8. 实施记录（2026-09-20，B 批准本方案后）
+
+按本提案实现的文件与验证（`apps/backend`）：
+
+```text
+src/eval_platform/delivery/http/routes/jobs/
+  report_comparisons.py            # 新增：ComparisonResponse 等 DTO 与 /reports/comparisons 路由
+src/eval_platform/delivery/http/
+  errors.py                        # 修改：为 EMPTY_COMPARISON_SELECTION / COMPARISON_LIMIT_EXCEEDED / INVALID_REQUEST 增加明确文案（其余保持原样）
+  app.py                           # 修改：注册 comparison_router（与 report_router 并列）
+tests/jobs/reporting/
+  test_comparison_http.py          # 新增：3 个契约用例（成功形状与缺失语义、会话/404 收敛、400 族）
+```
+
+验证结果：
+
+- `pytest tests/jobs/reporting -q`（含数据库门禁）→ **16 passed**；
+- 全量回归（含数据库门禁）→ **2 failed / 452 passed / 36 skipped**（2 个失败均为缺 `framework/harbor` 的既有环境缺口，与本次无关；此前记录的 cancel/claim 竞态测试本次稳定通过）；
+- `ruff check`（改动文件）→ All checks passed；`mypy`（新路由文件）→ Success。
+
+共享文档 `docs/interfaces/HTTP_API.md` 未由 D 改动；§10.4 落笔仍待 B 完成。
