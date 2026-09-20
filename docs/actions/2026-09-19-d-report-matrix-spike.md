@@ -74,6 +74,24 @@ apps/backend/tests/jobs/reporting/
 
 验证（2026-09-19，`apps/backend`）：`pytest tests/jobs/reporting -q` → **6 passed**；`ruff check` → All checks passed；`mypy`（两文件）→ Success；全量回归 → **2 failed / 392 passed / 82 skipped**（失败仍为缺 `framework/harbor` 的既有环境缺口）。
 
+## 追加增量：render-matrix 本机命令（2026-09-20）
+
+把"生成对比报告"落成真实可用的本机命令，供 08 验收时直接从数据库渲染：
+
+```text
+apps/backend/src/eval_platform/delivery/jobs.py
+  # 修改：新增 render-matrix 子命令（本模块 D 主责文件）
+  # 用法：AGENTEXAM_DATABASE_URL=<dsn> agentexam-jobs render-matrix <job_id> [job_id...]
+  # 行为：按批次报告构建矩阵并打印 Markdown 对比表；无配置/读不到报告时失败关闭（退出码 2）
+apps/backend/tests/jobs/reporting/test_matrix_cli.py
+  # 新增：2 个用例
+  # 1) 真实 PostgreSQL 端到端：两批 Job（2 题 vs 1 题）跑完状态机后执行命令，
+  #    断言输出含表格头、"2/2"、"1/2" 覆盖度与"缺失"档；
+  # 2) 未配置数据库时退出码 2 且 stderr 提示"未确认成功"（fail-closed）。
+```
+
+验证（2026-09-20，`apps/backend`，数据库门禁开启）：`pytest tests/jobs/reporting -q` → **9 passed**；全量回归 → **2 failed / 445 passed / 36 skipped**（失败仍为缺 `framework/harbor` 的既有环境缺口）；`ruff check` → All checks passed；`mypy src/eval_platform/delivery/jobs.py` → Success。
+
 ## 自验证结果
 
 完成时间：2026-09-19（本批次）。逐项实测（命令均在 `apps/backend` 下执行）：
