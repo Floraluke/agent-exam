@@ -232,6 +232,31 @@ docs/actions/2026-09-19-d-module-preparation.md   # 本行动文档（新增）�
 
 结论：D 已具备本地"改动 → 立即验证"能力；唯一缺口是需要上游 Harbor 源码的两个契约测试（如后续需要，按 `DEPENDENCIES.md` 第 7 节恢复 `framework/harbor`，属只读参考，不影响他人分支）。
 
+### 本机数据库与集成测试（2026-09-20 追加，参照 `lly/dev` 的已验证做法）
+
+在成员 E（`lly/dev`，2026-09-19 提交）已公开的本机环境方案基础上，本机补齐了**不依赖 Docker、不依赖 Tailscale、不需要数据库密码**的数据库能力：
+
+- 安装便携版 PostgreSQL **15.14** 到 `D:\pgsql`（解包自官方 `postgresql-15.14-1-windows-x64-binaries.zip`，320,461,864 字节，MD5 `48218bceef0b293898f76566b8500a8d`，与下载源元数据一致）；
+- 数据目录 `D:\pgsql\data`，仅监听 `127.0.0.1:55432`，回环信任认证；
+- 建立两库：`agentexam_identity_test`（测试控制库，`CREATEDB`）与 `agentexam_dev`（日常开发库）；
+- 用项目自带入口装 schema：`AGENTEXAM_DATABASE_URL=<dev dsn> owner init-db` → `agentexam_dev` 实测 **11 张表**；
+- 开启数据库门禁后跑全量：**2 failed / 438 passed / 36 skipped（101.15 秒）**；相比默认基线（2 / 392 / 82）**多出 46 个真实 PostgreSQL 用例并全部通过**（Job 存储与状态事务、Run 报告、排行榜、目录冻结校验、成员事务等），失败集合不变（仍是缺 `framework/harbor` 的 ISSUE-04）；
+- 运行方式（进程级环境变量，不写入系统或仓库）：
+
+  ```text
+  AGENTEXAM_TEST_DATABASE_URL=postgresql://agentexam_identity_test@127.0.0.1:55432/agentexam_identity_test
+  AGENTEXAM_RUN_IDENTITY_POSTGRES=1
+  → cd apps/backend && <上述变量> ./.venv/Scripts/python.exe -m pytest -q
+  ```
+
+- 已知限制：便携版不是 Windows 服务，**重启电脑后需手动启动**：
+
+  ```text
+  D:\pgsql\bin\pg_ctl.exe -D "D:/pgsql/data" -l "D:/pgsql/data/pg_ctl-start.log" -o "-p 55432 -c listen_addresses=127.0.0.1" start
+  ```
+
+- 下载的安装包保留在 `D:\pgsql-binaries.zip`（320 MB），确认无需保留后可删除。
+
 ## 08 执行预案（草稿；待任务发布后确认）
 
 依据：`plan.md` 第 10 节（08 冻结矩阵与全量回归）与任务映射表（D 主责：12 Run 矩阵、状态/报告、验证清单与总结）。以下为**待确认草稿**，不是已批准的实施计划。
