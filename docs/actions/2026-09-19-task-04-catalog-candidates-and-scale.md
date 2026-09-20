@@ -5,7 +5,7 @@
 - 状态：In progress（准备阶段，未获实施授权）。本行动由 C（目录与配置 DRI、任务 04 任务 DRI）建立，先记录范围、前置门禁、计划文件树与验证方式。**本轮未修改任何产品代码、未下载镜像或数据、未调用模型、未读取真实凭据。**
 - 对应任务：[执行计划](../../.scratch/ui-catalog-providers/plan.md)第 6 节任务 04；分工见[团队分工](../architecture/modules/TEAM_WORK_ALLOCATION.md)第 4.2 与第 5 节。任务 04 当前为“已规划、未发布 issue”，按计划第 1 节第 5 条与第 5.2 节，任务单发布且用户安排前不进入实施。
 - 本行动是独立实施任务的行动文档；`ui-catalog-providers` 的规划正文仍由[规划行动](2026-09-17-ui-catalog-provider-planning.md)维护，本文件不复制规则正文，只记录 04 的实施、偏差与验证证据。
-- 本机基线：仓库 `github.com/Floraluke/agent-exam`，`main` 工作区干净，HEAD `6dfa2be`（2026-09-18 `chore: unify local environment configuration`）；本地克隆 `C:\Users\陆泳倩\Desktop\agent-exam`。未 pull/reset 覆盖现场，未推送。
+- 实施基线（2026-09-20 更新）：团队上游仓库 `anphuchoang5-sys/agent-exam`，个人分支 `lyq` 基于上游 `main` 的 `a49b000`；本机克隆 `C:\Users\陆泳倩\Desktop\agent-exam`。`github.com/Floraluke/agent-exam` 是个人 fork，仅作快照，不作为交付目标。
 
 ### 当前事实（2026-09-19 实际核对）
 
@@ -13,7 +13,8 @@
 - 受控配置目录只有一个配置：`codex-0153-terra-medium`（Codex 0.153.0 / gpt-5.6-terra / medium）。
 - 规模策略：`delivery/job_presets.py` 当前给 `demo(1,3)`、`quick(5,5)`、`standard(10,20)` 三个 `BatchPreset`；`domain/jobs/policy.py` 的 `SubmissionPolicy` 已有 `maximum_agent_configurations=3` 与 `maximum_runs=60`。缺的是“连续 1–20 题”这一档，不是 60 次上限本身。
 - 本机不具备 04 的运行条件：无 `framework/`、`runtime/`、`infra/data/`、`infra/volumes/`；未发现固定 Parquet 数据快照；Docker Desktop 未运行（`dockerDesktopLinuxEngine` 管道不存在）。因此资格验证类步骤在本机无法执行，也未尝试执行。
-- 仓库内的 `.scratch/ui-catalog-providers/` 仍是 2026-09-17 草案版本，不含 `issues/01`、`issues/02`；组长 2026-09-19 提供的同目录更新版（plan/spec/implementation-map 更新，verification 仅换行符差异，新增两份 issue）尚未推送。仓库看到的“前项状态”落后于最新事实，本行动的引用以实施时的权威版本为准。
+- 上游 `main` 的 `.scratch/ui-catalog-providers/` 仍是 2026-09-17 草案版本（表头写作「计划草案，未开工」，任务 01、02 未标完成），且**没有** `issues/` 目录；组长 2026-09-19 提供的同目录更新版（plan/spec/implementation-map 更新，verification 仅换行符差异，新增 `issues/01`、`issues/02`）经逐分支核对**不在上游任何分支上**。仓库看到的“前项状态”落后于最新事实，本行动的引用以实施时的权威版本为准；差异记录见 [ISSUE-02](../LYQ/04-issues/KNOWN_ISSUES.md)。
+- 上游 `main` 在 2026-09-20 有 12 个新提交（作者 `noachlola`），内容涉及任务 03 报告语义设计、对比报告服务与端点、以及给任务 08 用的 D 侧 runbook。即有人正按单项授权推进 03 方向的工作，计划文档尚未同步。任务 04 本身的机制现状未变。
 
 ### 上游门禁（未满足前不进入实施）
 
