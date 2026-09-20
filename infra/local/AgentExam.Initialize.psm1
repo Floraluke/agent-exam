@@ -84,7 +84,7 @@ function Initialize-AgentExamDatabase {
     $saved = [Environment]::GetEnvironmentVariable('AGENTEXAM_DATABASE_URL', 'Process')
     $pushed = $false
     try {
-        $dsn = "postgresql://agentexam_admin:$password@127.0.0.1:55432/agentexam"
+        $dsn = "postgresql://agentexam_admin:$password@127.0.0.1:$($Config.PostgresPort)/agentexam"
         [Environment]::SetEnvironmentVariable('AGENTEXAM_DATABASE_URL', $dsn, 'Process')
         Push-Location (Join-Path $Config.RepositoryRoot 'apps\backend')
         $pushed = $true

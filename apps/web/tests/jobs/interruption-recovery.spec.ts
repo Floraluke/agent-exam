@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { loginOwner, openWizard, registerCatalog, reviewSelection } from "../support/workbench";
 
 const backend = "http://127.0.0.1:8875/__test__";
 const controlHeaders = {
@@ -12,26 +13,26 @@ test.afterEach(async ({ request }) => {
 test("owner closes an expired job and creates a separately approved retry", async ({
   page,
 }) => {
-  await page.goto("/");
-  await page.getByLabel("账号", { exact: true }).fill("owner");
-  await page.getByLabel("密码", { exact: true }).fill("synthetic browser password");
-  await page.getByRole("button", { name: "登录", exact: true }).click();
-  await page.getByRole("button", { name: "登记已核验题目" }).click();
-  await page.getByRole("button", { name: "登记固定 Codex 配置" }).click();
-  const jobs = page.getByRole("region", { name: "提交评测" });
-  await jobs.getByRole("button", { name: "刷新可提交选项" }).click();
-  await jobs.getByLabel("任务 example__repo-1").check();
-  await jobs.getByLabel("配置 Synthetic Codex").check();
-  await jobs.getByRole("button", { name: "提交等待批准" }).click();
+  await loginOwner(page);
+  await registerCatalog(page);
+  const jobs = await openWizard(page);
+  await reviewSelection(jobs, ["example__repo-1"]);
+  await jobs.getByRole("button", { name: "提交并等待批准" }).click();
   expect((await page.request.post(`${backend}/worker/pause`, {
     headers: controlHeaders,
   })).ok()).toBeTruthy();
+  const approved = page.waitForResponse((candidate) =>
+    candidate.request().method() === "POST" &&
+    new URL(candidate.url()).pathname.endsWith("/approve"),
+  );
   await jobs.getByRole("button", { name: "批准并排队" }).click();
+  expect((await approved).ok()).toBeTruthy();
   const interrupted = await page.request.post(`${backend}/jobs/interrupt-next`, {
     headers: controlHeaders,
   });
   expect(interrupted.ok()).toBeTruthy();
   const source = (await interrupted.json()).job_id as string;
+  expect(source).toBeTruthy();
 
   await jobs.getByRole("button", { name: "刷新当前批次" }).click();
   const recovery = jobs.getByRole("region", { name: "中断恢复" });

@@ -42,7 +42,7 @@ def _compose(*arguments: str) -> subprocess.CompletedProcess[str]:
             "docker",
             "compose",
             "--env-file",
-            INFRA_ROOT / ".env.example",
+            INFRA_ROOT / ".env",
             "-f",
             INFRA_ROOT / "compose.yaml",
             *arguments,

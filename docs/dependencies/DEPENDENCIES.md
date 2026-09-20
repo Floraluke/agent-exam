@@ -88,7 +88,7 @@ Next.js 官方 [2026-08 安全更新](https://nextjs.org/blog/august-2026-securi
 
 恢复依赖（项目环境，非机器升级）：后端运行既有 `uv sync --locked --no-python-downloads`；前端运行 `npm ci --ignore-scripts`。缓存可放在项目 runtime；不要将模型登录或现有服务连接配置拷入测试。
 
-生产后端要求私有进程配置 `AGENTEXAM_DATABASE_URL` 和 `AGENTEXAM_PUBLIC_ORIGIN`；命令不包含连接字符串或密码。以下为入口说明，不授权现在连接现有服务：
+生产后端要求私有进程配置 `AGENTEXAM_DATABASE_URL` 和 `AGENTEXAM_PUBLIC_ORIGIN`；全部 owner-facing 字段、格式和敏感性由公开模板 [`infra/.env.example`](../../infra/.env.example) 统一说明。命令不包含连接字符串或密码。以下为入口说明，不授权现在连接现有服务：
 
 ```powershell
 # apps/backend；仅对明确的空白专属应用数据库执行一次，不在 HTTP 启动时迁移

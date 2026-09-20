@@ -1,10 +1,9 @@
 import { expect, test } from "@playwright/test";
+import { loginOwner, navigation } from "./support/workbench";
 
 test("owner invites a collaborator and disabling the member revokes browser access", async ({ page, browser }) => {
-  await page.goto("/");
-  await page.getByLabel("账号", { exact: true }).fill("owner");
-  await page.getByLabel("密码", { exact: true }).fill("synthetic browser password");
-  await page.getByRole("button", { name: "登录", exact: true }).click();
+  await loginOwner(page);
+  await navigation(page).getByRole("button", { name: "成员管理" }).click();
   const members = page.getByRole("region", { name: "成员管理" });
   await expect(members).toBeVisible();
   await members.getByRole("button", { name: "创建邀请码" }).click();

@@ -4,11 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { ApiError, currentActor, login, logout } from "../../lib/api-client";
 import type { Actor } from "../../lib/contracts";
 import JoinPanel from "./join";
-import MembersPanel from "./members";
-import TasksPanel from "../catalog/tasks";
-import AgentsPanel from "../catalog/agents";
-import JobsPanel from "../jobs/submit";
-import LeaderboardView from "../leaderboard/view";
+import WorkbenchShell from "../workbench/shell";
 
 export default function SessionPanel() {
   const [actor, setActor] = useState<Actor | null>(null);
@@ -44,27 +40,28 @@ export default function SessionPanel() {
   async function signOut() {
     setBusy(true);
     setError("");
-    try { await logout(); setActor(null); }
+    try {
+      await logout();
+      window.history.replaceState(null, "", window.location.pathname);
+      setActor(null);
+    }
     catch (value) { explain(value); }
     finally { setBusy(false); }
   }
 
   if (loading) return <p role="status">正在检查登录状态…</p>;
 
-  return <section className="session-card" aria-label="平台账号">
+  if (actor) return <WorkbenchShell actor={actor} busy={busy} signOut={signOut} />;
+
+  return <div className="login-shell">
+    <header>
+      <span className="eyebrow">受邀团队 · 本机评测</span>
+      <h1>AgentExam</h1>
+      <p className="muted">从可信身份开始，让每次评测有明确的执行归属。</p>
+    </header>
+    <section className="session-card" aria-label="平台账号">
     {error && <p role="alert" className="error">{error}</p>}
-    {actor ? <>
-      <span className="eyebrow">应用身份已验证</span>
-      <h2>已登录：{actor.username}</h2>
-      <p>角色：{actor.role === "owner" ? "评测机所有者" : "协作者"}</p>
-      <p className="muted">账号入口已接通；提交会先等待评测机所有者批准。</p>
-      <button disabled={busy} onClick={signOut}>退出登录</button>
-      {actor.role === "owner" && <MembersPanel />}
-      <TasksPanel owner={actor.role === "owner"} />
-      <AgentsPanel owner={actor.role === "owner"} />
-      <JobsPanel owner={actor.role === "owner"} />
-      <LeaderboardView />
-    </> : <>
+    <>
       {joined && <p role="status">加入成功，请使用新账号登录。</p>}
       {joining ? <>
         <JoinPanel onJoined={() => { setJoining(false); setJoined(true); }} />
@@ -86,6 +83,7 @@ export default function SessionPanel() {
       <p className="muted small">不开放公共注册。所有者账号建立与恢复仅通过评测机本地维护命令完成。</p>
       <button onClick={() => { setJoining(true); setJoined(false); }}>使用邀请码加入</button>
       </>}
-    </>}
-  </section>;
+    </>
+    </section>
+  </div>;
 }

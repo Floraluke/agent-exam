@@ -5,7 +5,20 @@ $ErrorActionPreference = 'Stop'
 
 function Get-AgentExamConfig {
     $root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
-    $data = 'D:\AgentExamData'
+    $environmentFile = Join-Path $root 'infra\.env'
+    if (-not (Test-Path -LiteralPath $environmentFile -PathType Leaf)) {
+        throw 'Local environment is missing; copy infra/.env.example to infra/.env.'
+    }
+    $environment = ConvertFrom-StringData (Get-Content -Raw -LiteralPath $environmentFile)
+    foreach ($name in @(
+            'AGENTEXAM_DATA_ROOT', 'AGENTEXAM_POSTGRES_IMAGE',
+            'AGENTEXAM_MINIO_IMAGE', 'AGENTEXAM_POSTGRES_PORT',
+            'AGENTEXAM_MINIO_PORT', 'AGENTEXAM_MINIO_BUCKET',
+            'AGENTEXAM_MINIO_ACCESS_KEY'
+        )) {
+        if (-not $environment[$name]) { throw "Missing local environment: $name" }
+    }
+    $data = [IO.Path]::GetFullPath($environment['AGENTEXAM_DATA_ROOT'])
     $private = Join-Path $data 'private'
     [pscustomobject]@{
         RepositoryRoot = $root
@@ -21,16 +34,18 @@ function Get-AgentExamConfig {
         LicenseFile = Join-Path $private 'minio.license'
         WorkerStopFile = Join-Path $data 'control\worker.stop'
         ComposeFile = Join-Path $root 'infra\compose.yaml'
-        EnvironmentFile = Join-Path $root 'infra\.env.example'
+        EnvironmentFile = $environmentFile
         PolicyFile = Join-Path $root 'infra\local\minio-app-policy.json'
         Project = 'agentexam-local'
-        PostgresImage = 'docker.io/library/postgres@sha256:a2c20749c564b4eb73a77bfda626f8a3cde1bbfae020fb97c616a00cdc1a2181'
-        MinioImage = 'quay.io/minio/aistor/minio@sha256:dfa8e241413464755a9cd90574b15030d6a5703c74ec73928abb6d9c5f4f42ce'
+        PostgresImage = $environment['AGENTEXAM_POSTGRES_IMAGE']
+        MinioImage = $environment['AGENTEXAM_MINIO_IMAGE']
+        PostgresPort = [int]$environment['AGENTEXAM_POSTGRES_PORT']
+        MinioPort = [int]$environment['AGENTEXAM_MINIO_PORT']
         PostgresId = 'sha256:aad6289ca337b3ce76896f2e7e61480490152886c7828120371fb28e6b779e1d'
         MinioId = 'sha256:2cacca14bad4502feddcbf99cd1a927d8002c6d1ba874a81def1c37b2986b580'
-        Bucket = 'agentexam-private'
+        Bucket = $environment['AGENTEXAM_MINIO_BUCKET']
         MinioRootUser = 'agentexam_admin'
-        MinioAppUser = 'agentexam-app'
+        MinioAppUser = $environment['AGENTEXAM_MINIO_ACCESS_KEY']
     }
 }
 

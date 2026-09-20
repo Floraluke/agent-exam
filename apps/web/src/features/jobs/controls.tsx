@@ -3,6 +3,7 @@ import type {
 } from "../../lib/contracts";
 
 type Props = {
+  step: number;
   tasks: CatalogTask[]; agents: CatalogAgent[]; batches: BatchPreset[];
   limits: LimitProfile[]; selectedTasks: string[]; selectedAgents: string[];
   batch: string; limit: string; busy: boolean;
@@ -14,7 +15,7 @@ type Props = {
 export default function JobControls(props: Props) {
   const count = props.selectedTasks.length * props.selectedAgents.length;
   return <>
-    <fieldset disabled={props.busy}>
+    {props.step === 1 && <><h3>选择评测任务</h3><fieldset disabled={props.busy}>
       <legend>已登记任务</legend>
       {props.tasks.length === 0 && <p>暂无可提交任务</p>}
       {props.tasks.map((task) => <label key={task.task_id}>
@@ -24,8 +25,8 @@ export default function JobControls(props: Props) {
             task.task_id, event.target.checked)} />
         {task.instance_id}
       </label>)}
-    </fieldset>
-    <fieldset disabled={props.busy}>
+    </fieldset></>}
+    {props.step === 2 && <><h3>选择 Agent 配置</h3><fieldset disabled={props.busy}>
       <legend>启用的 Codex 配置</legend>
       {props.agents.length === 0 && <p>暂无可提交配置</p>}
       {props.agents.map((agent) => <label key={agent.agent_configuration_id}>
@@ -51,6 +52,12 @@ export default function JobControls(props: Props) {
       {props.limits.map((item) => <option key={item.limit_profile_id}
         value={item.limit_profile_id}>{item.limit_profile_id}</option>)}
     </select></label>
-    <p>组合数量：{count}</p>
+    <p>组合数量：{count}</p></>}
+    {props.step === 3 && <div><h3>核对并提交</h3>
+      <p>{props.selectedTasks.length} 道题 × {props.selectedAgents.length} 个配置
+        = {count} 个 Run</p>
+      <p>批次规模：{props.batch}；资源限制：{props.limit}；赛道：闭卷。</p>
+      <p>提交后只会等待所有者批准，不会立即运行 Agent。</p>
+    </div>}
   </>;
 }

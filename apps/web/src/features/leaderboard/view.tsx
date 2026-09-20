@@ -68,7 +68,7 @@ function Result({ row }: { row: LeaderboardRow }) {
       <summary>纳入来源</summary>
       <ul>{row.sources.map((source) => <li key={source.task_id}>
         {source.instance_id} · {source.classification} ·
-        <a href={`/?job=${source.job_id}`}>查看批次</a> ·
+        <a href={`/?view=jobs&job=${source.job_id}`}>查看批次</a> ·
         <a href={`/api/v1/reports/runs/${source.run_id}`}>查看运行报告</a>
       </li>)}</ul>
     </details>
