@@ -18,6 +18,7 @@
 
 - 上游 `main` 的 [`.scratch/ui-catalog-providers/plan.md`](../../.scratch/ui-catalog-providers/plan.md) 仍是 **09-17 草案版**（表头写「计划草案，未开工」，01、02 未标完成），且没有 `issues/` 目录。而我 09-19 从组长处收到的同目录更新版（plan/spec/implementation-map 更新，任务 01、02 标注完成，含 `issues/01`、`issues/02`）**不在上游任何分支上**。详见[问题记录 ISSUE-02](../04-issues/KNOWN_ISSUES.md)。
 - 上游 `main` 09-20 有 12 个新提交（作者 `noachlola`），内容包括任务 03 报告语义设计、对比报告的服务与端点、以及给 08 用的 D 侧 runbook。即：**有人在按单项授权推进 03 方向的工作**，但计划文档尚未同步这个进展。
+- **任务 04 的「规模」半已由 D 完成并合入上游**：`delivery/job_presets.py` 第 25–29 行现有四个预设，新增的是 `BatchPreset("continuous", 1, 20)`（既有 `demo`/`quick`/`standard` 区间未改）；配套新增 `apps/backend/tests/jobs/scale/test_continuous_preset.py` 与 `tests/jobs/reporting/test_matrix_rehearsal.py`；行动记录为 `docs/actions/2026-09-20-d-continuous-scale-and-rehearsal.md`，其中明确把受控选项的契约补记留给 B。对我而言：09-19 记的「缺连续 1–20 档位」已被上游现状取代（当时读的是 fork 的旧快照），我的剩余范围需与组长、D 确认，记为 [ISSUE-05](../04-issues/KNOWN_ISSUES.md)。我没有改动 `job_presets.py` 或 D 的测试，避免与其提交冲突。
 - 成员 E 的[阶段 0 计划](../../LLY/01-plan/PLAN.md)明确：真实执行链（Harbor、SWE-Bench-Fork、固定镜像、`framework/`、`runtime/`）只在组长机器上，不进 Git；开发机只做代码、单元与契约测试、替身验证。这条同样约束我的任务 04。
 
 ### 当前停点

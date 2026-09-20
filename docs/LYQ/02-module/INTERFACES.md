@@ -39,5 +39,5 @@ AgentRegistry.disable(actor, configuration_id) -> None
 
 ## 4. 任务 04 会碰到的接口
 
-- `GET /api/v1/job-options` 现在发布三个批次档位：`demo` 1–3 题、`quick` 恰好 5 题、`standard` 10–20 题。任务 04 要新增**连续 1–20 题**的档位，同时保留旧档位对历史 Job 的解释。这个端点归 Job 控制（D），前端展示归 B，我提供新的预设组合。
-- 边界要求：4、6、9 道题的请求必须通过；0 题、21 题、0 个配置、4 个配置、重复题目、未知或停用条目必须拒绝；总数上限是 20 题 × 3 配置 = 60 次 Run。
+- `GET /api/v1/job-options` 发布四个批次档位：`demo` 1–3 题、`quick` 恰好 5 题、`standard` 10–20 题，以及 **`continuous` 1–20 题**。`continuous` 由成员 D 于 2026-09-20 实现并合入上游 `main`，既有档位区间未改动。这个端点归 Job 控制（D），前端展示归 B；受控选项属公共选项增量，按 D 的行动记录，契约补记留给 B 在 `docs/interfaces/HTTP_API.md` 完成。
+- 边界要求：4、6、9 道题的请求必须通过；0 题、21 题、0 个配置、4 个配置、重复题目、未知或停用条目必须拒绝；总数上限是 20 题 × 3 配置 = 60 次 Run。其中 `demo`/`quick`/`standard` 与 4/6/9/0/21 的用例已由 D 覆盖，其余拒绝项的归属待确认（见 [ISSUE-05](../04-issues/KNOWN_ISSUES.md)）。

@@ -73,9 +73,9 @@ Job 控制 → 目录 Interface（目录不反向依赖 Job）
 
 代码不能反向依赖 Web、数据库 Adapter 或具体 Harbor 对象。
 
-## 7. 当前状态（2026-09-20 核对）
+## 7. 当前状态（2026-09-20 核对，基于上游 `main` 的 `a49b000`）
 
-- 目录里**只有一道题**：`swe-gym-lite-mypy-15413`；**只有一个配置**：`codex-0153-terra-medium`（Codex 0.153.0 / gpt-5.6-terra / medium）。
-- 出处是 M1 任务 03，已完成。
+- 目录里**只有一道题**：`swe-gym-lite-mypy-15413`；**只有一个配置**：`codex-0153-terra-medium`（Codex 0.153.0 / gpt-5.6-terra / medium）。出处是 M1 任务 03。
 - 五道新题（任务 04）与 DeepSeek、Kimi 配置（任务 05–07）都还只是计划，未登记。
-- 我的任务 04 要做的两件事：把五道新题验证合格后加进白名单；把「连续 1–20 道题」的规模档位加上。
+- 我的任务 04 原本含两件事。**规模那件已由成员 D 于 2026-09-20 实现并合入上游**：`delivery/job_presets.py` 新增 `BatchPreset("continuous", 1, 20)`，配套用例在 `tests/jobs/scale/test_continuous_preset.py`。**剩下的主要是题库那件**：把五道新题验证合格后加进白名单。
+- 我按分工本应负责「题目目录、preset、规模版本」；规模预置由 D 实现后，我剩余范围的边界需与组长、D 确认，已记为 [ISSUE-05](../04-issues/KNOWN_ISSUES.md)。

@@ -27,6 +27,14 @@
 - **处理**：未处理，属预期状态。参考成员 E 的[阶段 0 计划](../../LLY/01-plan/PLAN.md)：真实执行链与固定镜像只在组长机器上，开发机只做代码、单元与契约测试、替身验证。
 - **遗留风险**：任务 04 的题库资格验证（三补丁门禁）必须在组长机器上或由 E 执行；本机只能验证「连续规模预设 + 合成受控目录」这半边，且同样需要先获得开工授权。
 
+## ISSUE-05 任务 04 的「规模」半已由 D 实现，我的剩余边界待确认
+
+- **现象**：按[团队分工](../../architecture/modules/TEAM_WORK_ALLOCATION.md)第 5 节，任务 04 中「题目目录、preset、**规模版本**」归 C；但上游 `main` 上连续规模预置已由 D 侧实现并合入。
+- **证据**：`git show upstream/main:apps/backend/src/eval_platform/delivery/job_presets.py` 第 25–29 行现有四个预设，含 `BatchPreset("continuous", 1, 20)`；`apps/backend/tests/jobs/scale/test_continuous_preset.py` 与 `tests/jobs/reporting/test_matrix_rehearsal.py` 已存在；行动记录为 `docs/actions/2026-09-20-d-continuous-scale-and-rehearsal.md`，其中写明「本项对应计划 04 中 D 的交付『Job 快照 / 60 Runs / 兼容』」，并把受控选项的契约补记留给 B。
+- **处理**：未处理，属分工边界问题，需人类判断。我已把个人文档中「缺连续 1–20 档位」这一过期结论改正（那是我 09-19 读 fork 旧快照时的状态）。**我没有改动 `job_presets.py` 或 D 的测试**，避免与 D 的提交冲突。
+- **遗留风险**：若我按原计划实现规模预置，会与 D 的工作重复或冲突；任务 04 的工时基线（54 h 中 04 占 30 h）也需要重新评估。
+- **建议**：与组长和 D 确认三件事——（1）任务 04 剩余范围是否就是题库那半加 `0/4 配置`、重复 ID、未知/停用条目的拒绝用例；（2）规模版本与目录侧 preset 的归属；（3）04 的工时是否需要按剩余范围下调。
+
 ## ISSUE-04 fork 与上游仓库的关系曾被误判（已解决）
 
 - **现象**：2026-09-19 我在 `Floraluke/agent-exam` 上建分支并开 PR，当时以为它就是团队仓库。

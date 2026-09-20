@@ -43,7 +43,7 @@
 ## 4. 我要交付的两半
 
 1. **题库**：五道 mypy 新题逐个通过资格门禁后进入受控白名单，同时保留旧题身份与 M0 单题入口；候选不足或不合格时从同一固定集合选替补并重走门禁，凑不满五道就停下汇报。
-2. **规模**：新增「连续 1–20 道题、最多 3 个配置」的规模预设，保留旧 preset ID 对历史 Job 的解释；用合成受控目录验证 4/6/9 通过、0/21 题与 0/4 配置、重复与未知条目拒绝、总数上限 20×3=60。
+2. **规模（已由 D 实现，我的剩余边界待确认）**：`continuous(1–20)` 预设与相关用例已由成员 D 于 2026-09-20 实现并合入上游 `main`——`delivery/job_presets.py` 新增 `BatchPreset("continuous", 1, 20)`（既有 `demo`/`quick`/`standard` 区间未改），并新增 `tests/jobs/scale/test_continuous_preset.py` 与 `tests/jobs/reporting/test_matrix_rehearsal.py`。这部分原按分工算在「规模版本」名下，现由 D 按其 08 与 04 的 D 侧交付完成。**我的剩余部分需与组长和 D 确认**，至少涉及：受控选项的契约同步（D 明确留给 B 在 `docs/interfaces/HTTP_API.md` 补记）、`0/4 配置`、重复 ID、未知/停用条目的拒绝用例归属，以及规模版本与目录侧 preset 的关系。详见 [ISSUE-05](../04-issues/KNOWN_ISSUES.md)。
 
 实施步骤、计划文件树与测试设计已写入[任务 04 行动文档](../../actions/2026-09-19-task-04-catalog-candidates-and-scale.md)，不在本计划重复。
 
