@@ -34,7 +34,7 @@
 - 实测：目录模块 **36 passed / 7 skipped**；全量 **455 passed / 36 skipped / 2 failed**（104.16s，失败集合不变）；`ruff check`、`ruff format --check` 通过。
 - 如实记录：`/runs/{id}/trajectory` 对**未执行**的 Run 返回 **409**（内容尚未产生），用例把拒绝集合显式断言为 `⊆ {trajectory}`，**不把 409 当作通过**；Run 产出制品后的读取路径归 D 的 `test_http_limits.py` / `test_evidence_publication.py`。网页读取面归 B；`leaderboard` 未在本夹具装配，未扫描。
 - **变异检查**：把公开题面混进哨兵列表后，用例确实失败（`1 failed`），证明断言真的在扫响应体。
-- 同步更新了 04 草案：`Blocked by` 区分题库侧与目录/规模侧、规模侧范围收窄为“核对已有覆盖 + 补 `0 配置` 空白”、标明「重复 ID 现有行为是去重」需与 D 确认、并记录打通链进展。草案状态如实保留 `needs-info`（数据/镜像/Fork 仍未取得）。
+- 同步更新了 04 草案：`Blocked by` 区分题库侧与目录/规模侧、规模侧范围收窄为“核对已有覆盖”（复核后确认无需补测试）、标明「重复 ID 现有行为是去重」需与 D 确认、并记录打通链进展。草案状态如实保留 `needs-info`（数据/镜像/Fork 仍未取得）。
 
 ### 核对组长通过微信发来的材料
 
@@ -48,7 +48,7 @@
 ### 事实更正
 
 - **ISSUE-02 已解决**：上游 `main` 现在包含 `issues/01`、`issues/02`，且 `plan.md` 与我手上那份更新版逐字节相同（随 `ff46cec` 于 09-20 20:42 进入上游）。此前「请组长推送更新版」的请求作废。
-- **任务 04 的规模侧剩余范围被高估**：逐条查测试后确认「4 个配置被拒」「未知条目被拒」「停用条目被拒」都已有测试（`tests/jobs/scale/test_continuous_preset.py:43`、`tests/jobs/test_security.py:60`、`tests/jobs/test_concurrency.py:58`）；而「重复 ID」的**现有行为是去重而不是拒绝**（`tests/jobs/test_security.py:66` 断言 `trial_count == 1`），我 09-19 草案里写的「重复题目必须拒绝」与之冲突，不能照草案实现。真正空白的是「0 个配置」的用例（代码有 `EMPTY_JOB_SELECTION`，`application/job_submission.py:60`，无对应测试）。
+- **任务 04 的规模侧剩余范围被高估**：逐条查测试后确认「4 个配置被拒」「未知条目被拒」「停用条目被拒」都已有测试（`tests/jobs/scale/test_continuous_preset.py:43`、`tests/jobs/test_security.py:60`、`tests/jobs/test_concurrency.py:58`）；而「重复 ID」的**现有行为是去重而不是拒绝**（`tests/jobs/test_security.py:66` 断言 `trial_count == 1`），我 09-19 草案里写的「重复题目必须拒绝」与之冲突，不能照草案实现。**更正（2026-09-20 复核）**：我当时说「0 个配置」是空白项，是**错的**——`tests/jobs/test_security.py:41-42` 的参数化用例已同时断言 0 题与 0 个配置返回 `400 EMPTY_JOB_SELECTION`；错误来自只查了 D 的规模测试文件就下结论。
 - **本机确实没人做过的 C 侧交付**：目录 → HTTP options → 提交 → 冻结 Job / 全部 Runs / 初始事件的事务打通。现有测试只在 `tests/jobs/test_http.py` 断言过 options 的响应形状，没有走完这条链。
 - **静态检查基线**：`ruff check .` 全通过；`mypy src/eval_platform` 166 个源文件无问题（直接跑 `mypy` 会因 editable 安装缺 `py.typed` 报错，须给显式路径）；但 `ruff format --check .` **有 5 个文件不合格**——`adapters/persistence/jobs/__init__.py`、`delivery/http/routes/jobs/report_comparisons.py`、`tests/jobs/cancellation/test_cancel_races.py`、`tests/jobs/reporting/test_comparison_http.py`、`tests/jobs/reporting/test_matrix_rehearsal.py`。这 5 个都是 D 近期合入的文件，不是我引入的，我也没有格式化它们（不擅自改他人文件）。
 - **共享库仍不可达**（记为 [ISSUE-06](../04-issues/KNOWN_ISSUES.md)）：本机 tailnet 正确（`tail03c757.ts.net`）但 netmap `Peers = 0` 且 `Cached = false`（实时从控制面取回），`sss.tail03c757.ts.net` 解析不到，需 host 侧处理。

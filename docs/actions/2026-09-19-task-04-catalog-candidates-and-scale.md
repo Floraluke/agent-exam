@@ -42,7 +42,7 @@
 2. 资格验证候选顺序：`python__mypy-15184`、`python__mypy-15208`、`python__mypy-15131`、`python__mypy-15139`、`python__mypy-15876`。同项目不共用旧题镜像；`15876` 额外确认存在真实 FAIL_TO_PASS，不用仅文档修改凑数量。
 3. 每题独立容器、固定 Fork、外网关闭，依次跑参考补丁、空补丁、可应用但错误的补丁；确认测试确实执行且参考通过、负例未解决。基础设施错误不算负例成功；空补丁本来就通过的题不合格。记录镜像/数据/报告身份与精确清理结果（执行由 E 主责，C 组织交接并收口证据）。
 4. 只有通过门禁的题进入受控目录白名单；保留旧题身份与 M0 单题入口。候选不合格时从同一固定 mypy 集合选替补并重走全部门禁。
-5. 规模侧（2026-09-20 核对后收窄）：连续预设 `continuous(1–20)` 及其边界用例**已由 D 合入上游**——4/6/9 题通过、0/21 题拒绝、20×3=60 允许、第 4 个配置拒绝均已有测试；「未知条目」「停用条目」的拒绝也已覆盖（`tests/jobs/test_security.py:60`、`tests/jobs/test_concurrency.py:58`）。剩余工作改为：**核对**上述既有覆盖是否覆盖计划要求的全部拒绝项，以及补「0 个配置」这一空白用例（代码侧由 `application/job_submission.py:60` 的 `EMPTY_JOB_SELECTION` 处理，目前无对应测试）。**注意**：「重复 ID」的现有行为是**去重**而不是拒绝（`tests/jobs/test_security.py:66` 断言 `task_ids` 翻倍后 `trial_count == 1`），本行动 09-19 版写的「重复题目必须拒绝」与既有断言冲突，处理方式需先与 D 确认，不擅自改动既有断言。
+5. 规模侧（2026-09-20 核对后收窄）：连续预设 `continuous(1–20)` 及其边界用例**已由 D 合入上游**——4/6/9 题通过、0/21 题拒绝、20×3=60 允许、第 4 个配置拒绝均已有测试；「未知条目」「停用条目」的拒绝也已覆盖（`tests/jobs/test_security.py:60`、`tests/jobs/test_concurrency.py:58`）。剩余工作改为：**核对**上述既有覆盖是否覆盖计划要求的全部拒绝项。**2026-09-20 复核更正**：所谓「0 个配置」空白项并不存在——`tests/jobs/test_security.py:41-42` 已同时断言 0 题与 0 个配置返回 `400 EMPTY_JOB_SELECTION`，我先前的结论核查不充分。**注意**：「重复 ID」的现有行为是**去重**而不是拒绝（`tests/jobs/test_security.py:66` 断言 `task_ids` 翻倍后 `trial_count == 1`），本行动 09-19 版写的「重复题目必须拒绝」与既有断言冲突，处理方式需先与 D 确认，不擅自改动既有断言。
 6. 打通目录 → HTTP options → 三步向导 → 冻结 Job/全部 Runs/初始事件的事务；创建只返回“等待批准”。验证读取旧 Job、恢复新 Job、双存储一致性与指纹/摘要防漂移；同步权威文档后收尾。**进展（2026-09-20）：C 侧打通链已实现并测试**——新增 `apps/backend/tests/catalog/test_catalog_job_flow.py`，用目录列表与 HTTP 选项驱动 6 题 × 2 配置提交，断言创建只返回 `AWAITING_OWNER_APPROVAL`、全部 Runs 恰好覆盖笛卡尔积、Job 与每个 Run 都带 `JOB_SUBMITTED`、冻结身份与目录记录逐字段一致；并覆盖“配置停用后旧 Job 不被改写、新提交被拒”。剩余：三步向导的浏览器动线（与 B 交接）、恢复新 Job 与双存储一致性。
 
 7. 暴露面收敛的 HTTP 层断言（2026-09-20 第二增量，实施中）：现有断言只在契约层（`tests/contract/test_m0_pipeline.py:47` 的 `not hasattr(request.runs[0].task, "gold_patch")`）与个别响应上成立，**没有任何测试逐条扫描公开读取面**。做法：用带哨兵值的合成目录（`HIDDEN_ANSWER`、`hidden_test`、`hidden_pass`、`private-test-reference` 分别来自 `gold_patch`/`test_patch`、`fail_to_pass`、`pass_to_pass`、`credential_profile_id`）登记并提交后，逐条请求目录、配置、选项、Job、报告、对比、制品索引与轨迹端点，断言哨兵一处都不出现，并用公开题面仍在作为对照，避免"响应为空所以通过"。加在既有 `tests/catalog/test_security.py`（该文件已负责"隐藏答案与 Key 不进入公开输出"，且 `tests/catalog/` 内容文件数已达 8 的上限，不再新增第 9 个）。浏览器页面与其他读取面仍归 B/后续任务。
@@ -57,7 +57,7 @@ apps/backend/src/eval_platform/
 ├─ application/task_catalog.py      # 白名单登记与校验；多题语义按需扩展，不放松 allowlist
 ├─ domain/jobs/policy.py            # （已由 D 完成，本行动不改）BatchPreset 连续 1–20 与既有区间解释
 ├─ delivery/job_presets.py          # （已由 D 完成，本行动不改）continuous(1,20) 已于 2026-09-20 合入上游
-├─ application/job_submission.py    # 仅在被确认归属后，补「0 个配置」等边界用例；不放松既有校验
+├─ application/job_submission.py    # （2026-09-20 复核：空选择的拒绝已有覆盖，无需改动）
 └─ delivery/http/routes/jobs/routes.py  # job-options 暴露新预设（与 B 交接前端展示）
 apps/backend/tests/
 ├─ catalog/test_http.py             # 目录 HTTP：六题可选、未知/停用拒绝

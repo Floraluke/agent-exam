@@ -45,10 +45,10 @@
   - 「4 个配置被拒」「未知条目被拒」「停用条目被拒」**已有测试**：`tests/jobs/scale/test_continuous_preset.py:43`、`tests/jobs/test_security.py:60`（`AGENT_CONFIGURATION_NOT_FOUND`）、`tests/jobs/test_concurrency.py:58`（`JobConfigurationDisabled`）。
   - 「重复 ID」的**现有行为是去重而不是拒绝**：`tests/jobs/test_security.py:66` 断言 `task_ids *= 2` 后 `trial_count == 1`。我 09-19 起草的 04 草案里写「重复题目必须拒绝」，与该既有断言冲突，**不得**按草案直接实现。
   - **权威依据（2026-09-20 补读组长材料后）**：不是我的推测——[分层验收规范](../../../.scratch/ui-catalog-providers/verification.md)第 2 节需求覆盖表的 Q7 原文是「1/4/6/9/20题和1/3配置合法；0/21题、0/4配置、**重复**/停用/未知项拒绝；最多60 Runs」，归属 04。即**验收标准要求拒绝重复，现有实现是去重**，两者直接冲突。风险升级：按 Q7 验收时，规模侧现在就不满足；若改实现则要动 D 的既有断言。这一条已同步进 [04 任务单草案](../../../.scratch/ui-catalog-providers/issues/04-five-new-tasks-and-continuous-scale.md)。
-  - 「0 个配置」由 `application/job_submission.py:60` 的 `EMPTY_JOB_SELECTION` 处理，但未找到对应测试，是真正的空白项。
+  - **「0 个配置」原本被我记为空白项，2026-09-20 复核更正：该用例已存在**——`tests/jobs/test_security.py:41-42` 的参数化用例（`test_rejects_untrusted_fields_and_all_controlled_selection_errors`）同时断言「0 题」与「0 个配置」都返回 `400 EMPTY_JOB_SELECTION`。我先前只查了 D 的规模测试文件就下结论，属核查不充分，此处更正。
 - **处理**：未处理，属分工边界问题，需人类判断。我没有改动 `job_presets.py` 或 D 的测试。
 - **遗留风险**：若我按原计划实现规模预置或按草案实现「重复即拒绝」，会与 D 的工作重复或撞上既有断言。
-- **建议**：与组长和 D 确认三件事——（1）规模侧的拒绝边界是否按「已有覆盖 + 只补 `0 配置` 空白」收口；（2）重复 ID 到底应去重还是拒绝（现有行为是去重）；（3）04 的工时基线（54 h 中 04 占 30 h）是否按剩余范围下调。
+- **建议**：与组长和 D 确认三件事——（1）规模侧的拒绝边界是否按「既有覆盖已足够、本地无需再补测试」收口；（2）重复 ID 到底应去重还是拒绝（现有行为是去重）；（3）04 的工时基线（54 h 中 04 占 30 h）是否按剩余范围下调。
 
 ## ISSUE-06 共享 PostgreSQL 连不上：本机 Tailscale 看不到其他设备 —— 待 host 侧处理
 
