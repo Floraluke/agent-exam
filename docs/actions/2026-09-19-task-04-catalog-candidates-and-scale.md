@@ -5,7 +5,7 @@
 - 状态：In progress（准备阶段，未获实施授权）。本行动由 C（目录与配置 DRI、任务 04 任务 DRI）建立，先记录范围、前置门禁、计划文件树与验证方式。**本轮未修改任何产品代码、未下载镜像或数据、未调用模型、未读取真实凭据。**
 - 对应任务：[执行计划](../../.scratch/ui-catalog-providers/plan.md)第 6 节任务 04；分工见[团队分工](../architecture/modules/TEAM_WORK_ALLOCATION.md)第 4.2 与第 5 节。任务 04 当前为“已规划、未发布 issue”，按计划第 1 节第 5 条与第 5.2 节，任务单发布且用户安排前不进入实施。
 - 本行动是独立实施任务的行动文档；`ui-catalog-providers` 的规划正文仍由[规划行动](2026-09-17-ui-catalog-provider-planning.md)维护，本文件不复制规则正文，只记录 04 的实施、偏差与验证证据。
-- 实施基线（2026-09-20 更新）：团队上游仓库 `anphuchoang5-sys/agent-exam`，个人分支 `lyq` 基于上游 `main` 的 `a49b000`；本机克隆 `C:\Users\陆泳倩\Desktop\agent-exam`。`github.com/Floraluke/agent-exam` 是个人 fork，仅作快照，不作为交付目标。
+- 实施基线（2026-09-20 更新）：团队上游仓库 `anphuchoang5-sys/agent-exam`，只作只读同步、不直接推送；交付分支为个人 fork `Floraluke/agent-exam` 的 `lyq`，基于上游 `main` 的 `a49b000`；PR 从 fork 提到上游 `main`。本机克隆 `C:\Users\陆泳倩\Desktop\agent-exam`。
 
 ### 当前事实（2026-09-19 实际核对）
 

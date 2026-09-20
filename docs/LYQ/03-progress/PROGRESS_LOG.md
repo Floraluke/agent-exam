@@ -11,6 +11,7 @@
 - 上游现有分支：`main`、`fengyy-fixweb`（冯颖怡）、`lly/dev`（成员 E）、`xinyue-modules`。上游当前 **0 个 PR**。
 - 把我个人的两个提交 rebase 到 `upstream/main`（`a49b000`）。rebase 干净，无冲突。
 - 建立个人分支 `lyq`（基于 `upstream/main`）与个人文档目录 `docs/LYQ/`，结构参照成员 E 的 `docs/LLY/` 约定（README + 01-plan + 03-progress + 04-issues，另按分工文档要求加 02-module 放模块架构/契约/接口的个人视图）。
+- **确认协作方式为 fork 工作流**（用户 2026-09-20 明确）：在自己 fork 上开发、从 fork 向上游提 PR，**不直接操作上游仓库**。据此把我最初直接推到上游的 `lyq` 分支收回：关闭上游侧 PR 并删除上游侧分支，代码改为推送到 `origin`（fork），PR 改为 `Floraluke:lyq → anphuchoang5-sys:main`。本地 `lyq` 的跟踪目标同时从 `upstream/lyq` 改回 `origin/lyq`。
 - 个人视图三份文档的实际来源：`TaskCatalog`/`AgentRegistry` 的调用形状与 7 个 HTTP 端点逐条从 `apps/backend/src/eval_platform/` 代码核对；契约内容取自[模块契约](../../architecture/MODULE_CONTRACTS.md)第 6.2、6.3 节。
 
 ### 观察到的事实

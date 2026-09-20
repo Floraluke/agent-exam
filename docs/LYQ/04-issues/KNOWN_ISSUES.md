@@ -31,5 +31,5 @@
 
 - **现象**：2026-09-19 我在 `Floraluke/agent-exam` 上建分支并开 PR，当时以为它就是团队仓库。
 - **证据**：该仓库的 API 返回 `parent = anphuchoang5-sys/agent-exam`，即它是 fork；fork 的 `main` 曾是纯快照，落后上游 21 个提交。
-- **处理**：2026-09-20 接入 `upstream` remote，把工作 rebase 到 `upstream/main`，个人分支与文档目录改到上游；fork 上的自闭环 PR 与分支关闭删除。
+- **处理**：2026-09-20 接入 `upstream` remote，把工作 rebase 到 `upstream/main`。协作方式经确认为 **fork 工作流**：代码推个人 fork、从 fork 向上游提 PR、不直接操作上游仓库。据此收回了最初直接推到上游的 `lyq` 分支（关闭上游侧 PR、删除上游侧分支），改由 `origin`（fork）承载分支与 PR。
 - **遗留风险**：无。教训是动手前先确认 `git remote -v` 与仓库的 parent 关系。

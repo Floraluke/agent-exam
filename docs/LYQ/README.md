@@ -44,7 +44,7 @@
 
 ## 日常 git 操作
 
-仓库有两个远端：`upstream` 是团队仓库（`anphuchoang5-sys/agent-exam`），`origin` 是我自己的 fork（只作快照，不作为交付目标）。我个人的工作分支是 `lyq`。
+仓库有两个远端。**`origin` 是我自己的 fork（`Floraluke/agent-exam`），我的代码推到这里**；`upstream` 是团队仓库（`anphuchoang5-sys/agent-exam`），只用来同步别人的最新提交，**不直接往上推**。协作方式是：在 fork 上开发 → 从 fork 向上游提 PR。我个人的工作分支是 `lyq`。
 
 ```bash
 git branch                 # 看当前在哪个分支，应该是 lyq
@@ -59,6 +59,7 @@ git push                   # 推到团队仓库的 lyq 分支，PR 会自动更�
 注意事项：
 
 - 本仓库已配置 `http.proxy` 走本机代理（原因见 [ISSUE-01](04-issues/KNOWN_ISSUES.md)），所以上面这些命令能正常联网；若代理端口变了需要改配置。
-- 不要在没有明确授权时 `git push` 到 `main`；合并由组长在 PR 页面操作。
+- `git push` 只会推到我的 fork，不影响团队仓库；从 fork 到上游的 PR 已经开好，push 之后 PR 会自动更新。
+- 不要在没有明确授权时推送 `main`；合并由组长在 PR 页面操作。
 - 写文档前先确认事实来源：能查代码的查代码，需要人类判断的（业务规则、范围）先问组长。
 
