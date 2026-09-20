@@ -1,4 +1,4 @@
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 
 from eval_platform.application.ports.artifacts import ArtifactReader
 from eval_platform.application.ports.repositories import JobRepository
@@ -11,15 +11,19 @@ from eval_platform.application.reporting.evidence import (
     content,
     trajectory_page,
 )
+from eval_platform.application.reporting.matrix import ReportMatrix, build_matrix
 from eval_platform.domain.catalog import ArtifactUnavailable
 from eval_platform.domain.identity import AuthenticatedActor
 from eval_platform.domain.jobs.execution import JobReport, RunReport
 from eval_platform.domain.jobs.models import (
     EvidenceNotFound,
     EvidenceNotReady,
+    JobInputError,
     JobNotFound,
     ResultScope,
 )
+
+MAX_COMPARISON_JOBS = 20
 
 
 def _official(scope: ResultScope) -> bool:
@@ -51,6 +55,21 @@ class JobReporting:
         for run in report.run_reports:
             self._verify(run)
         return report
+
+    def compare(
+        self, actor: AuthenticatedActor, job_ids: Sequence[str]
+    ) -> ReportMatrix:
+        """Aggregate several job reports into one task × configuration matrix.
+
+        Authorization and evidence verification reuse `job`; any hidden or
+        unreadable job fails the whole comparison without revealing which one.
+        """
+        unique = tuple(dict.fromkeys(job_ids))
+        if not unique:
+            raise JobInputError("EMPTY_COMPARISON_SELECTION")
+        if len(unique) > MAX_COMPARISON_JOBS:
+            raise JobInputError("COMPARISON_LIMIT_EXCEEDED")
+        return build_matrix([self.job(actor, job_id) for job_id in unique])
 
     def artifacts(
         self,
