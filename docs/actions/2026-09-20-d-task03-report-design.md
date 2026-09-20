@@ -101,4 +101,11 @@
 
 ## 自验证结果
 
-Pending
+完成时间：2026-09-20。逐项实测：
+
+1. `report_routes.py:23` `run_report`、`:28` `job_report` —— 与"现状盘点"一致，确认无跨批次端点。
+2. `batch_schemas.py:15` `BatchOutcome = Literal["resolved", "unresolved", "infrastructure_error", "incomplete"]` —— 确认四档、无"缺失"。
+3. `leaderboard/schemas.py:40-42` `MetricValueResponse`（`value: int | float | None` + `coverage: int`）—— 与"指标聚合复用模式"一致。
+4. 矩阵五档语义由本分支既有测试覆盖（`tests/jobs/reporting/test_matrix.py` 3 个用例、`test_matrix_rehearsal.py` 1 个真实数据库演练；历史结果见 `2026-09-19-d-report-matrix-spike.md` 与 `2026-09-20-d-continuous-scale-and-rehearsal.md`）。
+
+结论：本稿仅设计、未实现；全部现状引用可核对，候选方案待任务 03 发布后按"契约先于联调"确认。
