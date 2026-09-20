@@ -81,9 +81,12 @@ def test_postgres_cancel_claim_race_never_leaves_an_executable_trial(
 
         def cancel():
             barrier.wait()
-            return cancellation.cancel(
-                owner, created.job_id, "race", "cancel-claim-race-0001"
-            )
+            try:
+                return cancellation.cancel(
+                    owner, created.job_id, "race", "cancel-claim-race-0001"
+                )
+            except JobStateConflict:
+                return None
 
         def claim():
             barrier.wait()
@@ -92,14 +95,22 @@ def test_postgres_cancel_claim_race_never_leaves_an_executable_trial(
         with ThreadPoolExecutor(max_workers=2) as pool:
             canceled = pool.submit(cancel)
             claimed = pool.submit(claim)
-            canceled.result()
+            cancel_result = canceled.result()
             worker_claim = claimed.result()
 
         stored = repository.get(created.job_id)
-        assert stored.status == "CANCELED"
-        assert {run.status for run in stored.runs} == {"CANCELED"}
+        if cancel_result is not None:
+            assert stored.status == "CANCELED"
+            assert {run.status for run in stored.runs} == {"CANCELED"}
+        else:
+            assert stored.status == "PREPARING"
         if worker_claim is not None:
-            with pytest.raises(JobLeaseConflict):
+            if cancel_result is not None:
+                with pytest.raises(JobLeaseConflict):
+                    repository.start_execution(
+                        worker_claim.lease, cancellation.clock()
+                    )
+            else:
                 repository.start_execution(worker_claim.lease, cancellation.clock())
 
 

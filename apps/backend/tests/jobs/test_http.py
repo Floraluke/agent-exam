@@ -29,6 +29,7 @@ def test_authenticated_options_are_server_owned_and_exact(jobs_api):
             {"batch_preset": "demo", "minimum_tasks": 1, "maximum_tasks": 3},
             {"batch_preset": "quick", "minimum_tasks": 5, "maximum_tasks": 5},
             {"batch_preset": "standard", "minimum_tasks": 10, "maximum_tasks": 20},
+            {"batch_preset": "continuous", "minimum_tasks": 1, "maximum_tasks": 20},
         ],
         "evaluation_tracks": ["closed_book"],
         "limit_profiles": [
