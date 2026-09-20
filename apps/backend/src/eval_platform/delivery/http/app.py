@@ -35,6 +35,9 @@ from eval_platform.delivery.http.routes.artifacts import artifact_router
 from eval_platform.delivery.http.routes.catalog import catalog_router
 from eval_platform.delivery.http.routes.identity import identity_router
 from eval_platform.delivery.http.routes.jobs import jobs_router
+from eval_platform.delivery.http.routes.jobs.report_comparisons import (
+    comparison_router,
+)
 from eval_platform.delivery.http.routes.jobs.report_routes import report_router
 from eval_platform.delivery.http.routes.leaderboard import leaderboard_router
 from eval_platform.delivery.http.routes.membership import membership_router
@@ -118,6 +121,7 @@ def create_app(
         )
     if reporting is not None:
         app.include_router(report_router(service, reporting, config))
+        app.include_router(comparison_router(service, reporting, config))
         app.include_router(artifact_router(service, reporting, config))
     if leaderboard is not None:
         app.include_router(leaderboard_router(service, leaderboard, config))
