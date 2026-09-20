@@ -36,6 +36,15 @@
 - **变异检查**：把公开题面混进哨兵列表后，用例确实失败（`1 failed`），证明断言真的在扫响应体。
 - 同步更新了 04 草案：`Blocked by` 区分题库侧与目录/规模侧、规模侧范围收窄为“核对已有覆盖 + 补 `0 配置` 空白”、标明「重复 ID 现有行为是去重」需与 D 确认、并记录打通链进展。草案状态如实保留 `needs-info`（数据/镜像/Fork 仍未取得）。
 
+### 核对组长通过微信发来的材料
+
+- 材料位置：`E:\Wechat\...\msg\file\2026-09\`，共三份（zip 与其解压目录内容一致）：`ui-catalog-providers`（4 个文档 + `issues/01`、`issues/02`）、`TEAM_WORK_ALLOCATION.md`、`TEAM_POSTGRESQL_CONNECTION.md`。
+- 逐文件对比结果：`ui-catalog-providers` 的 6 个文件与仓库**逐字节相同**（仅 LF 与仓库工作区 CRLF 的差异，用 `diff --strip-trailing-cr` 复核）；`TEAM_POSTGRESQL_CONNECTION.md` 相同；**`TEAM_WORK_ALLOCATION.md` 是仓库更新**——微信版停在 09-19 20:59，规则 7 与 01/02 两行仍是"已规划、未发布 issue"，仓库版已标 01/02 完成。结论：组长这份材料里没有仓库看不到的内容，后续以仓库 `main` 为准。
+- 任务单齐全度：组长材料里 `issues/` 仍只有 `01`、`02`；03–08（含 04）都没有任务单，与我此前的结论一致。
+- **新发现 1（验收标准与实现冲突）**：[验证规范](../../../.scratch/ui-catalog-providers/verification.md)第 2 节 Q7 原文要求"0/21题、0/4配置、**重复**/停用/未知项拒绝"，而现有实现是**去重**（`tests/jobs/test_security.py:66`）。此前我只把它当作"草案措辞要改"，现在有了权威依据——按 Q7 验收，规模侧现状不满足；这条已写进 ISSUE-05 与 04 草案。
+- **新发现 2（preset ID 与地图候选不一致）**：[实现地图](../../../.scratch/ui-catalog-providers/implementation-map.md)第 4.1 节把连续规模的 preset ID 候选写作 `flexible-v2`，而 D 实际落地为 `continuous` 并已合入 `main`。地图原文标明是"候选"，故不算违规，但**地图、D 的实现与 B 待补的 `HTTP_API.md` 受控选项小节三者需要对齐**（`continuous` 已是公开选项取值）。
+- 新发现 3（对后续测试归属有用）：实现地图第 3 节已规划 04 的候选测试目录 `apps/backend/tests/catalog/qualification/`（五题参数化资格/隐藏信息/漂移）与 `apps/backend/tests/jobs/submission/`（新规模与旧快照兼容矩阵）。后续 04 测试应落在这两个候选目录，而不是继续往 `tests/catalog/` 平铺。
+
 ### 事实更正
 
 - **ISSUE-02 已解决**：上游 `main` 现在包含 `issues/01`、`issues/02`，且 `plan.md` 与我手上那份更新版逐字节相同（随 `ff46cec` 于 09-20 20:42 进入上游）。此前「请组长推送更新版」的请求作废。
@@ -62,10 +71,10 @@
 
 ### 观察到的事实
 
-- 上游 `main` 的 [`.scratch/ui-catalog-providers/plan.md`](../../.scratch/ui-catalog-providers/plan.md) 仍是 **09-17 草案版**（表头写「计划草案，未开工」，01、02 未标完成），且没有 `issues/` 目录。而我 09-19 从组长处收到的同目录更新版（plan/spec/implementation-map 更新，任务 01、02 标注完成，含 `issues/01`、`issues/02`）**不在上游任何分支上**。详见[问题记录 ISSUE-02](../04-issues/KNOWN_ISSUES.md)。
+- 上游 `main` 的 [`.scratch/ui-catalog-providers/plan.md`](../../../.scratch/ui-catalog-providers/plan.md) 仍是 **09-17 草案版**（表头写「计划草案，未开工」，01、02 未标完成），且没有 `issues/` 目录。而我 09-19 从组长处收到的同目录更新版（plan/spec/implementation-map 更新，任务 01、02 标注完成，含 `issues/01`、`issues/02`）**不在上游任何分支上**。详见[问题记录 ISSUE-02](../04-issues/KNOWN_ISSUES.md)。
 - 上游 `main` 09-20 有 12 个新提交（作者 `noachlola`），内容包括任务 03 报告语义设计、对比报告的服务与端点、以及给 08 用的 D 侧 runbook。即：**有人在按单项授权推进 03 方向的工作**，但计划文档尚未同步这个进展。
 - **任务 04 的「规模」半已由 D 完成并合入上游**：`delivery/job_presets.py` 第 25–29 行现有四个预设，新增的是 `BatchPreset("continuous", 1, 20)`（既有 `demo`/`quick`/`standard` 区间未改）；配套新增 `apps/backend/tests/jobs/scale/test_continuous_preset.py` 与 `tests/jobs/reporting/test_matrix_rehearsal.py`；行动记录为 `docs/actions/2026-09-20-d-continuous-scale-and-rehearsal.md`，其中明确把受控选项的契约补记留给 B。对我而言：09-19 记的「缺连续 1–20 档位」已被上游现状取代（当时读的是 fork 的旧快照），我的剩余范围需与组长、D 确认，记为 [ISSUE-05](../04-issues/KNOWN_ISSUES.md)。我没有改动 `job_presets.py` 或 D 的测试，避免与其提交冲突。
-- 成员 E 的[阶段 0 计划](../../LLY/01-plan/PLAN.md)明确：真实执行链（Harbor、SWE-Bench-Fork、固定镜像、`framework/`、`runtime/`）只在组长机器上，不进 Git；开发机只做代码、单元与契约测试、替身验证。这条同样约束我的任务 04。
+- 成员 E 的阶段 0 计划明确（该文档在其分支 `upstream/lly/dev` 的 `docs/LLY/01-plan/PLAN.md`，不在上游 `main` 上）：真实执行链（Harbor、SWE-Bench-Fork、固定镜像、`framework/`、`runtime/`）只在组长机器上，不进 Git；开发机只做代码、单元与契约测试、替身验证。这条同样约束我的任务 04。
 
 ### 当前停点
 

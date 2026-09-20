@@ -30,7 +30,7 @@
 
 ## 3. 任务 04 的分工边界
 
-任务正文与步骤见[扩展执行计划第 6 节](../../.scratch/ui-catalog-providers/plan.md)，验收要求见[分层验收规范](../../.scratch/ui-catalog-providers/verification.md)（需求覆盖表 Q5、Q7 归 04）。本计划只记录**谁做什么**：
+任务正文与步骤见[扩展执行计划第 6 节](../../../.scratch/ui-catalog-providers/plan.md)，验收要求见[分层验收规范](../../../.scratch/ui-catalog-providers/verification.md)（需求覆盖表 Q5、Q7 归 04）。本计划只记录**谁做什么**：
 
 | 事项 | 主责 | 我的位置 |
 |---|---|---|
@@ -64,5 +64,5 @@
 | 表结构与对象键 | [`DATA_MODEL.md`](../../architecture/DATA_MODEL.md) |
 | HTTP 路由与请求/响应 | [`HTTP_API.md`](../../interfaces/HTTP_API.md) |
 | 团队分工 | [`TEAM_WORK_ALLOCATION.md`](../../architecture/modules/TEAM_WORK_ALLOCATION.md) |
-| 扩展任务计划与验收 | [`.scratch/ui-catalog-providers/`](../../.scratch/ui-catalog-providers/) |
+| 扩展任务计划与验收 | [`.scratch/ui-catalog-providers/`](../../../.scratch/ui-catalog-providers/) |
 | 共享数据库连接 | [`TEAM_POSTGRESQL_CONNECTION.md`](../../operations/TEAM_POSTGRESQL_CONNECTION.md) |

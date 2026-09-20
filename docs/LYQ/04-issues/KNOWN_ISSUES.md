@@ -44,6 +44,7 @@
 - **2026-09-20 晚间补充核对**（逐条查现有测试，用于收窄范围）：
   - 「4 个配置被拒」「未知条目被拒」「停用条目被拒」**已有测试**：`tests/jobs/scale/test_continuous_preset.py:43`、`tests/jobs/test_security.py:60`（`AGENT_CONFIGURATION_NOT_FOUND`）、`tests/jobs/test_concurrency.py:58`（`JobConfigurationDisabled`）。
   - 「重复 ID」的**现有行为是去重而不是拒绝**：`tests/jobs/test_security.py:66` 断言 `task_ids *= 2` 后 `trial_count == 1`。我 09-19 起草的 04 草案里写「重复题目必须拒绝」，与该既有断言冲突，**不得**按草案直接实现。
+  - **权威依据（2026-09-20 补读组长材料后）**：不是我的推测——[分层验收规范](../../../.scratch/ui-catalog-providers/verification.md)第 2 节需求覆盖表的 Q7 原文是「1/4/6/9/20题和1/3配置合法；0/21题、0/4配置、**重复**/停用/未知项拒绝；最多60 Runs」，归属 04。即**验收标准要求拒绝重复，现有实现是去重**，两者直接冲突。风险升级：按 Q7 验收时，规模侧现在就不满足；若改实现则要动 D 的既有断言。这一条已同步进 [04 任务单草案](../../../.scratch/ui-catalog-providers/issues/04-five-new-tasks-and-continuous-scale.md)。
   - 「0 个配置」由 `application/job_submission.py:60` 的 `EMPTY_JOB_SELECTION` 处理，但未找到对应测试，是真正的空白项。
 - **处理**：未处理，属分工边界问题，需人类判断。我没有改动 `job_presets.py` 或 D 的测试。
 - **遗留风险**：若我按原计划实现规模预置或按草案实现「重复即拒绝」，会与 D 的工作重复或撞上既有断言。
