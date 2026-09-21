@@ -23,7 +23,11 @@ export default defineConfig({
       url: "https://127.0.0.1:3100",
       ignoreHTTPSErrors: true,
       reuseExistingServer: false,
-      env: { AGENTEXAM_API_ORIGIN: "http://127.0.0.1:8875", NEXT_TELEMETRY_DISABLED: "1" },
+      env: {
+        AGENTEXAM_API_ORIGIN: "http://127.0.0.1:8875",
+        AGENTEXAM_NEXT_DIST_DIR: ".next-e2e",
+        NEXT_TELEMETRY_DISABLED: "1",
+      },
     },
   ],
 });

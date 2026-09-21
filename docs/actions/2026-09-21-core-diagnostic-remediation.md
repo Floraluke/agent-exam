@@ -131,4 +131,18 @@ infrastructure/
   Windows 不支持的 POSIX 权限/符号链接能力；不描述为通过。
 - Windows 沙箱内运行同组测试时，Pytest 临时目录被 ACL 拒绝；该次仅作为
   环境失败记录，不计入测试通过结果。
-- 全量测试、覆盖率、依赖审计、Web 全量验证和文档齐平仍待后续节点完成。
+
+### Web 与质量门禁节点（完成）
+
+- 新增可复现 ESLint 9 flat config；`npm run lint` 与
+  `npm run typecheck` 通过，生产源文件均不超过 200 行。
+- 使用隔离的 `.next-e2e` 构建目录完成 Next.js 生产构建，避免触碰用户正在
+  使用的默认 `.next` 开发目录；构建成功并生成 4 个静态页面。
+- 完整 Playwright 清单为 45 项 / 24 个规格文件，使用本机 Chrome 全部通过；
+  包含新增的比较请求乱序和浏览器安全响应头回归。默认 Playwright 二进制未
+  安装的首次启动只作为工具限制记录，不计入失败断言。
+- 浏览器启动器会在成功或失败时恢复 Next 自动改写的 `next-env.d.ts` 与
+  `tsconfig.json`；删除构建产物后的类型检查和单规格复测均通过。
+- `npm audit --omit=dev --audit-level=low` 与全依赖
+  `npm audit --audit-level=low` 均报告 `0 vulnerabilities`。
+- Python 全量测试、覆盖率、Python 依赖审计和权威文档齐平仍待后续节点完成。

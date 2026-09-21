@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { ApiError } from "../../lib/api-client";
 import { registerTask, taskDetail, tasks } from "../../lib/catalog-client";
 import type { CatalogTask, Page } from "../../lib/contracts";
@@ -16,10 +16,10 @@ export default function TasksPanel({ owner }: { owner: boolean }) {
   const generation = useRef(0);
   const filters = useRef({ repo: "", dataset: "", split: "" });
 
-  function explain(value: unknown) {
+  const explain = useCallback((value: unknown) => {
     setError(value instanceof ApiError ? value.message : "暂时无法读取任务目录。");
-  }
-  async function load(cursor?: string) {
+  }, []);
+  const load = useCallback(async (cursor?: string) => {
     const revision = ++generation.current;
     setBusy(true); setError(""); setDetail(null);
     const query = new URLSearchParams({ limit: "20" });
@@ -34,8 +34,11 @@ export default function TasksPanel({ owner }: { owner: boolean }) {
     } catch (value) {
       if (generation.current === revision) { setData(null); explain(value); }
     } finally { if (generation.current === revision) setBusy(false); }
-  }
-  useEffect(() => { void load(); return () => { generation.current++; }; }, []);
+  }, [explain]);
+  useEffect(() => {
+    void load();
+    return () => { generation.current = -1; };
+  }, [load]);
 
   function filter(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

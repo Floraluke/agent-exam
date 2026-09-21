@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError } from "../../../lib/api-client";
 import { agents as loadAgents, tasks as loadTasks } from "../../../lib/catalog-client";
 import type { CatalogAgent, CatalogTask, JobDetail, JobOptions } from "../../../lib/contracts";
@@ -28,10 +28,10 @@ export default function JobWizard({
   const [error, setError] = useState("");
   const attempt = useRef<Attempt | null>(null);
 
-  function explain(value: unknown) {
+  const explain = useCallback((value: unknown) => {
     setError(value instanceof ApiError ? value.message : "暂时无法读取可提交选项。");
-  }
-  async function load() {
+  }, []);
+  const load = useCallback(async () => {
     setBusy(true); setError("");
     setOptions(null); setTasks([]); setAgents([]);
     try {
@@ -55,8 +55,8 @@ export default function JobWizard({
       ) ? current : serverOptions.limit_profiles[0]?.limit_profile_id ?? "");
     } catch (value) { explain(value); }
     finally { setBusy(false); }
-  }
-  useEffect(() => { void load(); }, []);
+  }, [explain]);
+  useEffect(() => { void load(); }, [load]);
 
   function toggle(items: string[], id: string, checked: boolean) {
     return checked ? [...new Set([...items, id])] : items.filter((item) => item !== id);
