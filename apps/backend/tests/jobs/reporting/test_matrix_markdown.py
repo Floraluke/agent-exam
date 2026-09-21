@@ -16,8 +16,8 @@ def test_markdown_renders_task_rows_with_chinese_labels():
     task_lines = _task_lines(text)
     assert len(task_lines) == 3
     joined = "\n".join(task_lines)
-    assert "通过" in joined and "基础设施失败" in joined and "未完成" in joined
-    # 两格缺失：一档"没有 Run"，一档"已完成但没有报告"；都不写成 0 或未通过。
+    assert "已解决" in joined and "基础设施错误" in joined and "未完成" in joined
+    # 两格缺失：一档"没有 Run"，一档"已完成但没有报告"；都不写成 0 或未解决。
     assert joined.count("缺失") == 2
 
 

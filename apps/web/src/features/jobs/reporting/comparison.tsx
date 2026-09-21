@@ -110,7 +110,7 @@ export default function ComparisonWorkspace({
   return <section aria-label="对比报告工作区">
     <section aria-label="跨批次对比报告">
       <div className="section-heading"><div><span className="eyebrow">服务端只读聚合</span>
-        <h2>对比报告</h2><p>选择已登记的评测批次进行对比；缺失不当作未通过或零。</p></div>
+        <h2>对比报告</h2><p>选择已登记的评测批次进行对比；缺失不当作未解决或零。</p></div>
         <div className="heading-actions"><button disabled={busy} onClick={() => void loadJobs(true)}>
           刷新可见批次</button><button onClick={resetSelection}>清空选择</button></div>
       </div>

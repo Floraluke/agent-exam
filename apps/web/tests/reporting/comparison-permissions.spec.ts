@@ -65,6 +65,6 @@ test("collaborator compares only their own server-visible batches", async ({ pag
     await reports.getByRole("checkbox").check();
     await reports.getByRole("button", { name: "生成对比（1）" }).click();
     await expect(reports.getByRole("region", { name: "题目配置对比矩阵" }))
-      .toContainText("确定性通过");
+      .toContainText("已解决");
   } finally { await guest.close(); }
 });

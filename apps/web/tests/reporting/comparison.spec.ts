@@ -118,7 +118,7 @@ test("mixed outcomes keep zero distinct from unknown and cap report concurrency"
   await workspace.getByRole("checkbox").check();
   await workspace.getByRole("button", { name: "生成对比（1）" }).click();
   const matrix = workspace.getByRole("region", { name: "题目配置对比矩阵" });
-  for (const label of ["确定性通过", "确定性未通过", "基础设施故障", "未完成", "缺失"]) {
+  for (const label of ["已解决", "未解决", "基础设施错误", "未完成", "缺失"]) {
     await expect(matrix).toContainText(label);
   }
   await expect(matrix.getByRole("button", { name: /查看单次证据/ })).toHaveCount(4);

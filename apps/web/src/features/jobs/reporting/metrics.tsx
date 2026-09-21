@@ -47,7 +47,7 @@ export default function MetricsComparison({
         return <article key={`${column.job_id}-${column.agent_configuration_id}`}
           aria-label={`${column.agent_display_name} 配置 ${index + 1} 指标`}>
           <h4>{column.agent_display_name} · 配置 {index + 1}</h4>
-          <p>确定性通过 {total.resolved} / {total.total}；未通过 {total.unresolved}；
+          <p>已解决 {total.resolved} / {total.total}；未解决 {total.unresolved}；
             故障 {total.infrastructure_error}；未完成 {total.incomplete}；缺失 {total.missing}</p>
           <dl className="metric-grid">{metrics(index).map((metric) => <div key={metric.label}>
             <dt>{metric.label}</dt><dd>{summary(metric)}</dd>

@@ -1,8 +1,8 @@
 import type { ComparisonMatrix, ComparisonOutcome } from "../../../lib/reporting/comparison-shape";
 
 const names: Record<ComparisonOutcome, string> = {
-  resolved: "确定性通过", unresolved: "确定性未通过",
-  infrastructure_error: "基础设施故障", incomplete: "未完成", missing: "缺失",
+  resolved: "已解决", unresolved: "未解决",
+  infrastructure_error: "基础设施错误", incomplete: "未完成", missing: "缺失",
 };
 
 function explanation(outcome: ComparisonOutcome) {
