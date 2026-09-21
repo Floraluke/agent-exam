@@ -13,9 +13,15 @@ function linkedJob() {
 export default function JobWorkspace({
   actor,
   newJob,
+  selected,
+  toggle,
+  compare,
 }: {
   actor: Actor;
   newJob: () => void;
+  selected: string[];
+  toggle: (id: string) => void;
+  compare: () => void;
 }) {
   const [job, setJob] = useState<string | null>(linkedJob);
   function openJob(id: string) {
@@ -28,7 +34,8 @@ export default function JobWorkspace({
     url.searchParams.delete("job");
     window.history.pushState(null, "", url); setJob(null);
   }
-  if (!job) return <JobList actor={actor} openJob={openJob} newJob={newJob} />;
+  if (!job) return <JobList actor={actor} openJob={openJob} newJob={newJob}
+    selected={selected} toggle={toggle} compare={compare} />;
   return <section>
     <div className="section-heading">
       <div><span className="eyebrow">服务器事实</span><h2>评测详情</h2></div>

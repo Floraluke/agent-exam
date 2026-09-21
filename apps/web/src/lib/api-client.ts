@@ -27,6 +27,8 @@ const messages: Record<ApiErrorCode, string> = {
   BATCH_PRESET_EXCEEDED: "任务或配置数量不符合所选批次规模。",
   LIMIT_PROFILE_NOT_ALLOWED: "所选资源限制不可用，请刷新选项。",
   EVALUATION_TRACK_NOT_ENABLED: "所选评测赛道尚未开放。",
+  EMPTY_COMPARISON_SELECTION: "请至少选择一个评测批次。",
+  COMPARISON_LIMIT_EXCEEDED: "一次对比最多选择 20 个评测批次。",
 };
 
 export class ApiError extends Error {
