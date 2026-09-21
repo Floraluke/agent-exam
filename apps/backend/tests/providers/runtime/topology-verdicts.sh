@@ -26,7 +26,7 @@ t05_verify() {
   t05_expect "a3 other trial" "$(t05_val 'other trial')" "CLOSED"
   t05_expect "a3 fake upstream from workload" "$(t05_val '^3	workload -> fake upstream')" "CLOSED"
   t05_expect "a4 proxy to upstream" "$(t05_val '^4	proxy -> fake upstream')" "PONG"
-  t05_expect "a5 no published ports" "$(t05_val 'published ports' | grep -o '{}' | wc -l | tr -d ' ')" "4"
+  t05_expect "a5 no published ports" "$(t05_val 'published port bindings' | grep -c 'HostPort')" "0"
   t05_expect "a5 no docker socket" "$(t05_val 'docker.sock mount sources')" "0"
   t05_expect "a5 workload has no mounts" "$(t05_val '^5	workload mounts')" "[]"
   t05_expect "a6 relay script targets upstream" "$(t05_val 'relay script in proxy' | grep -c 'nc ')" "1"

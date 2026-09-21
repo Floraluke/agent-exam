@@ -207,6 +207,8 @@ FastAPI 对所有成功、业务错误、限流和未预期异常响应统一设
 
 不返回 API key、凭据配置引用、命令模板、宿主路径或私有环境变量。`model_provider` 是非秘密的受控身份字段：生产 `create_catalog` 当前只公开 `openai_chatgpt`；`internal_test_fake` 只能出现在显式 `internal_test` 装配和测试数据中，不能进入正式目录或排行榜。provider 必须与 authentication type 按领域/数据库约束成对，HTTP 不返回认证类型、逻辑凭据引用或任何 Key。MVP 先登记 Codex；闭环通过后登记 Aider、Claude Code。P2 同一自研 Agent 使用 DeepSeek 与 Kimi 时返回两个独立配置。
 
+`agent_type` 与 `model_provider` 都是**受控集合**，唯一权威清单是 `domain/agent.py` 的 `CONTROLLED_IDENTITIES`：M1 的 `agent_type` 只有 `codex`；`model_provider` 有 `openai_chatgpt` 与 `internal_test_fake` 两个值。响应**按记录如实呈现**，不写死默认值；存量记录超出受控集合时**失败关闭**（`UNCONTROLLED_AGENT_TYPE` / `UNCONTROLLED_PROVIDER`），绝不回退成 `openai_chatgpt` 之类的默认值——那会让页面显示一条假身份。`internal_test_fake` 只在 `internal_test` 用途下登记（受控 API 预设，生产 `AGENT_PRESETS` 不含假提供方，见第 6 节）；该身份成对使用的 `authentication_type=provider_run_token`、凭据 profile 与固定上游**都不在 HTTP 响应中**，沿用第 10.3 节“不返回 authentication/credential profile”的同一规则。公开 `internal_test_fake` 是有意的：它让受控预设不可能被误当成真实供应商配置，且本身不含主机、路径、令牌或 topo 信息。
+
 ### 4.3 `JobSummary`
 
 ```json
@@ -316,7 +318,7 @@ M1 的 `review_status` 使用既有 `NOT_REQUIRED`，不产生虚假的待复核
 
 任务 03 已落地的管理切片：`POST /api/v1/agent-configurations` 仅 owner 接受 `{"preset_id":"codex-0153-terra-medium"}`，不接受其他字段；201 返回配置详情，同指纹重入仍返回原记录。`POST /api/v1/agent-configurations/{configuration_id}/disable` 仅 owner，正文无或空对象，成功 204；重复禁用幂等、不删除历史、重新登记不恢复启用。详情的 public_options 当前仅 reasoning_effort，limit_profile_id 未绑定时为 null。未知预置、身份冲突、依赖失败沿用第 5 节目录错误，缺失配置为 404 AGENT_CONFIGURATION_NOT_FOUND。列表/详情不返回凭据逻辑引用，原始快照也没有下载端点。
 
-两类目录列表均拒绝未知或重复 query 字段（400 INVALID_REQUEST），字段/UUID 格式和数值边界错误为 422。配置列表 agent_type 仅 codex；未知类型拒绝，合法筛选无匹配返回空列表。
+两类目录列表均拒绝未知或重复 query 字段（400 INVALID_REQUEST），字段/UUID 格式和数值边界错误为 422。配置列表 agent_type 仅 codex；未知类型拒绝，合法筛选无匹配返回空列表。`model_provider` 是第 4.2 节的受控集合，列表与详情都按记录如实呈现；受控 API 预设 `internal-test-provider-proxy` 只在 `internal_test` 装配下登记，出现时其 `model_provider` 为 `internal_test_fake`。
 
 ### 6.3 P2：提交 Agent 源码供审核（MVP 不开放）
 
@@ -643,6 +645,20 @@ M1 保留上述响应兼容形状，但 `judge_analyses=[]`、`human_review=null
 
 任务 05 策略切片当前固定的 provider 失败码为 `PROVIDER_CREDENTIAL_UNAVAILABLE`、`PROVIDER_ACCESS_DENIED`、`PROVIDER_REQUEST_REJECTED`、`PROVIDER_BUDGET_EXHAUSTED` 与兜底 `PROVIDER_ACCESS_FAILED`。它们已由内部异常映射测试约束，但策略尚未接入 Worker/HTTP 执行路径，因此当前公开 API 不会因为真实第三方调用产生这些码；后续接线必须沿用这些安全码，不回显原始异常。
 
+提供方访问失败在 Run 上只有五个受控 `failure_code`，与固定短句一一对应；映射表是 `provider_access/failures.py` 的 `_GROUPS` 与 `GENERIC_FAILURE`：
+
+| `failure_code` | `failure_summary` | 归入此码的内部错误族 |
+|---|---|---|
+| `PROVIDER_CREDENTIAL_UNAVAILABLE` | 模型凭据不可用，运行未开始。 | `PRIVATE_FILE_*`、`PRIVATE_PROFILE_*`、`PRIVATE_SECRET_EMPTY`、`PRIVATE_ACCESS_UNVERIFIABLE`、`PRIVATE_UPSTREAM_NOT_REGISTERED`、`TRANSPORT_CREDENTIAL_EMPTY` |
+| `PROVIDER_ACCESS_DENIED` | 模型访问未获授权。 | `PROVIDER_UNREGISTERED`、`PROVIDER_BINDING_*`、`PROVIDER_TOKEN_*`、`TRANSPORT_PROVIDER_UNREGISTERED` |
+| `PROVIDER_REQUEST_REJECTED` | 模型请求不符合受限策略。 | `REQUEST_*`、`TRANSPORT_PAYLOAD_NOT_SERIALIZABLE`、`TRANSPORT_REDIRECT_NOT_PERMITTED`、`TRANSPORT_RETRY_NOT_PERMITTED`、`TRANSPORT_UPSTREAM_NOT_ENCRYPTED` |
+| `PROVIDER_BUDGET_EXHAUSTED` | 运行额度或期限已用尽。 | `BUDGET_*` |
+| `PROVIDER_ACCESS_FAILED` | 模型访问未完成。 | 兜底：任何未映射的内部错误码 |
+
+规则：①**内部错误码绝不回显**——它未经发布审查，部分就在文件路径与凭据 profile 名旁边抛出；未映射的内部码一律落到 `PROVIDER_ACCESS_FAILED`。②只在代理自身配置阶段可能抛出、运行无法触发的码（`BUDGET_LIMITS_INVALID`、`REQUEST_POLICY_*`）**不在本表**。③新增内部码必须先在本节做出归类决定，再由 `tests/providers/policy/test_controlled_failures.py` 的词汇表门禁守住。④本表只管**提供方访问**失败；Job 级的 `BATCH_PARTIAL_FAILURE` / `BATCH_FAILED` 是另一来源，不在本表。
+
+实现状态：映射表与词汇表门禁已在 `main`；代理链本身尚未接入运行主链路，属任务 05 未完成部分——本表是已冻结的契约词汇，不代表已生效。
+
 `artifact_links` 返回当前 Run 全部闭合类型的第 9.2 节安全元数据形状，便于页面同时展示核心证据与受限原始制品的保留状态；这不扩大正文权限，下载仍只允许 `agent_patch/public_test_summary/public_trajectory` 三种公开类型。两个报告端点及制品索引、轨迹和下载采用同一授权：owner 可读全部，协作者只读自己创建的 official Job/Run，其他资源按不存在处理，`internal_test` 只允许显式测试装配。对象键、文件名、正文、消息正文、工具参数、私密轨迹和原始配置均不在元数据响应中。
 
 ### 10.3 排行榜
@@ -783,6 +799,7 @@ FastAPI route 文件只做 schema、HTTP 状态和用例调用，不能直接启
 
 ## 15. 变更记录
 
+- 2026-09-21：任务 05 对齐受控词汇——第 10.2 节列出提供方访问失败的五个受控 `PROVIDER_*` 码、各自归入的内部错误族与“内部码绝不回显、未映射落兜底”规则；第 4.2 节与第 6 节把 `agent_type`/`model_provider` 记为受控集合、按记录如实呈现（含 `internal_test_fake`）、超出集合失败关闭，并明确 `authentication_type`/凭据 profile/固定上游不在响应中。
 - 2026-09-13：任务 12 扩展制品安全元数据，增加 `available/not_ready/deleted` 和已删除正文 410；保留公开三类正文白名单，未增加 HTTP 删除入口。
 - 2026-09-09：按总架构阶段决定标注后续 Judge/复核接口；M1 保留兼容空字段、关闭复核路由与工作台，所有者批准和安全证据查看不变。
 
