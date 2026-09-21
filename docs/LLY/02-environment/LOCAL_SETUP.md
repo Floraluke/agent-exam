@@ -1,6 +1,6 @@
 # 本地开发环境搭建记录
 
-> 目标：在本机建立一套**不依赖 Tailscale、不依赖 Docker** 的后端开发环境，能写代码、跑静态检查和默认回归。
+> 目标：在本机建立一套**不依赖 Tailscale、不依赖 Docker** 的后端开发环境，能写代码、跑静态检查和默认回归。（后端开发与测试仍不依赖 Docker；2026-09-21 起本机已安装 Docker Desktop，但仅拟用于任务 05 的容器与网络工作，见第 1 节变更记录与[任务 05 实施方案](../01-plan/STAGE1_IMPLEMENTATION_PLAN.md)。）
 >
 > 状态：**阶段 0 已完成**（2026-09-19）。基础安装、两库隔离、开发 schema、工具链、PostgreSQL 集成测试和启停读回均有本轮证据；默认回归仍保留 2 个因缺少 `framework/harbor` 的已知环境失败。
 >
@@ -13,7 +13,7 @@
 | 用**便携版 PostgreSQL**（zip 解包），不用安装包 | 不需要管理员权限、不注册 Windows 服务、不改系统配置，删目录即卸载；测试本来就不需要"正式部署"的数据库 |
 | 端口用 **55432**，不用 5432 | 项目的 PostgreSQL 测试夹具明确拒绝默认端口 5432（`apps/backend/tests/identity/conftest.py`），只接受非默认端口的专属隔离库 |
 | 回环信任认证（`trust`，仅 127.0.0.1） | 只监听回环，只有本机进程能连；**因此不需要创建、保存或传递任何数据库密码**。这是开发库的取舍，不得用于任何共享或长期环境 |
-| 不装 Docker | 本机 Docker Desktop 未运行；且 Docker 依赖虚拟网络，与本机现有的网络驱动问题叠加会放大风险 |
+| 阶段 0 期间不装 Docker | 当时本机 Docker Desktop 未运行；且 Docker 依赖虚拟网络，与本机现有的网络驱动问题叠加会放大风险。**2026-09-21 变更**：Docker Desktop 已安装（CLI 29.6.2，守护进程当前未运行），用于任务 05 的容器与网络工作；原风险点"能否创建自定义网络"**尚未验证**，见[任务 05 实施方案](../01-plan/STAGE1_IMPLEMENTATION_PLAN.md)第 1 节 |
 | 用 `uv sync` 而不是 `pip install` | 仓库自带 `uv.lock`；且 `uv` 会自动准备项目要求的 Python 版本 |
 | 日常后端开发不用 `.env` 文件 | 后端代码**不自动读取 `.env`**（无 dotenv 依赖、无加载逻辑），本机便携 PostgreSQL 开发继续使用进程环境变量。自 `6dfa2be` 起，只有 owner 的 `infra` 部署生命周期要求从 `infra/.env.example` 复制出 Git 忽略的 `infra/.env`；本机当前不运行该部署链，所以不创建该文件 |
 
@@ -157,4 +157,4 @@ npm ci --ignore-scripts
   ```
 
   启动日志必须使用独立的 `pg_ctl-start.log`，避免与 PostgreSQL 自身日志竞争 Windows 文件句柄。当前不注册为开机自启服务，避免引入系统级改动。
-- 前端依赖未安装；MinIO 未配置；Docker 未安装/未运行。
+- 前端依赖未安装；MinIO 未配置。Docker Desktop 已于 2026-09-21 安装（CLI 29.6.2），但**守护进程未运行**，且能否创建自定义网络尚未验证；后端开发与测试仍不依赖 Docker。
