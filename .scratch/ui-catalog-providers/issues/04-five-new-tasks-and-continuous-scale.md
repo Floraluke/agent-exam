@@ -32,6 +32,8 @@ Status: needs-info
 
 2026-09-20 深夜补记（D 的回复，含我方核实）：
 
+8. **实现机制已就绪，只等门禁结果**：`adapters/tasks/swe_gym.py` 已从「单题镜像写死」改为 `FIXED_TASK_IMAGES`（instance_id → 含 digest 的固定镜像身份）查表，未登记 instance 一律拒绝；白名单内容未变（仍只有旧题）。门禁通过的题以后在映射里加一行即可，不再需要改代码结构。详见行动文档「本次代码增量 4」。
+
 5. **去重语义已定案**：「重复项拒绝」的冲突不成立——D 确认去重是刻意的，并给出两处依据（`docs/actions/2026-09-12-m1-job-submission.md` 第 22 行「题目与配置去重后计数」；`docs/interfaces/HTTP_API.md` 第 426/430 行「必须非空、去重」「在规范正文中去重并排序」）。我逐条核对了这两处原文，均属实；另核实 `report_comparisons.py` 的 `_parse_job_ids` 确实对列表内重复值去重。两处小出入：D 引的 「plan.md 第 5 节」实际在**第 6 节第 5 步**（第 5 节是任务 03），HTTP_API 的行号在我的版本是 **426/430**（D 处为 384/388，属版本差异）。**结论：实现不改，改措辞。**
 6. **格式问题已由 D 消除**：D 已对其 5 个文件跑 `ruff format` 并验证 `format --check` 全绿（293/293）、受影响用例 8 个通过（含 4 个真实 PG 门禁用例）、diff 为纯格式差异。**注意：**该修复不在本分支当前基线（`beed93f`）上，我方本地 `ruff format --check` 仍报那 5 个文件；等本分支 rebase 到含该修复的提交后再复核。
 7. **本机新增第三个测试增量**：`tests/catalog/test_http.py` 增加配置列表的游标分页与状态筛选用例（详见行动文档），目录模块 37 passed / 7 skipped，全量 456 passed / 36 skipped / 2 failed（失败集合同前）。

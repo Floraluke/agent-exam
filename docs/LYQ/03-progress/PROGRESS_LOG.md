@@ -57,6 +57,21 @@
   （`registry.list` 只接收 `enabled`/`cursor`/`limit`）。因登记路径本身只接受 codex 配置，行为上等价；
   将来新增提供方时需要真正接上过滤。
 
+#### 增量 4（产品代码）：固定候选的镜像身份机制
+
+- 用户决定「不等任务单、直接做 04」后，先做了 04 里**唯一不依赖外部资源**的实现改造。
+- 原状：`adapters/tasks/swe_gym.py` 把镜像写死成单一常量 `CANDIDATE_IMAGE`，并在 `_map_record` 里遇到
+  `instance_id != CANDIDATE_INSTANCE_ID` 就拒绝——题目目录在代码层只可能有一道题。
+- 改法：改为 `FIXED_TASK_IMAGES`（instance_id → 含 digest 的固定镜像身份）查表，未登记一律拒绝；
+  `CANDIDATE_IMAGE` 保留为旧题别名，继续服务既有 M0 诊断入口（`preflight.py` 未改动，
+  计划要求保留旧题身份与 M0 单题入口）。**白名单内容未变**（仍只有 `python__mypy-15413`），
+  门禁通过的题以后加一行即可。
+- 新增 `tests/catalog/qualification/test_fixed_task_identity.py`（5 用例，合成 Parquet，
+  不读真实数据、不需要容器）。
+- 实测：该目录 **5 passed**；全量 **461 passed / 36 skipped / 2 failed**（失败集合同前，无回归）；
+  `ruff check`、`ruff format --check`、`mypy src/eval_platform` 通过；两处变异检查都让用例失败。
+- 说明：这是本轮第一次改产品代码（前三个增量只加测试）。改动边界刻意收在 1 个文件内，未碰他人文件。
+
 ### D 的回复与核实（2026-09-20 深夜）
 
 - D 回复「刻意」，并纠正我的表述：不是 URL 与正文的不对称，对比端点本身遵循统一规则

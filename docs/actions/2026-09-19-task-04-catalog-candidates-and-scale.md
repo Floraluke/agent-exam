@@ -51,7 +51,7 @@
 
 ```text
 apps/backend/src/eval_platform/
-├─ adapters/tasks/swe_gym.py        # 单题常量 → 受控候选集（instance、镜像 digest、数据身份）
+├─ adapters/tasks/swe_gym.py        # 2026-09-20 已改：单题常量 → FIXED_TASK_IMAGES 固定映射（白名单仍只含旧题）
 ├─ adapters/tasks/collect_patch.sh  # 题目侧 patch 收集；多题时核对参数与路径假设
 ├─ delivery/catalog_presets.py      # TASK_PRESETS 扩展为旧题+合格新题；AGENT_PRESETS 预留 05–07
 ├─ application/task_catalog.py      # 白名单登记与校验；多题语义按需扩展，不放松 allowlist
@@ -62,6 +62,9 @@ apps/backend/src/eval_platform/
 apps/backend/tests/
 ├─ catalog/test_http.py             # 目录 HTTP：登记与读取；2026-09-20 增补配置列表分页与状态筛选
 ├─ catalog/conftest.py              # 2026-09-20：catalog_api 增加可选 agent_presets（默认行为不变）
+├─ catalog/qualification/           # 新增子目录（2026-09-20）：固定候选身份机制测试；
+│                                   #   理由＝tests/catalog 内容文件已达 8 个上限，且实现地图 §3
+│                                   #   已把 04 的资格类测试规划在 qualification/ 子目录
 ├─ catalog/test_catalog_job_flow.py # 新增（2026-09-20 已实现）：目录→options→提交→冻结 Job/Runs/初始事件的打通链
 ├─ catalog/test_consistency.py      # 目录记录与对象摘要一致
 ├─ catalog/test_security.py         # 隐藏答案与 Key 不进入公开输出（2026-09-20 新增公开读取面全量扫描用例）
@@ -154,4 +157,13 @@ HANDOFF.md                          # 当前停点与下一步（收尾时更新
 - 用例断言：3 个配置两页取完、不重不漏、末页无 `next_cursor`；`?limit=100&agent_type=codex` 返回全部 3 个；`?agent_type=other` 被 422 拒绝；停用一个后 `enabled=true` 返回其余两个、`enabled=false` 只返回被停用的那个。
 - 实测：`pytest tests/catalog -q` → **37 passed / 7 skipped**；全量 `pytest -q` → **456 passed / 36 skipped / 2 failed**（失败集合同前，无回归）；`ruff check`、`ruff format --check` 对改动文件通过。
 - **变异检查**：把首页期望改为 3 项、把停用侧期望改为空列表后，用例确实失败（探针已删）。
-- 如实记录一条实现事实：`agent_type` 参数被路由接受并做字面量校验（只允许 `codex`），但**不参与过滤**（`registry.list` 只接收 `enabled`/`cursor`/`limit`）。因为登记路径本身只接受 codex 配置，行为上等价；但若将来新增提供方，这个参数需要真正接上过滤。
+
+
+### 本次代码增量 4（2026-09-20，固定候选的镜像身份机制）
+
+- **这是任务 04 里唯一不依赖外部资源的实现改造。** 原状：`adapters/tasks/swe_gym.py` 把镜像写成单一常量 `CANDIDATE_IMAGE`，并在 `_map_record` 里用 `instance_id != CANDIDATE_INSTANCE_ID` 拒绝其他所有题——即题目目录在**代码层**只可能有一道题。
+- 改法：改为 `FIXED_TASK_IMAGES: Mapping[str, str]`（instance_id → 含 digest 的固定镜像身份），取值时按 instance 查表，未登记一律 `ValueError`；`CANDIDATE_IMAGE` 保留为旧题的别名，继续服务既有 M0 诊断入口（`adapters/execution/preflight.py`），**该文件未改动**（计划要求保留旧题身份与 M0 单题入口）。构造器新增可选 `images` 注入，空映射**不得**回落到内置白名单。
+- **白名单内容未变**：仍只有 `python__mypy-15413`。门禁通过的题以后只需在映射里加一行。
+- 新增 `apps/backend/tests/catalog/qualification/test_fixed_task_identity.py`（5 个用例，用合成 Parquet 快照，不读真实数据集、不需要容器）：两道题各自拿到自己的镜像、公开/隐藏分离、摘要按规范化 JSON 重算；未登记 instance 即使存在于快照中也拒绝；空白名单不服务任何题；生产映射的每条都必须带 `@sha256:`；数据集大小或 SHA-256 不匹配即拒绝。
+- 实测：`pytest tests/catalog/qualification -q` → **5 passed**；全量 `pytest -q` → **461 passed / 36 skipped / 2 failed**（失败集合同前，无回归）；`ruff check`、`ruff format --check`、`mypy src/eval_platform` 均通过。
+- **变异检查**：把两道题改成共用第一张镜像、以及放行未登记实例，两处都让用例失败（探针已删）。
