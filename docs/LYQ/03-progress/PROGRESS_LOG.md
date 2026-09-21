@@ -5,6 +5,17 @@
 
 ## 2026-09-21
 
+### 建立 Fork 的 Linux 依赖环境（门禁的另一半前置）
+
+- 按[依赖总表 §5.2](../../dependencies/DEPENDENCIES.md)的三步恢复流程执行，**未修改系统 Python、未对上游做 editable 安装**：
+  1. Windows 侧引导固定 uv：建 `runtime/tools/uv-bootstrap`（Python 3.13 venv）并装 `uv 0.12.10`（与文档 pin 一致）；
+  2. 用该 uv 装 Linux 目标版：`uv pip install --target runtime/tools/uv-linux --python-platform x86_64-unknown-linux-gnu --only-binary :all: uv==0.12.10`（在 Windows 上跑不了是正常的，它是 ELF 二进制，只在 WSL 里执行）；
+  3. WSL Ubuntu 侧建 venv：`runtime/tools/uv-linux/bin/uv venv framework/swe-bench-fork/.venv --python /usr/bin/python3` → **Python 3.12.3**，`.venv/bin/python` 就位（判卷适配器读的就是这个路径）；
+  4. Windows 侧装哈希锁定依赖：`uv pip install --target framework/swe-bench-fork/.venv/lib/python3.12/site-packages --python-platform x86_64-unknown-linux-gnu --require-hashes -r apps/backend/swebench-requirements.txt` → 134 条目 / 316 MB。
+- 验证（在 WSL 里）：`swebench 2.0.13`、`docker 7.2.0`、`datasets 5.0.1`、`unidiff` 均可导入；`sys.prefix` 指向该 venv；`swebench` 经 `PYTHONPATH` 解析到固定源码。
+- 操作备注：这台机器的仓库路径含中文，WSL 命令行传参会乱码；改用 `/mnt/c/Users/*/Desktop/agent-exam` 通配写法即可稳定执行。
+- 本机现在只剩门禁的最后两样外部条件：**Docker Desktop 运行** 与 **五个题目镜像**（待授权）。
+
 ### 安装 Harbor 依赖环境 —— 本机全量测试首次全绿
 
 - 用户决定在本机装 Harbor 的依赖环境（组长也提过"把 harbor 下了"）。按[依赖总表](../../dependencies/DEPENDENCIES.md)的固定命令执行：`uv sync --locked --extra huggingface --no-dev`。

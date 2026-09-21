@@ -20,7 +20,9 @@
 | 安装包留档 | `D:\agentexam-env\…binaries.zip` | 320,461,864 字节，可删 |
 | 固定数据集 | `runtime/cache/swe-gym-lite/61231f2c…/train-0000.parquet` | SWE-Gym Lite 快照，931,193 字节 / sha256 `f3a7cd93…` 已核验；`/runtime/` 已 gitignore |
 | 三个固定框架源码 | `framework/{swe-gym,swe-bench-fork,harbor}` | 2026-09-21 按[依赖总表 §7](../../dependencies/DEPENDENCIES.md)恢复到固定提交（`--detach`），HEAD 与 origin 已核对、工作树干净 |
-| Harbor 依赖环境 | `framework/harbor/.venv` | 2026-09-21 建立：Python 3.13.15、Harbor `0.22.0`、218 个包 / 325 MB、`harbor.exe` 可用，`import harbor` 指向上游固定源码。**实测 3 分 20 秒**（15:22:38→15:25:57，全命中预编译 wheel、装了 113 个 `.pyd`，未触发源码构建）——文档里 275 分钟的记录在 Python 3.13 + Windows 上**没有复现**；`--locked` 未改动上游锁文件 |
+| Harbor 依赖环境 | `framework/harbor/.venv` | 2026-09-21 建立：Python 3.13.15、Harbor `0.22.0`、218 个包 / 325 MB、`harbor.exe` 可用，`import harbor` 指向上游固定源码。**实测 3 分 20 秒**（全命中预编译 wheel，未触发源码构建）——文档里 275 分钟的记录在 Python 3.13 + Windows 上**没有复现**；`--locked` 未改动上游锁文件 |
+| Fork 的 Linux 依赖环境 | `framework/swe-bench-fork/.venv` | 2026-09-21 按[依赖总表 §5.2](../../dependencies/DEPENDENCIES.md)三步建立：venv 由 WSL Ubuntu 的 `/usr/bin/python3`（**3.12.3**）创建，依赖用 Windows 侧 uv 以 `--python-platform x86_64-unknown-linux-gnu --require-hashes` 装入（63 项哈希锁定，134 条目 / 316 MB）。验证：`swebench 2.0.13`、`docker 7.2.0`、`datasets 5.0.1` 可导入（`swebench` 经 `PYTHONPATH` 指向固定源码，上游未做 editable 安装） |
+| 固定 uv 工具 | `runtime/tools/{uv-bootstrap,uv-linux}` | 2026-09-21 按 §5.2 引导：`uv-bootstrap`（Python 3.13 venv + `uv 0.12.10`，与文档 pin 一致）与 `uv-linux`（`x86_64-unknown-linux-gnu` 目标、仅二进制）|
 
 ## 2. 为什么这么选
 
@@ -81,7 +83,7 @@ AGENTEXAM_TEST_DATABASE_URL="postgresql://agentexam_identity_test@127.0.0.1:5543
 
 - 容器类验证：需要 Docker Desktop（当前未运行）+ 题目镜像（未拉）。
 - ~~Harbor 的依赖环境~~ **已完成**（2026-09-21，3 分 20 秒，见第 1 节）。
-- SWE-Bench-Fork 的隔离依赖环境：文档记载载体是 **Ubuntu WSL2 的 Python 3.12.3**（`framework/swe-bench-fork/.venv`），与后端 Windows venv 不同。
+- ~~SWE-Bench-Fork 的隔离依赖环境~~ **已完成**（2026-09-21，见第 1 节）。
 - 真实模型调用与真实凭据：需单独授权，且与本机环境无关。
 - 共享 PostgreSQL（`sss.tail03c757.ts.net:15432`）：本机 Tailscale 在正确的 tailnet 内但看不到任何其他设备（netmap `Peers = 0`），问题在 host 侧，见 [ISSUE-06](../04-issues/KNOWN_ISSUES.md)。
 - 门禁所需的三样（Docker、五个题目镜像、Fork 的 Linux 依赖环境）本机尚不具备，因此五道候选题的三补丁资格验证仍需要组长机器或由 E 执行；**Harbor 不在门禁的前置里**（门禁只走固定 Fork 判卷，不跑 agent）。
