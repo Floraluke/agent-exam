@@ -1,9 +1,9 @@
 # Web 与 HTTP Module
 
-> 当前状态：M1 身份、目录、Job、批准、取消/恢复、报告、证据和排行榜的 Next.js/FastAPI 路径已实现；扩展任务 02 的 A「侧栏工作台」、角色首页、列表/游标、三步提交和移动端菜单已落地。Tailscale 双机负向/VPN/离线验收仍未全部完成。
+> 当前状态：M1 身份、目录、Job、批准、取消/恢复、报告、证据和排行榜的 Next.js/FastAPI 路径已实现；跨批次比较后端 GET 已注册，任务 03 的 Web 对比页尚未实现。Tailscale 双机负向/VPN/离线验收仍未全部完成。
 > 权威范围：浏览器、Next.js 和 FastAPI 怎样交接，以及当前页面/路由实现位置。
 >
-> 配套文件：[接口索引](interface.md)（调用面硬规则与端点族清单）、[进展与未决项](progress.md)、[任务 03 总行动](actions/03-report-catalog.md)。架构事实只在本文维护，那三份不复制。
+> 配套文件：[接口索引](interface.md)（调用面硬规则与端点族清单）、[进展与未决项](progress.md)、[任务 03 总行动](actions/03-report-catalog.md)。架构事实只在本文维护，那几份不复制。
 
 ## 1. 职责与非职责
 
@@ -20,7 +20,7 @@ Web 向 owner 与 collaborator 提供同一个私有站点；FastAPI 把 HTTP �
 - FastAPI 返回稳定领域错误码；Web 将未知/畸形响应收敛为不可用，而不猜测成功。
 - 后端未注册 API 的业务能力不在产品 UI 中显示按钮或交互；导航、菜单、URL 和向导步骤等本地动作不得声称业务事实已改变。
 
-路由、DTO、Cookie、错误及当前 32 项前后端调用清单由[HTTP Interface](../../../interfaces/HTTP_API.md#21-当前前后端-api-清单已注册可由产品-ui-使用)维护；逐控件页面契约由[实现地图](../../../../.scratch/ui-catalog-providers/implementation-map.md#22-任务-02a-版逐控件契约清单)维护。
+路由、DTO、Cookie、错误及当前 32 项已注册端点清单由[HTTP Interface](../../../interfaces/HTTP_API.md#21-当前前后端-api-清单已注册可由产品-ui-使用)维护；其中比较端点明确标记为尚未接入 Web。逐控件页面契约由[实现地图](../../../../.scratch/ui-catalog-providers/implementation-map.md#22-任务-02a-版逐控件契约清单)维护。
 
 ## 3. 当前 Implementation 文件树
 
@@ -36,6 +36,7 @@ apps/backend/src/eval_platform/delivery/http/
     membership.py                     # 邀请和成员管理
     catalog.py                        # 任务/配置目录
     jobs/                             # 提交、查询、批准、取消、恢复和报告
+      reporting/                     # 跨批次比较 GET 与稳定 DTO
     artifacts.py                     # 制品正文和轨迹
     leaderboard/                     # 基础排行榜
 apps/web/
@@ -87,6 +88,6 @@ Web 依赖 HTTP Interface，不依赖后端源码目录或数据库 schema。所
 
 ## 6. 当前验证与缺口
 
-各 M1 任务的 HTTP/浏览器历史证据见对应行动文档；私有入口当前进展见[远程验收行动](../../../actions/2026-09-14-m1-private-remote-acceptance.md)。扩展任务 02 已通过 TypeScript、Next 生产构建、32 条全量浏览器回归、390/360 无页面溢出、双轴评审，以及当时的文档 31 项与实时 OpenAPI 31 项零差异检查。**该计数此后已变化**：任务 03 的对比端点注册后，`HTTP_API.md` §2.1 的文档侧为 32 项；实时 OpenAPI 的重新对账待后端环境可用时补做（见[进展与未决项](progress.md)）。详细红绿过程和基础设施偏差只由[任务 02 行动](../../../actions/2026-09-18-ui-workbench-implementation.md)维护。
+各 M1 任务的 HTTP/浏览器历史证据见对应行动文档；私有入口当前进展见[远程验收行动](../../../actions/2026-09-14-m1-private-remote-acceptance.md)。扩展任务 02 当时已通过 TypeScript、Next 生产构建、32 条全量浏览器回归、390/360 无页面溢出、双轴评审，以及当时文档 31 项与实时 OpenAPI 31 项零差异检查；这个历史数字不随之后新增端点重写。当前注册端点为 32 项。
 
-待完成包括扩展任务 03 的对比报告信息结构，以及完整 Tailscale 双机负向/VPN/离线验收；任务 02 没有新增接口、数据库表、Worker/模型或部署行为。当前远程接入规则见[远程接入](../../../operations/REMOTE_TEAM_ACCESS.md)，部署候选见[所有者单机运行](../owner-host-runtime/ARCHITECTURE.md)。
+待完成包括扩展任务 03 的 Web 对比报告信息结构、客户端解析与逐控件接线，以及完整 Tailscale 双机负向/VPN/离线验收；后端 `GET /api/v1/reports/comparisons` 已存在，但没有页面或按钮。任务 02 没有新增接口、数据库表、Worker/模型或部署行为。当前远程接入规则见[远程接入](../../../operations/REMOTE_TEAM_ACCESS.md)，部署事实见[所有者单机运行](../owner-host-runtime/ARCHITECTURE.md)。

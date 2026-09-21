@@ -1,7 +1,7 @@
 # 当前模块架构索引
 
 > 文档状态：已建立现实代码地图；M1 任务 01–13 的当前实现可定位，M1/MVP 仍未完成。
-> 最后核对：2026-09-17（静态对照源码；没有运行服务或测试）。
+> 最后核对：2026-09-20（同步长期存储、continuous 与跨批次比较后端现实状态）。
 > 权威范围：本目录维护“每个 Module 当前由哪些 Interface、Implementation 和 Adapter 组成、怎样协作、还缺什么”。
 
 这里的 **Module** 是“用一个相对小的 Interface 隐藏一组实现细节”的职责集合，不等同于一个文件夹、进程或微服务。精确术语见 [`CONTEXT.md`](../../../CONTEXT.md)。
@@ -26,13 +26,13 @@
 
 | Module | 当前主要 Interface | 当前状态 |
 |---|---|---|
-| [身份与成员](identity-and-membership/ARCHITECTURE.md) | 登录会话、邀请兑换、成员管理；应用内只有 `owner` / `collaborator` | 已实现；正式长期数据库未部署 |
+| [身份与成员](identity-and-membership/ARCHITECTURE.md) | 登录会话、邀请兑换、成员管理；应用内只有 `owner` / `collaborator` | 已实现；长期 PostgreSQL 已部署 |
 | [目录与配置](catalog-and-configuration/ARCHITECTURE.md) | 可信预设登记、任务/配置查询、不可变来源校验 | 已实现一个固定题目和一个 Codex 配置；扩展仍在规划 |
-| [Job 控制](job-control/ARCHITECTURE.md) | 提交、批准、领取、状态推进、取消、恢复 | 已实现；单重型 Job、零自动重试约束保留 |
+| [Job 控制](job-control/ARCHITECTURE.md) | 提交、批准、领取、状态推进、取消、恢复 | 已实现；continuous 1–20 已落地，单重型 Job、零自动重试约束保留 |
 | [执行与判卷](execution-and-evaluation/ARCHITECTURE.md) | `ExecutionBackend`、`PatchEvaluator`、Worker claim | 固定 Codex → Harbor → Fork 已跑通；新提供方仍是候选 |
-| [证据与报告](evidence-and-reporting/ARCHITECTURE.md) | `ArtifactStore`、报告、轨迹、保留和排行榜 | PostgreSQL/MinIO 链路已在隔离环境验证；长期存储未部署 |
-| [Web 与 HTTP](web-and-http/ARCHITECTURE.md) | Next.js 页面、同源 `/api/v1`、FastAPI 路由 | 主要 M1 页面和接口已实现；远程双机验收未全部完成 |
-| [所有者单机运行](owner-host-runtime/ARCHITECTURE.md) | 进程拓扑、信任区、持久化、备份恢复、私有远程入口 | 前移已确认；部署实现待收敛，代码准备度见该文档第 10 节 |
+| [证据与报告](evidence-and-reporting/ARCHITECTURE.md) | `ArtifactStore`、报告、轨迹、保留、跨批次比较和排行榜 | 长期 PostgreSQL/AIStor 已部署；比较后端已实现，Web 页面未实现 |
+| [Web 与 HTTP](web-and-http/ARCHITECTURE.md) | Next.js 页面、同源 `/api/v1`、FastAPI 路由 | 32 个端点已注册；比较页与远程双机验收未全部完成 |
+| [所有者单机运行](owner-host-runtime/ARCHITECTURE.md) | 进程拓扑、信任区、持久化、手动生命周期、私有远程入口 | P1–P4 已部署验收；备份恢复已明确移出课设范围 |
 
 `Judge` 与 `Human Review` 已移出 M1，因此不伪装成当前第八个模块；未来恢复时仍从[模块契约](../MODULE_CONTRACTS.md)的既有候选契约进入。
 

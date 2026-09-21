@@ -1,17 +1,17 @@
 # 数据模型与制品布局
 
-> 文档状态：Job/Run 架构已确认；字段契约 v0.3。任务 01–13 已验收；任务 13 未新增表或字段，`-04` 的真实 Job/Run 完成终态、确定性判卷、页面读回和双轴终审已通过
+> 文档状态：Job/Run 架构已确认；字段契约 v0.3。长期 PostgreSQL 已部署；`evaluation_jobs.batch_preset` 已支持 `continuous`
 >
-> 最后更新：2026-09-17（追加扩展规划；现有 schema 未修改）
+> 最后更新：2026-09-20（同步 continuous 约束、显式旧库升级入口与长期库验证）
 > 权威范围：本文件维护 PostgreSQL 实体、运行状态持久化、队列领取规则和 MinIO 对象布局。领域词义见 [`CONTEXT.md`](../../CONTEXT.md)，模块输入输出见 [`MODULE_CONTRACTS.md`](./MODULE_CONTRACTS.md)。
 
 ## 扩展规划与现有 schema 的分界
 
-用户已确认[UI/题库/API扩展规格](../../.scratch/ui-catalog-providers/spec.md)，尚未实现。后文任务03/04字段与约束仍描述当前代码；“P2才有DeepSeek/Kimi”的旧排期不覆盖本次新增的 Codex API 路径。
+用户已确认[UI/题库/API扩展规格](../../.scratch/ui-catalog-providers/spec.md)。其中 continuous 预设与比较报告后端已先行落地；任务 03 Web 页面、五道新题和其他 04–08 范围仍未因此完成。后文任务03/04字段与约束描述当前代码；“P2才有DeepSeek/Kimi”的旧排期不覆盖本次新增的 Codex API 路径。
 
-规划深化现有表，不新增表：新合格题继续进入 `tasks`；两家 Codex 配置继续进入 `agent_configurations`；Job/Run 快照继续承载冻结的任务/配置/策略。当前 SQL、Registry 与读出校验只接受旧提供方，必须成套扩展、在全新/旧版隔离PG分别验证后显式升级；HTTP启动不自动迁移用户库。
+规划深化现有表，不新增表：新合格题继续进入 `tasks`；两家 Codex 配置继续进入 `agent_configurations`；Job/Run 快照继续承载冻结的任务/配置/策略。continuous 只扩展既有 `batch_preset` CHECK，不新增列或表；其他提供方变化仍须成套扩展、在全新/旧版隔离 PG 分别验证后显式升级。HTTP 启动不自动迁移用户库。
 
-兼容要求：连续规模用新版本预设，旧Job快照/请求摘要不改写；新增配置摘要覆盖关键提供方配置/模型目录/限制版本，旧Agent指纹保持旧算法验证。秘密和宿主路径不入表/JSON快照；credential profile仍为非秘密逻辑引用。API计量状态不得因崩溃重置满额，其候选本机账本不成为第二Job队列。具体候选字段/迁移入口见[实现地图第4–5节](../../.scratch/ui-catalog-providers/implementation-map.md)，尚未定稿的新结构不得伪称数据库已有能力。
+兼容要求：连续规模使用新增预设 `continuous`（1–20），旧 `demo/quick/standard` 区间、旧 Job 快照和请求摘要不改写。旧库通过 `agentexam-jobs upgrade-continuous-preset` 显式、幂等升级；实现只接受已知旧三值约束或已完成的四值约束，未知定义失败关闭。新增配置摘要覆盖关键提供方配置/模型目录/限制版本，旧 Agent 指纹保持旧算法验证。秘密和宿主路径不入表/JSON 快照；credential profile 仍为非秘密逻辑引用。API 计量状态不得因崩溃重置满额，其候选本机账本不成为第二 Job 队列。
 
 报告继续保留 null：无可信美元金额不填写 `cost_usd`，人民币预算不是美元实际费用；新增限制版本影响可比性时沿既有分组校验，不混改历史排行。每个切片实现后在本文同步实际字段及证据。
 
@@ -301,7 +301,7 @@ P2 审核前不得执行源码、构建镜像或生成 AgentConfiguration。自�
 
 ### 4.4 `evaluation_jobs`
 
-任务 04 显式建立四张批次/运行/初始事件表；任务 05 在同四张表内增加所有者决定；任务 06 增加领取、单 Run 结果与制品关联；任务 07 接通多 Run 逐项推进和部分错误；任务 09 增加取消审计和幂等字段；任务 10 只增加 `evaluation_jobs.rerun_of_job_id` 自引用并复用状态事件；任务 11 只读现有目录/Job/Run/结果字段，不增加排行榜表、物化分数或迁移。服务启动不会自动迁移，长期数据库仍未部署。实际 SQL 位于 `adapters/persistence/jobs/schema.sql`；恢复与排行榜证据分别见[任务 10 行动](../actions/2026-09-13-m1-interruption-recovery.md)和[任务 11 行动](../actions/2026-09-13-m1-base-leaderboard.md)。
+任务 04 显式建立四张批次/运行/初始事件表；任务 05 在同四张表内增加所有者决定；任务 06 增加领取、单 Run 结果与制品关联；任务 07 接通多 Run 逐项推进和部分错误；任务 09 增加取消审计和幂等字段；任务 10 只增加 `evaluation_jobs.rerun_of_job_id` 自引用并复用状态事件；任务 11 只读现有目录/Job/Run/结果字段，不增加排行榜表或物化分数。服务启动不会自动迁移。实际 SQL 位于 `adapters/persistence/jobs/schema.sql`；旧库的 continuous 约束升级由 `adapters/persistence/jobs/__init__.py` 与 `agentexam-jobs upgrade-continuous-preset` 显式执行。2026-09-20 只读核验长期共享库的 `evaluation_jobs_batch_preset_check` 已包含 `demo/quick/standard/continuous`、`convalidated=true` 且活动 Job 为 0，因此本轮没有重复 ALTER。恢复与排行榜证据分别见[任务 10 行动](../actions/2026-09-13-m1-interruption-recovery.md)和[任务 11 行动](../actions/2026-09-13-m1-base-leaderboard.md)。
 
 实际 `evaluation_jobs` 子集已启用 `AWAITING_OWNER_APPROVAL/QUEUED/PREPARING/EXECUTING/CANCEL_REQUESTED/FINALIZING/COMPLETED/COMPLETED_WITH_ERRORS/FAILED/REJECTED/CANCELED`。Worker 字段、失败字段和起止时间随领取及短事务推进；`COMPLETED_WITH_ERRORS` 要求安全失败码/摘要并保留已完成 Run，`FAILED` 表示没有可汇总的 Job 结果。待批状态要求决定字段全空；排队/拒绝要求可信决定者、时间与两个哈希存在；取消审计四元组必须同时为空或同时存在。创建幂等唯一约束保持 `(created_by, idempotency_key_hash)`；没有限制模板表。
 

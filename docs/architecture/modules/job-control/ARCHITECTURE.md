@@ -1,6 +1,6 @@
 # Job 控制 Module
 
-> 当前状态：M1 任务 04–08、11–12 的提交、批准、领取、批次推进、取消、恢复与保留协作已实现；长期运行环境未部署。
+> 当前状态：M1 提交、批准、领取、批次推进、取消、恢复与保留协作已实现；长期 PostgreSQL 已部署，continuous 1–20 预设及旧库显式升级入口已落地。
 > 权威范围：Job/Run 从创建到终态的控制职责和现实代码地图。精确状态与表约束以[数据模型](../../DATA_MODEL.md)为准。
 
 ## 1. 职责与非职责
@@ -40,6 +40,7 @@ apps/backend/src/eval_platform/
     job_lifecycle/retention.py        # owner 原始制品清理协作
     ports/repositories.py             # JobRepository Interface
   adapters/persistence/jobs/
+    __init__.py                       # 建表入口与 continuous CHECK 显式幂等升级
     schema.sql                        # Job/Run/事件/结果/制品索引及约束
     repository.py                     # 聚合 PostgreSQL Job Repository Adapter
     publication.py                    # Job/Run/初始事件原子发布
@@ -50,7 +51,7 @@ apps/backend/src/eval_platform/
     retention/                        # 删除意图、确认与审计状态
     records.py / state_validation.py  # 数据库记录还原和不变量校验
   delivery/
-    jobs.py                           # 显式 schema/保留维护及 Job 用例装配
+    jobs.py                           # 显式 schema/continuous 升级/保留维护及 Job 用例装配
     job_presets.py                    # 可信批次、限制、网络和工具策略
     worker/main.py                    # 一次 claim 后委托 JobExecutor 的薄 Worker shell
     http/routes/jobs/                 # 提交、查询、决定、取消、恢复、报告 HTTP 翻译
@@ -79,10 +80,12 @@ HTTP 返回并不触发长任务；FastAPI 和 Worker 通过 PostgreSQL 交接�
 
 `JobRepository` 是应用与 PostgreSQL 之间的 seam；`PostgresJobRepository` 是 Adapter。状态机、锁、lease、事件序列和恢复判断隐藏在实现中，Web、HTTP 和 Worker 不各写一套 SQL。
 
+取消与 claim 可能并发，因此 Job 读取事务使用 `REPEATABLE READ` 固定同一请求内的快照：取消请求不能在同一次业务判断中一半看到旧状态、一半看到新状态。并发最终仍由行锁、版本和状态前置条件裁决，不靠页面时序保证。
+
 本 Module 依赖 Identity 提供 actor、Catalog 提供可冻结记录；执行 Module 依赖本 Module 的 claim/进度 Interface。Job Control 不依赖 Harbor 的配置格式或模型秘密。
 
 ## 6. 当前验证与缺口
 
-历史动作与实际验证分散在任务 04–08、11–13 的行动文档中，当前状态总入口见 [`HANDOFF.md`](../../../../HANDOFF.md)。本轮没有重跑任何状态机、HTTP、浏览器或 PostgreSQL 测试。
+历史动作与实际验证分散在任务 04–08、11–13 的行动文档中，当前状态总入口见 [`HANDOFF.md`](../../../../HANDOFF.md)。2026-09-20 的合并后修复已在隔离真实 PostgreSQL 验证旧三值约束升级、新四值约束幂等和未知约束失败关闭；共享长期库只读确认已经是四值且约束有效。HTTP 启动仍不自动迁移。
 
-未完成项不等于 Module 重做：正式长期 PostgreSQL、启动/停止、备份恢复和 owner 电脑重启后的恢复验收属于[所有者单机运行](../owner-host-runtime/ARCHITECTURE.md)；1–20 道新规模属于待确认扩展规划。当前仍坚持一个重型 Job、每组合一次尝试、零自动重试。
+未完成项不等于 Module 重做：长期 PostgreSQL、启动/停止与重启后持久性验收已完成；备份恢复已由用户明确移出课设范围。continuous 允许 1–20 道，但五道新题资格入库仍属于未完成任务 04。当前仍坚持一个重型 Job、每组合一次尝试、零自动重试。
