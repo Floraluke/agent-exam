@@ -126,6 +126,16 @@ runtime/prototype/t05-topology-<日期>-<序号>/   # T1 探针与证据（被 G
 - **无正文日志可证**：`safe_summary()` 的断言包含"不含假值、不含 `Bearer`、不含正文内容"。
 - 出站正文按 `sort_keys` + 紧凑分隔符序列化，因此同一语义的正文字节确定可复现（测试断言键序不同的两种写法产出相同字节）。
 
+**T1 本机拓扑预证——未证成（探针工具链失败，非拓扑结论）**
+
+- 探针位置：`runtime/prototype/t05-topology-20260921-01/`（`probe.sh` + `summary.json`）；`/runtime/` 被 `.gitignore` 排除，**探针与证据不进产品树**（与 M0 各次探针同做法）。
+- **本次没有证成任何一条拓扑断言。** 三次运行的 `CLOSED` 结果**全部是探针工具链的假象**，不是拓扑事实。`summary.json` 的 `status` 记为 `not-verified`，七条断言逐条记为 `not measured`（第 5 条仅部分观察）。
+- **根因**：监听端容器**启动即退出**（`Exited (1)`），`NetworkSettings.IPAddress` 为空串，因此所有依赖地址的断言都失去意义。退出原因**尚未确定**，候选是 `--cap-drop ALL` 与 `--tmpfs /data` 覆盖镜像声明的 `VOLUME /data`。
+- **额外发现一条环境陷阱（已记录，价值超过本次结论）**：Windows Git Bash 会把传给容器的绝对路径做 MSYS 转换——`--tmpfs /data` 直接报 `invalid mount path: 'C'`，而 `docker exec ... bash -c '</dev/tcp/<host>/<port>'` 里的地址也被改写。**后果是探针返回假阴性的 `CLOSED`**，而假阴性最危险：它看起来像"隔离成立"，可能被误当成通过。缓解方式是脚本内 `export MSYS_NO_PATHCONV=1`；本项目在 Windows 上跑任何容器探针都必须这样处理。
+- **清理纪律已验证**：三次运行结束后，按 `agentexam.task=05` 标签复核容器/网络/卷**残留均为 0**，未执行全局 prune。另按要求改用了已缓存的 `docker.m.daocloud.io/library/redis:7-alpine`（首次误用未缓存标签触发了一次拉取，已如实记录）。
+- **未越界的部分**：Docker 自定义网络创建与删除能力此前已单独验证通过；本片未读取真实凭据、未调用模型、未改动共享 Docker/WSL/全局网络。
+- **结论与下一步**：T1 **不能**作为 `service.py` 与 `network.py` 的设计依据，`service.py` 的接线形态仍取决于拓扑结论。修复探针需要先确定监听端退出原因（改用不声明 `VOLUME` 的镜像，或先验证 `--cap-drop ALL` 是否为因），再重跑全套断言。
+
 ### 未完成与遗留
 
 - **S2、`service.py`、S8–S9 与 T1 尚未实施**；已完成前置验证与 S3–S7。**代理中所有能以纯逻辑表达的安全不变量均已落地并有测试**：私有文件可信、请求出站前拒绝、额度不超支、未知不记零、令牌不跨 Run、出站目标不由请求决定、重试与重定向结构上不可配。剩余部分性质不同——`service.py` 与 `network.py` 是**接线**，其形态取决于 T1 拓扑结论，故按用户确认的顺序把 T1 提前到 `service.py` 之前。
