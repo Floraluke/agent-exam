@@ -8,6 +8,8 @@
 >
 > Web/HTTP 进展：当前 FastAPI 仍注册 32 个端点；`GET /api/v1/reports/comparisons` 已由“对比报告”页接入。页面只选服务端可见 Job，五档矩阵不重算；冻结配置最多 3 并发读取，用量由用户触发且最多 3 并发读取，缺失/`null` 保持未知；单元格复用既有 Run 报告、轨迹和制品下载。任务 03 的实现本身未新增 API、数据库结构、Key 页面、Judge 分或模型调用；上述真实运行是其后的独立用户授权操作。
 >
+> Web/HTTP 侧收口（2026-09-21，B）：**扩展任务 03（对比页）、04 的 B 切片（三步向导在六题与 `continuous(1–20)` 下的浏览器动线、网页读取面暴露扫描）、05 的 B 切片（仅必要错误呈现的通道审计与 `HTTP_API.md` §10.2 的字段内容约束）均已完成并合入 `main`**；当前 `main = origin/main = upstream/main = aec4241`，工作树干净，fork 上只保留 `main` 与必须存档的 `task03/comparison-api-spec`（其 PR 是关闭而非合并）。逐项证据、未决项与等待项（owner 共享 tailnet 节点、假提供方链落地后的两项呈现验证、真后端六题核对已改期到任务 08）见[模块进展与未决项](docs/architecture/modules/web-and-http/progress.md)。**下方"当前状态"段中的 `fd369cc` 基线与"任务 03 是未提交工作树增量"是 17:43 的快照，已被本行取代。**
+>
 > 后续决定（2026-09-20）：用户明确按五人课设只使用 owner 电脑上的一套 PostgreSQL，五人共用 `agentexam_admin` 管理员账号直连；不建立只读库、分角色数据库账号或每人独立数据库。当前实际 tailnet 入口已核对为 `sss.tail03c757.ts.net:55432 → 127.0.0.1:55432`。因部分组员无法下载 Tailscale，用户决定增加同一可信物理局域网 `owner当前IPv4:55432` 直连；本轮只改文档，Compose、防火墙和容器未修改，所以局域网入口尚未实施或验证。两条路径的 Navicat 步骤见 [`TEAM_POSTGRESQL_CONNECTION.md`](docs/operations/TEAM_POSTGRESQL_CONNECTION.md)；MinIO、原始 FastAPI、Docker、Worker 和模型秘密仍不开放，不做路由器转发或公网发布。
 >
 > 团队分工（2026-09-18）：七个 Module 已按五人 A–E 建立唯一 DRI、上下游交接和 52/55/54/55/56 小时初始工时基线；M1-14 与扩展 01–08 已映射负责人，入口见 [`TEAM_WORK_ALLOCATION.md`](docs/architecture/modules/TEAM_WORK_ALLOCATION.md)。该文档已补齐七个 Module 的当前 JSON 交接示例，并区分实际 HTTP、内部 dataclass 表示和运维状态；除 A 是 owner 外其余姓名待填。任务 01–03 已发布，04–08 仍未发布；2026-09-21 的真实 Worker 授权只覆盖现有已批准队列和保持循环运行，不等于发布或授权任务 04–08。
