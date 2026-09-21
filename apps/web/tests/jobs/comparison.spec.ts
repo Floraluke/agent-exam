@@ -139,3 +139,88 @@ test("390 and 360 contain the matrix without page overflow", async ({ page }) =>
     path: "../../runtime/tests/03-comparison-mobile-360.png", fullPage: true,
   });
 });
+
+test("a wide matrix scrolls inside its container instead of breaking the page", async ({
+  page,
+}) => {
+  await loginOwner(page);
+  await registerCatalog(page, true);
+  // 夹具的 preset 按需登记，这里补齐到六题 + 两配置，才有 12 列可比。
+  await page.evaluate(async () => {
+    const register = async (path: string, presetId: string) => {
+      const response = await fetch(path, {
+        method: "POST", credentials: "same-origin",
+        headers: { "Content-Type": "application/json", "X-AgentExam-Request": "1" },
+        body: JSON.stringify({ preset_id: presetId }),
+      });
+      if (!response.ok) throw new Error("wide-matrix catalog registration failed");
+    };
+    for (const index of [3, 4, 5, 6]) {
+      await register("/api/v1/tasks/register", `swe-gym-lite-example-${index}`);
+    }
+    await register("/api/v1/agent-configurations", "codex-0153-terra-low");
+  });
+  // 用接口批量建批次（六题 × 两配置 = 12 列），避免为凑列数在向导里点 12 次。
+  const created = await page.evaluate(async () => {
+    const read = async (path: string) =>
+      (await (await fetch(path, { credentials: "same-origin" })).json()) as {
+        items: Record<string, string>[];
+      };
+    const taskPage = await read("/api/v1/tasks?limit=100");
+    const agentPage = await read(
+      "/api/v1/agent-configurations?agent_type=codex&enabled=true&limit=100");
+    const taskIds = taskPage.items.map((item) => item.task_id);
+    const agentIds = agentPage.items.map((item) => item.agent_configuration_id);
+    let count = 0;
+    for (const taskId of taskIds) {
+      for (const agentId of agentIds) {
+        const response = await fetch("/api/v1/jobs", {
+          method: "POST", credentials: "same-origin",
+          headers: {
+            "Content-Type": "application/json", "X-AgentExam-Request": "1",
+            "Idempotency-Key": crypto.randomUUID(),
+          },
+          body: JSON.stringify({
+            task_ids: [taskId], agent_configuration_ids: [agentId],
+            evaluation_track: "closed_book", batch_preset: "continuous",
+            limit_profile_id: "default-single-host-v1",
+          }),
+        });
+        if (!response.ok) throw new Error("wide-matrix fixture job failed");
+        count += 1;
+      }
+    }
+    return { tasks: taskIds.length, agents: agentIds.length, count };
+  });
+  expect(created.count).toBe(created.tasks * created.agents);
+  expect(created.count).toBeGreaterThanOrEqual(10);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const nav = navigation(page);
+  await page.getByRole("button", { name: "打开主导航" }).click();
+  await nav.getByRole("button", { name: "评测", exact: true }).click();
+  // 勾上当前列表里的全部批次（含本文件前几条用例留下的，故按实际数量断言）。
+  const checks = page.getByLabel("选择对比");
+  const total = await checks.count();
+  expect(total).toBeGreaterThanOrEqual(created.count);
+  for (let index = 0; index < total; index += 1) await checks.nth(index).check();
+  await page.getByRole("button", { name: /对比所选/ }).click();
+  await page.getByRole("button", { name: "应用对比" }).click();
+
+  const table = page.getByRole("region", { name: "跨批次对比报告" })
+    .getByRole("table");
+  await expect(table).toBeVisible();
+  await expect(table.getByRole("columnheader")).toHaveCount(total + 1);
+
+  // 关键断言：这么多列必须真的把容器压出横向滚动，而页面本身不溢出。
+  await expect.poll(() => page.evaluate(() => {
+    const box = document.querySelector(".comparison-matrix");
+    return box !== null && box.scrollWidth > box.clientWidth;
+  })).toBe(true);
+  await expect.poll(() => page.evaluate(() =>
+    document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+  )).toBe(true);
+  await page.screenshot({
+    path: "../../runtime/tests/03-comparison-wide-390.png", fullPage: true,
+  });
+});
