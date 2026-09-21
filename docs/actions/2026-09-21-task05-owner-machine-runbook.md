@@ -105,3 +105,25 @@ docs/LLY/
 代理实现（`adapters/execution/provider_access/`、`codex/provider_config.py`）由 E 在**本机**编写，并先在本机跑通策略层、契约层与生命周期层的替身测试后再推送。负责人机器只承担**需要真实隔离环境的运行与核验**，不在那边临时改代码。若现场必须修改，改动要回到仓库、走同一评审与验证，不能只留现场版本。
 
 本片可在**负责人编写极少代码**的前提下完成：做题侧与代理可以先用最小替身（一个只做转发与拒绝判定的脚本）验证拓扑，等拓扑冻结后再由 E 实现完整代理。这样拓扑失败不会浪费完整实现的工时。
+
+## 附二：T2 就绪说明（2026-09-21 更新；原附一节为草稿，保留不动）
+
+**先分清两半。** T1（纯 Docker/Compose 层）已在 E 的开发机证成：七条断言全部测到并通过（28 项判定全 PASS，含反向对照自检）。**T1 通过不等于本任务拓扑验收通过**——它不涉及 Harbor。T2 要回答的是剩下那一半：**固定 Harbor 的 docker 环境是否允许替换或绕过它自己的侧车网络附加**。这与 T1 无重叠，是唯一还缺的拓扑结论（[设计冻结第 3.1 节](../LLY/01-plan/STAGE1_PROXY_DESIGN_FREEZE.md)）。
+
+**探针已纳入仓库，可直接复用**（本次新增）：`apps/backend/tests/providers/runtime/`（`topology-probe.sh` + 两个库文件 + 假值 fixture + README）。在负责人机器上：
+
+```bash
+git fetch && git switch lly/dev && git pull
+bash apps/backend/tests/providers/runtime/topology-probe.sh            # 期望 status=verified
+NEGATIVE_CONTROL=1 bash apps/backend/tests/providers/runtime/topology-probe.sh  # 自检：故意泄漏必须被检出
+```
+
+证据默认写到 `<仓库根>/.tmp/t05-topology/`（已被 Git 忽略）；**不需要负责人准备任何假文件**，fixture 随仓库走。两个镜像默认 `debian:bookworm-slim` 与 `redis:7-alpine`（约 170 MB，若未缓存会拉取）；该机器已有等价镜像时用 `T05_WORKLOAD_IMAGE` / `T05_LISTENER_IMAGE` 指过去，避免为一个探针下载新镜像。Git Bash 上脚本内部已 `export MSYS_NO_PATHCONV=1`——缺了它探针会返回**假阴性 CLOSED**。
+
+**T2 的第一步（本片唯一的新问题）**：读 `framework/harbor` 的 docker 环境实现，回答"它的侧车网络附加能否被替换"。既有事实是 `adapters/execution/network.py::compose_profile()` **刻意不声明 `networks`**，由 Harbor 附加自己的侧车，主容器与侧车共享网络命名空间（[认证接口第 4.1 节第 5 条](../../docs/interfaces/CODEX_AUTHENTICATION.md)）。若 Harbor 允许替换 → 按候选双网络结构接线；若不允许 → 按计划第 7 节**停在本任务**，不带真实 Key、不放宽到公网。
+
+**前置核对现状（原第 B 节六项）**：②③④ 满足；⑤ 满足（探针自带假值，权限由脚本自建自删）；① 负责人机器 Docker 可响应但**未获创建授权**；⑥ **窗口已可用**（用户 2026-09-21 告知），仍缺一句书面授权。
+
+**需要的那句授权**（可直接回执）：同意在负责人机器上按已确认范围创建与删除带 `agentexam.task=05` 标签的容器、网络、卷（项目名 `agentexam-t05-topology`，网络 `internal`/`egress`，服务 `workload`/`proxy`/`fake-upstream`）；只按名称与标签删除，不执行全局 prune；不重建 `framework/harbor`（首次编译约 275 分钟）、不停止既有持久化服务、不读真实 Key、不发起真实供应商请求。
+
+**回报内容**（写回本任务行动文档，不要只给截图）：两条命令的实际输出、网络图、镜像/容器/网络身份、清理复核（残留应为 0）、Harbor 侧车附加能否替换的结论与依据、失败与未验证项如实列出。

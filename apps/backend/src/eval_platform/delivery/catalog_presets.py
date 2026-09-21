@@ -9,7 +9,11 @@ from eval_platform.adapters.persistence.catalog.tasks import PostgresTaskReposit
 from eval_platform.adapters.tasks.swe_gym import CANDIDATE_INSTANCE_ID, SWEGymTaskSource
 from eval_platform.application.agent_registry import AgentRegistry
 from eval_platform.application.task_catalog import TaskCatalog
-from eval_platform.domain.agent import AgentConfiguration
+from eval_platform.domain.agent import (
+    INTERNAL_TEST_AUTHENTICATION,
+    INTERNAL_TEST_PROVIDER,
+    AgentConfiguration,
+)
 from eval_platform.domain.task import TaskBundle
 
 TASK_PRESETS = {
@@ -33,6 +37,25 @@ AGENT_PRESETS = {
             "gpt-5.6-terra",
             "chatgpt_auth_json",
             "owner-codex",
+            {"reasoning_effort": "medium"},
+        ),
+    ),
+}
+
+
+# Only ever passed in by an internal_test deployment (owner machine runbook, or a test):
+# production wiring uses AGENT_PRESETS above, which must not contain a fake provider.
+INTERNAL_TEST_AGENT_PRESETS = {
+    "internal-test-provider-proxy": (
+        "Internal test / provider proxy",
+        AgentConfiguration(
+            "internal-test-provider-proxy",
+            "codex",
+            "0.153.0",
+            INTERNAL_TEST_PROVIDER,
+            "deepseek-flash",
+            INTERNAL_TEST_AUTHENTICATION,
+            "t05-fake-provider",
             {"reasoning_effort": "medium"},
         ),
     ),

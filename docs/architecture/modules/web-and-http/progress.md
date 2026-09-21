@@ -142,7 +142,7 @@ B 手动尝试从本机接入 owner A 的共享评测环境，**未接通**：
 | 项 | 状态 | 说明 |
 |---|---|---|
 | 共享 PostgreSQL `15432` 正向连通 | ⬜ 未通过 | Navicat 失败、TCP 不通；**根因见下方 Tailscale 一行**（B 与 owner 不在同一 tailnet）。B 当前不需要数据库，暂不重试（2026-09-21 用户决定） |
-| Tailscale 双机正向/负向 | ⬜ **根因已定位** | 2026-09-21 复测：A 批准后本机**自身 `Online` 由 false 变 true**、已分配 tailnet IPv4，但对端仍为 **0**——**本机处于另一个 tailnet**（自身 tailnet 名与 tailnet IPv4 属私有信息，不入 Git），因此 `sss.tail03c757.ts.net` 解析不到、443 与 15432 均不可达。**A 侧需要把 owner 的设备节点共享给 B 的账号，或把 B 邀请进 `tail03c757`**；不是链路或端口问题 |
+| Tailscale 双机正向/负向 | ⬜ **根因已定位** | 2026-09-21 复测：A 批准后本机**自身 `Online` 由 false 变 true**、已分配 tailnet IPv4，但对端仍为 **0**——**本机处于另一个 tailnet**（自身 tailnet 名与 tailnet IPv4 属私有信息，不入 Git），因此 `sss.tail03c757.ts.net` 解析不到、443 与 15432 均不可达。**A 侧需要把 owner 的设备节点共享给 B 的账号，或把 B 邀请进 `tail03c757`**；不是链路或端口问题。**2026-09-21 再复测**：A 把 B 的邮箱加进了 grants 规则后仍不通——**grants/ACL 只在同一个 tailnet 内生效**，B 的设备不在该 tailnet，规则不适用；仍然是上面两条之一才能真正打通（建议用**共享单个设备节点**，对 B 而言可保留自己的 tailnet，暴露面也最小） |
 | VPN 开/关两态、未获准设备负向 | ⬜ 未验证 | 属 M1-14 范围 |
 | 共享 PostgreSQL 门禁用例 | ⬜ 仍 skipped | 需 `AGENTEXAM_RUN_IDENTITY_POSTGRES=1` + 可达 PG；**如实记为 skipped，不记为通过** |
 | 本机在**新 main** 上重跑 | ⬜ 未做 | 环境已就绪；`main` 已含 `7553ce0`，可按 4 passed 预期重跑并核对那 2 个 Harbor 失败 |

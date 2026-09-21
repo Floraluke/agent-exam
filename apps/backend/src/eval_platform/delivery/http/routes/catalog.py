@@ -92,6 +92,7 @@ def catalog_router(
         _check_query(request, {"agent_type", "enabled", "cursor", "limit"})
         items, next_cursor = registry.list(
             actor,
+            agent_type,
             enabled,
             str(cursor) if cursor else None,
             limit,

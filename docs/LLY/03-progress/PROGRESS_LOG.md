@@ -7,6 +7,15 @@
 
 ### 已完成
 
+- **任务 05 本机实施（S3–S7）已完成**：`adapters/execution/provider_access/` 现有 6 个源文件（`__init__`/`secrets` 158/`request_policy` 125/`budget` 186/`binding` 134/`transport` 109 行，均 ≤200，目录上限 8）。测试在 `tests/providers/policy/`（5 个测试文件，**67 passed / 1 skipped**，跳过项为"POSIX 属主位仅限类 Unix"，本机 Windows 属设计如此）。
+- **测试抓出 4 处真实缺陷**（非测试写错）：① 缺 `profiles` 键时结构校验被短路成 `PRIVATE_PROFILE_NOT_FOUND`，掩盖结构非法；② 上游地址只用正则校验 `https://` 前缀，**任意主机都能通过**，已改为按登记上游成对校验；③ 请求缺 `stream` 键时抛**裸 `KeyError`**，安全边界上不可接受，已收敛为受控错误码；④ `transport` 原把 `Authorization: Bearer …` 并进 headers，导致 **`repr(request)` 泄漏秘密**（且给正文加 `repr=False` 也挡不住 `repr(headers)`），已改为认证值与客户端头分开存放、`safe_summary()` 只报头名与正文长度。
+- 关键机制取舍已落进代码：`load_profile(..., verify_access=…)` **无默认值**，调用方无法不声明"私有文件如何被证明仅 owner 可读"就取得 profile；`OutboundRequest` 对 `max_attempts != 1` 与 `follow_redirects=True` 直接抛错（重试与重定向结构上不可配）；账本的 `consumed_*` 为必填构造参数，代理重启不会无意从零开始；8 线程并发抢额度的用例断言**恰好 4 成功 4 拒绝**。
+- **T1（纯 Docker 层拓扑）已在本机证成**：探针七条断言全部测到并通过（**28 项判定**全 PASS，`status=verified`，连续两次一致）。**探针已按用户确认纳入仓库** `apps/backend/tests/providers/runtime/`（拆成 driver / 原语 / 判定三文件，均 ≤200 行，含 README 与假值 fixture），证据默认写到被忽略的 `.tmp/t05-topology/`；原始记录已抄进[本机实施行动](../../actions/2026-09-21-task05-local-implementation.md)。
+- **run 01"未证成"的根因已定位**：监听端容器启动即退出，报 `setpriv: setresuid failed: Operation not permitted`（退出码 127）——`--cap-drop ALL` 去掉了 `CAP_SETUID`/`CAP_SETGID`，而镜像入口脚本需要它们降权。**修法是让监听端以镜像内 redis 用户运行**，`--cap-drop ALL` 与 `no-new-privileges` 全部保留。因此 run 01 的 CLOSED 确为工具链假象。
+- **本轮另修掉 4 处会产出假阴性的探针缺陷**：监听端 Alpine 镜像**无 bash**（从监听端发起的检查一律静默 CLOSED，已改用镜像自带 `redis-cli`）；转发替身脚本**漏端口号**（`${ENTRY_PORT}` 写在容器侧展开位置，容器内无此变量，故 `exec nc <主机> ` 无端口、每次转发被重置）；一次性 `nc -e` 监听在重生窗口重置新连接（改为常驻 `nc -lk -e`）；**redis 会改写自己的进程名**，用其 argv 做 PID 隔离标记恒为 0（改用中继脚本路径，并保留代理侧正对照）。
+- **探针新增健康门禁与反向对照**：任一容器非 running/地址为空/监听端不应答即 `harness-failed` 中止且**不输出任何断言**（本轮实际生效一次）；`NEGATIVE_CONTROL=1` 故意把做题侧接进出网网络，断言 2/3 如预期失败（`status=negative-control-ok`），证明负例不是空断言。清理每次复核残留为 0，未执行全局 prune。
+- 记录一条 Windows 环境陷阱：Git Bash 会把传给容器的绝对路径做 MSYS 转换（`--tmpfs /data` 曾被改写成非法路径，`/dev/tcp` 参数同样受影响），**后果是假阴性 CLOSED**；任何容器探针都必须在脚本内 `export MSYS_NO_PATHCONV=1`。
+- 静态检查与回归（HEAD `4c7c4d6`，本机实测）：`ruff check` 通过、`ruff format --check` 313 文件、`mypy` 174 源文件无问题、默认回归 **484 passed / 102 skipped / 2 failed**（失败项与基线完全相同，仍是缺 `framework/harbor` 的 ISSUE-04）。
 - 归档扩展计划 6 份文件（来源 `D:\ui-catalog-providers\ui-catalog-providers\`）：4 份更新到权威位置 `.scratch/ui-catalog-providers/`，2 份任务单落位新建的 `issues/` 子目录。归档前仓库版本是旧版（仍写“01 未开工、未发布任务单”）；相对旧版的实际变化为 `spec.md` 2 行、`plan.md` 25 行、`implementation-map.md` 95 行，`verification.md` 内容本就相同。
 - 归档方式：`docs/LLY/` 只增加指向权威位置的链接、不复制计划正文 —— 依据本目录 README 的单一事实源规则。
 - 更新后的计划确认：**P、任务 01、任务 02 均已完成**（任务 02 是“A 版假数据原型连接现有后端的第一片正式 Web”，含 32 条浏览器回归、类型检查、生产构建、31 项 API 对账与双轴评审）；03–08 仍未发布为独立 issue。
@@ -16,13 +25,13 @@
 - 本次推送另带入 D、B 的 03/04/08 准备工作：对比查询接口与矩阵渲染、连续规模 preset、任务 03 报告语义设计、任务 08 runbook。这些任务仍**未发布为独立 issue**；`TEAM_WORK_ALLOCATION.md` 第 7 条已相应改为“01–02 已发布并完成；03–08 仍是未发布的规划编号”。
 - 合并后后端验证：`ruff check` 通过；`mypy` 167 源文件无问题（合并前 164）；默认回归 **404 passed / 84 skipped / 2 failed（55.89 秒）**，相对合并前基线 386/82/2 通过数 +18、跳过数 +2，**失败项完全相同**（仍是缺少 `framework/harbor` 的 ISSUE-04），无新增失败。
 - 过程与完整证据见[归档与同步行动](../../actions/2026-09-21-file-plan-docs-and-sync.md)。
-- 完成 05 的准备性测试设计：[阶段 1（05）假提供方安全执行链测试设计](../01-plan/STAGE1_PROXY_TEST_DESIGN.md)。把[验证规范第 4 节](../../../.scratch/ui-catalog-providers/verification.md)的负例矩阵逐条映射为测试归属（测试文件、用例名、断言、运行位置），并按“本机无 Docker、`framework/runtime` 只在组长机器”的现状分层：策略层、契约层、生命周期层在本机，集成层只在组长机器。
+- 完成 05 的准备性测试设计：[阶段 1（05）假提供方安全执行链测试设计](../01-plan/STAGE1_PROXY_TEST_DESIGN.md)。把[验证规范第 4 节](../../../.scratch/ui-catalog-providers/verification.md)的负例矩阵逐条映射为测试归属（测试文件、用例名、断言、运行位置），并按“本机无 Docker、`framework/runtime` 只在组长机器”的现状分层：策略层、契约层、生命周期层在本机，集成层只在组长机器。（**当日随后变更**：本机已装 Docker，T1 已在纯 Docker 层证成；见本日上方条目。）
 - 覆盖核对发现并补上三处遗漏：直连供应商/宿主/metadata/其他 Trial、容器文件与进程及 Docker inspect/patch 的假 Key 探查、新 Job 重试需重新批准。现五组负例全部有明确归属。
 - 同时标出四项**开工前必须冻结、现在不得预设**的未知：Token 上界/请求字段白名单/账本格式（实现地图第 5 节明示未验证）、固定 CLI 是否需要容器承载、Compose 拓扑不能沿用共享网络命名空间的现有侧车、私有文件精确权限条件。
 - 本次只产出设计文档：未创建 `tests/providers/`、未写任何测试或产品代码、未安装 Docker、未调用模型。过程见[测试设计行动](../../actions/2026-09-21-stage1-proxy-test-design.md)。
 - 拉取远端：`origin/main` 由 `beed93f` 前进到 `361998b`（68 文件、+4435/−153）；`lly/dev` 直接**快进**到该提交（无需合并提交），领先 `origin/lly/dev` 46 个提交。`docs/LLY/` 的既有改动已随 PR #5 合入 main，本地与 main 中的版本逐字节一致。
 - **任务 04 已发布且 8 项验收全部完成**。其中第 3 项（五题 × 参考/空/错误 = 15/15 场景）原属 E 的 12 h 配合范围，实际由 C 在组长机器上执行（证据 `runtime/fork-evidence/` 15 个 scope、容器清理 `verified`、Fork `returncode=0`），五道候选已写入白名单。**该事实需与负责人确认**：它影响分工表中 E 的工时构成与任务 08 的输入。
-- 记录一个直接落在 E 的 06/07 路径上的潜在缺陷（已在代码中核实）：`routes/catalog.py` 接受并校验 `agent_type` 查询参数，但 `application/agent_registry.py` 的 `list()` 签名不含该参数，因此**该筛选从不生效**；当前因登记路径仅允许 `codex` 而行为等价，06/07 接入 DeepSeek/Kimi 后会静默失灵。C 已转给 D 记录在案，该行动明确"不改动"。
+- 记录一个直接落在 E 的 06/07 路径上的潜在缺陷（已在代码中核实）：`routes/catalog.py` 接受并校验 `agent_type` 查询参数，但 `application/agent_registry.py` 的 `list()` 签名不含该参数，因此**该筛选从不生效**；当前因登记路径仅允许 `codex` 而行为等价，06/07 接入 DeepSeek/Kimi 后会静默失灵。C 已转给 D 记录在案，该行动明确"不改动"。**（E 侧更正，2026-09-21）**：本行“06/07 接入 DeepSeek/Kimi 后会静默失灵”的触发条件不准确——`agent_type` 是**执行器类型**（`codex`/`aider`/`claude_code`/`custom`，见 DATA_MODEL 第 271 行、HTTP_API 第 297 行），DeepSeek/Kimi 预设的 `agent_type` 仍是 `codex`；真实缺口是 HTTP 契约要求“合法筛选无匹配返回空列表”而实现从不传入该参数（HTTP_API 第 315 行），要等出现第二个合法 agent_type 才会显形。代码未改动，接线归 S8 范围。
 - 合并后的本机验证：`ruff check` 通过；`ruff format --check` 300 文件；`mypy` 169 源文件无问题；默认回归 **417 passed / 101 skipped / 2 failed（59.93 秒）**，相对上次 404/84/2 通过 +13、跳过 +17，失败项完全相同（仍为缺 `framework/harbor` 的 ISSUE-04）。
 - 起草 05 任务单：[`issues/05-fake-provider-secure-execution-chain.md`](../../../.scratch/ui-catalog-providers/issues/05-fake-provider-secure-execution-chain.md)，`Status: needs-info`，9 项验收 + 停止条件，等待负责人发布与开工授权。起草方式对照 C 为任务 04 走过的路径（成员起草 → 负责人发布并授权）。过程见[起草行动](../../actions/2026-09-21-draft-task-05-issue.md)。
 - 验收项覆盖核对发现并补上一处遗漏：权威负例第一条的"未批准、错误 profile、缺密钥、宽权限/链接文件"未落入第 4 项验收，已补；随后又按权威措辞把第 5 项对齐为"正式链路的合成 Run 可完成"。现关键短语全部命中。
@@ -42,15 +51,46 @@
 - 产出待负责人回执的文档：[`01-plan/TASK05_OWNER_ACTION_REQUIRED.md`](../01-plan/TASK05_OWNER_ACTION_REQUIRED.md)（可整份转发）。把当前唯一的两处阻塞写成可直接回执的形态：① 9 项决定表（提供"建议全部采用"这一最小回执方式，第 7 项明确 A/B 两条路线的后果）；② 授权范围具体到可批准——给出建议的 Compose 项目名 `agentexam-t05-topology`、逻辑网络 `internal`/`egress`、服务 `workload`/`proxy`/`fake-upstream`、标签与"只按名称与标签删除、禁止全局 prune"的清理规则，并给出可直接改字的授权回执模板。
 - 该文档同时减轻对方负担：明确 **假 Key 文件由探针自行生成、不需要负责人准备**（拒绝用例本就需刻意造出符号链接/宽权限等错误形态）；并写明第 2–4 步（白名单机制、私有文件校验、配置渲染、假服务、本机替身测试）**不必等拓扑结论**即可并行开工，即使拓扑最终不可行也不浪费。
 - `TASK05_OWNER_DELIVERY.md` → `TASK05_OWNER_DELIVERY_FILLED.md` → `TASK05_OWNER_ACTION_REQUIRED.md` 三份构成"请求 → 回复 → 回执"配对，均置于 `01-plan/`。
-- 负责人后续一次性确认 9 项决定：输入 300,000、输出 32,000、期限 900 秒、最多 3 次/分钟、首轮目标不超过 ¥100、Kimi 日/月各 ¥80、输入计数采用 A 保守上界；仓库外私有路径与 owner 规则、专属拓扑资源范围也已确认。负责人同时明确本轮只填文档、不运行探针，因此没有当前 Docker 创建/删除授权或时间窗口。三份负责人文档、设计冻结底稿和 05 任务单 Comments 已同步该边界。
+- **负责人已把 9 项全部拍板**（回执见 [`01-plan/TASK05_OWNER_ACTION_REQUIRED.md`](../01-plan/TASK05_OWNER_ACTION_REQUIRED.md)）：输入 300,000 / 输出 32,000（含推理）/ 期限 900 秒（与构建、判卷分开计时）/ 频率 3 次每分钟（账户更低时从低）/ 支出目标 ¥100（只称计划目标）/ Kimi 日/月各 ¥80（账户设置本轮未执行）；**第 7 项选 A 保守上界**（必须证明不低估、不承诺精确账单）；私有文件用负责人已选定的仓库外路径、当前 Windows 用户为属主、绝对路径不入 Git；第 9 项**只确认资源范围、未给执行窗口**。
+- 负责人三份回执原件已按原件归档（文件名去掉微信去重后缀，替换我此前发出的版本，保持一文件一权威内容）。
+- 已确认数值写入[设计冻结底稿](../01-plan/STAGE1_PROXY_DESIGN_FREEZE.md)：第 3.4 节新增已确认数值表、第 2 条由"未决"改为"A 保守上界"、第 4 节由"待拍板"改为"已确认"，并在状态行与第 5 节区分**数值已确认 / 机制仍候选 / 拓扑未证**。（**当日随后更新**：T1 已在本机证成，该文件的"拓扑未证"已改为"T1 已证成、T2 未证"；见本日上方条目。）负责人明确"允许把第 1 步数值部分写入冻结记录，但未授予实施开工许可"。
+- 前置核对由 1/6 升为 **3/6**（Harbor revision、无活动业务 Job、专属资源范围）；Docker 创建能力、假文件权限、当前执行授权仍缺。**7 条拓扑断言仍全部未执行，总判定仍 STOP。**
+- 拉取远端：`origin/main` 由 `0cc6fb8` 前进到 `051ea51`（含 B 的 §10.2 契约、任务 03 对比页、任务 04 向导规模、五结果措辞统一等），`origin/fengyy-fixweb` 由 `6dfa2be` 前进到 `d9a7759`；`lly/dev` 由 `272a4bd` **快进**到 `051ea51`，无冲突。
+- **B（Web 与 HTTP）发来两项对齐，均已核实并落位**：
+  1. **接口边界纳入冻结项**：`HTTP_API.md` 第 638 行（§10.2）确实新增受控文案约束——`failure_code` 受控枚举、`failure_summary` 与 `stage_message` 为面向用户的受控短文案，不得含上游主机名或 URL、文件系统路径、凭据 profile 名、令牌或 Key 片段、容器与网络拓扑；**内容安全由写入方负责、Web 层不猜测**，并点名任务 05 的假提供方链必须遵守。已作为第 3.7 节纳入设计冻结底稿的第 1 项冻结范围，权威正文以 §10.2 为准（不复制）。
+  2. **呈现验证排期**：B 需在链条落地后补两项呈现验证（受控文案忠实呈现、未知错误码失败关闭），后者需给浏览器夹具加"强制下一次响应出错"的控制端点；B 不希望为尚不存在的链路先扩测试基建，**约在本任务链条落地后一起加**。该端点属 B 的测试基建，本任务不代为实现；触发条件已写入任务单 Comments。
+  3. B 明确任务 05 内无其他实现项；若错误呈现需要新出口，E 侧提前告知。B 的切片记录见 `docs/architecture/modules/web-and-http/actions/05-necessary-error-presentation.md`（其审计确认 `failure_summary` 在 `application/` 层当前无写入方、恒为 `None`，风险在将来）。
+- **本机 Docker 前提变更（2026-09-21 实测）**：Docker Desktop **已安装**（CLI 29.6.2 + Desktop），但**守护进程未运行**；WSL 存在 Ubuntu-22.04。原方案"本机不装 Docker、容器与网络全部在负责人机器"的前提不再成立。**不变的事实**：`framework/harbor` 仍只在负责人机器（`.gitignore` 排除），"固定 Harbor 是否允许替换侧车网络附加"仍只能由负责人机器回答。阶段 0 当时拒绝装 Docker 的理由（虚拟网络风险）**尚未验证**——本机能否创建自定义网络仍未知，正是前置第 1 项所指。
+- 产出[阶段 1 实施方案](../01-plan/STAGE1_IMPLEMENTATION_PLAN.md)：按实现地图第 3 节候选树列出文件树（`provider_access/` 恰 8 文件、`tests/providers/` 分层）、S1–S11 分片与逐片验证方式、以及**拓扑实证拆成 T1（本机纯 Docker/Compose 层）/ T2（负责人机器 Harbor 集成层）**的提案。T1 可覆盖断言 1–7 中不依赖 Harbor 的全部条目，价值是本机先证拓扑概念、负责人侧只剩 Harbor 集成一半；但 T1 通过不等于拓扑验收通过。
+- 现行文档已按变更修正：`02-environment/LOCAL_SETUP.md` 的三处"Docker 未安装"表述、`01-plan/STAGE1_PROXY_TEST_DESIGN.md` 的环境前提段与风险表行。**历史行动记录保留原样**（记录当时真实状态）。
+- **未修改任务单已批准的验收项**：第 2 项仍写"（组长机器）"。已在任务单 Comments 记录变更事实与 T1/T2 提案，明确"未获负责人批准前不执行拆分、不擅自修改已批准验收项"。　**（同日更新）**：负责人已同意实施开工与该拆分（经用户转述），第 2 项机器归属已同步为“T1 本机已证成 / T2 负责人机器”，原措辞在括号内保留。
+- **三项授权仍全部未取得**：① 任务 05 实施开工授权（S1–S9 代码）；② T1 在本机的执行授权（启动 Docker Desktop、创建/删除专属网络与容器）；③ T2 在负责人机器的窗口与执行授权。**因此本次只产出方案文档，未写一行产品代码。**　**（同日更新）**：三项均已到位——① 实施开工与拆分由负责人同意（经用户转述）；② T1 已在本机执行完毕；③ T2 窗口可用；仍缺 T2 的**实际执行**（在负责人机器上）。
+
+- **S8 首个片段（`agent_type` 筛选接线）已完成并验证**：按 [HTTP_API 第 315 行](../../interfaces/HTTP_API.md)"合法筛选无匹配返回空列表"的要求，把路由收下的 `agent_type` 一路传到持久层（路由 → 注册表 → 仓库端口 → SQL 条件），替身同步。新增 2 个用例（HTTP 层 + 真实 PG 层），并**实测其区分力**：把路由退回旧行为时用例失败、还原后通过。开启 PG 的 `pytest tests/catalog` 为 **44 passed / 22 skipped**；全量开 PG **536 passed / 52 skipped / 2 failed**，默认为 **485 passed / 103 skipped / 2 failed**——失败项与基线完全相同（缺 `framework/harbor` 的 ISSUE-04），增量正好是新用例。静态检查全绿。
+- 顺带发现一处同类隐患（**未改**，留给 S8 主体）：`catalog_schemas.py` 的 `AgentDetail.from_record` 把 `agent_type`/`model_provider` 写死而非从记录读取；今天因两者是 `Literal` 而一致，登记第二个提供方时会不符。
+- 本机 PostgreSQL 曾未运行（便携版不注册服务），已按本地环境文档命令手动启动；实时状态仍只以[本地环境记录](../02-environment/LOCAL_SETUP.md)为准。
+
+- **用户确认 S8 采用方案 A**（只放开到受控假提供方；DeepSeek/Kimi 真实身份留给 06/07），已写入[设计冻结第 3.8 节](../01-plan/STAGE1_PROXY_DESIGN_FREEZE.md)。同节记录三处硬钉 `openai_chatgpt` 的位置与一处需 B 配合的契约变更。
+- **已按任务单"E 侧提前告知"向 B 提出契约请求**（写入任务单 Comments）：`AgentSummary`/`AgentDetail` 的 `model_provider` 与 `agent_type` 现为只含既有值的 `Literal`，登记受控预设会在**响应序列化**阶段被拒，故需扩为受控集合；`catalog_schemas.py` 的 `from_record` 写死这两个值的问题一并交由 S8 修复。　**（更正，2026-09-21 实测）**：不是“被拒”而是**假报告**——给一条 `model_provider="deepseek"` 的记录，列表接口照旧回 `"model_provider":"openai_chatgpt"`（`from_record` 写死不读记录，指纹却按真实记录算）。因此“改读取”与“扩受控枚举”必须同批：先改读取会在窄枚举下直接 500。
+- 用户告知**负责人机器窗口随时可用**；T2（固定 Harbor 是否允许替换其侧车网络附加）因此具备开工前提，仍缺一句书面授权（实施开工 + T1/T2 拆分）与本次创建/删除带标签资源的操作授权。　**（同日更新）**：负责人已同意授权；T2 就绪说明（命令、前置核对、回报要求）已写入组长机器预案附二。
+
+- **S8 主体完成：受控 API 预设可登记**。身份机制由 E 定稿（provider `internal_test_fake` + authentication `provider_run_token`，成对校验，权威清单在 `domain/agent.py`）；其固定上游登记在保留域 `.invalid`，隔离网络之外永不解析→生产误配也失败关闭。改动含注册表校验、响应如实呈现（**顺带修掉把身份写死导致的假报告**）、库级约束放宽 + 显式升级 `upgrade_api_constraints()`、受控预设单独一份（生产 `AGENT_PRESETS` 不含假服务）。
+- 验证：默认回归 **489/104/2**、开启 PG **541/52/2**（增量正好是 5 个新用例），`ruff`/`format`/`mypy` 全绿，2 项失败仍是 ISSUE-04。**用例区分力实测两处**，并在**本机真实旧库 `agentexam_dev` 上实测升级**（首次 True、再次 False）。
+- 权威文档同步：`DATA_MODEL.md` 4.2 节与 `model_provider` 行改为"受控集合 + 指向 `CONTROLLED_IDENTITIES`"；设计冻结第 3.8 节记录身份机制。两处计划偏差已如实记入行动文档（改用既有升级模式而非新增 .sql；代码侧先落地、只把契约措辞留 B）。
+
+- **受控文案映射（S6 片段）完成**：新增 `provider_access/failures.py`，把代理内部错误码按四类映射为 `PROVIDER_*` 受控码与固定中文短句，**未映射的内部码一律落通用值、绝不回显**。两条结构性门禁：**词汇表防漂移**（扫描包内全部大写码，出现未决定的新码即失败）与**文案哨兵扫描**（不得含主机名/URL/路径/profile 名/令牌片段/拓扑词）。`pytest tests/providers` **73 passed / 1 skipped**，默认回归 **495/104/2**（增量正是 6 个新用例），静态检查全绿；门禁区分力已实测（注入未审查的新码即失败）。边界：映射表尚无调用方（接线在 `service.py`，等 T2），受控码标注为候选待 B 列入 §10.2。
 
 ### 当前停点
 
 - 阶段 0 环境仍可用（PostgreSQL `127.0.0.1:55432`、`agentexam_dev` 11 表）；实时状态只在[本地环境记录](../02-environment/LOCAL_SETUP.md)维护。
-- 任务 04 已发布并完成；03 无独立任务单但 B 在推进；05 任务单现已进入 `main`，但仍为 `needs-info`，**未获实施开工授权**。负责人 9 项决定已经确认；机制合同尚未整体冻结，最小拓扑实证仍须取得组长机器窗口和单独执行授权。不得因决定回执完成而提前修改任务 05 产品代码、调用真实模型或下载大体量镜像。
+- 任务 04 已发布并完成；03 无独立任务单但 B 在推进；**05 已在本机实施中**：S3–S7 与 T1 完成、S8 首个片段（`agent_type` 筛选接线）完成；**S2、`service.py`、S8 主体、S9 未做**。
+- **授权与状态已同步**：任务单 05 确认**已在 `main`**（`6ccf001` 是 `origin/main` 的祖先），标签 `needs-info` → `ready-for-agent`，第 2 项验收机器归属改为“T1 本机已证成 / T2 负责人机器”。依据为**经用户转述**的负责人同意，已建议负责人补一句书面确认。
+- **仍未完成的两件事**：① **T2 在负责人机器执行**——窗口已可用、探针已入仓库，只差在那台机器上跑；② **B 的契约确认**——受控提供方在响应中的呈现方式（枚举扩宽与如实读取记录）。
+- ~~一处待用户拍板的架构选择~~：已定稿（受控 provider 值 + 保留域上游），见上方 S8 主体条目。
+- 推送状态（2026-09-21 合并 `origin/main` 时核对）：**早期切片**（`af00f83`、`272a4bd`、`c544eef`、`15828f4`、`6ccf001`、`3db8955`）已随 PR #9/#10 进入 `main`；**本轮切片**（`40a5f16` 起，含 S3–S8 与 T1 探针、受控文案映射）在 `origin/lly/dev`，待合并。本轮另合并了 `origin/main` 的 `051ea51`→`1888aa2`（B 的任务 03 对比页、D 的任务 08 预演与文档），4 处文档冲突按"以当前状态为准"解决：`docs/LLY/` 三份与任务单取我方较新记录，`README.md` 手工合并并保留 feng 侧行动记录链接；main 侧的并行负责人决定记录无新事实、状态更旧，未保留重复条目。**合并后实测**：`ruff check` 通过、`ruff format --check` 318 文件、`mypy` 175 源文件无问题；默认回归 **495 passed / 105 skipped / 2 failed**（跳过 +1 是 D 新加的十二 Run 演练用例，默认不启用；失败项仍是 ISSUE-04），开启 PG 全量 **548 passed / 52 skipped / 2 failed**。**前端未验证**：本机仍未安装 `node_modules`，合并带入的 B 侧任务 03 UI 改动在本机无法跑类型检查与构建。
+- **下一步（E 侧）**：① S8 主体已完成，**S9**（`delivery/worker/runtime.py` 按 Run 选绑定）依赖它成形，可开工；③ S2 字段名等固定 CLI 复核（负责人机器）；④ `service.py` 网络接线等 T2 结论，可先做鉴权、令牌生命周期与错误码映射；⑤ 本任务链条落地后**通知 B** 排期加“强制下一次响应出错”的夹具端点。
 - 前端依赖仍未安装：合并带入的任务 02 Web 代码在本机**未经验证**（未跑类型检查、生产构建与浏览器回归）。
-- 历史 `lly/dev` 切片及任务 05 准备文档现已随主线合并进入 `main`；旧提交记录保留为历史证据，不再把“尚未合并进 main”当作当前状态。
-- **下一步（E 侧）**：先由负责人另行发布实施开工指令，再按已确认的 A 保守上界与数值完善机制合同；拓扑和集成层仍等待组长机器时间窗口及创建/删除专属资源的单独执行授权。本轮只完成分支同步和文档回执，不启动实现。
+
 
 ## 2026-09-19
 

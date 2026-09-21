@@ -7,6 +7,25 @@ from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Any
 
+# Agent identities the catalog may register, as
+# (model_provider, authentication_type) pairs. Anything else is rejected before storage.
+#
+# The controlled API identity exists only so internal_test runs can exercise the
+# provider proxy chain: its fixed upstream lives in the reserved `.invalid` domain,
+# resolve outside the isolated trial network and a production binding fails closed. Real
+# provider identities (DeepSeek/Kimi) stay with tasks 06/07.
+CHATGPT_IDENTITY = ("openai_chatgpt", "chatgpt_auth_json")
+INTERNAL_TEST_PROVIDER = "internal_test_fake"
+INTERNAL_TEST_AUTHENTICATION = "provider_run_token"
+INTERNAL_TEST_UPSTREAM = "https://fake-upstream.t05.invalid"
+INTERNAL_TEST_IDENTITY = (INTERNAL_TEST_PROVIDER, INTERNAL_TEST_AUTHENTICATION)
+CONTROLLED_IDENTITIES = frozenset({CHATGPT_IDENTITY, INTERNAL_TEST_IDENTITY})
+CONTROLLED_AGENT_TYPES = ("codex",)
+CONTROLLED_PROVIDERS = tuple(sorted({pair[0] for pair in CONTROLLED_IDENTITIES}))
+CONTROLLED_AUTHENTICATION_TYPES = tuple(
+    sorted({pair[1] for pair in CONTROLLED_IDENTITIES})
+)
+
 
 @dataclass(frozen=True, slots=True)
 class AgentConfiguration:

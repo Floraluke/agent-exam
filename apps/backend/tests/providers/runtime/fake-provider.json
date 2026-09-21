@@ -1,0 +1,11 @@
+{
+  "structure_version": 1,
+  "profiles": {
+    "t05-fake-provider": {
+      "provider": "deepseek",
+      "model": "deepseek-chat",
+      "upstream_base": "https://api.deepseek.com",
+      "api_key": "FAKE-T05-SENTINEL-NOT-A-REAL-KEY"
+    }
+  }
+}

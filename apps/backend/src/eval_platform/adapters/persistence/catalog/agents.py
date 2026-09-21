@@ -86,6 +86,7 @@ class PostgresAgentRepository:
 
     def list(
         self,
+        agent_type: str | None,
         enabled: bool | None,
         cursor: str | None,
         limit: int,
@@ -94,6 +95,9 @@ class PostgresAgentRepository:
             raise ValueError("Invalid repository page size")
         conditions = []
         values: list[Any] = []
+        if agent_type is not None:
+            conditions.append("agent_type=%s")
+            values.append(agent_type)
         if enabled is not None:
             conditions.append("enabled=%s")
             values.append(enabled)

@@ -85,11 +85,12 @@ class MemoryAgents:
             raise AgentConfigurationNotFound
         return self.records[configuration_id]
 
-    def list(self, enabled, cursor, limit):
+    def list(self, agent_type, enabled, cursor, limit):
         return [
             record
             for key, record in sorted(self.records.items())
-            if (enabled is None or record.enabled == enabled)
+            if (agent_type is None or record.configuration.agent_name == agent_type)
+            and (enabled is None or record.enabled == enabled)
             and (cursor is None or key > cursor)
         ][:limit]
 
