@@ -5,6 +5,14 @@
 
 ## 2026-09-21
 
+### 真后端"六题可选"核对：装配已就绪，但启动被 `CatalogUnavailable` 挡住（未完成）
+
+- 目标：按 B 的请求给"真后端六题可选"的证据（目录列表 / options / 一次 6 题提交的冻结结果），用**真装配**（真 PG + 真 MinIO + 真固定数据集 + 代码里的 6 条预设），身份与 Job 层沿用项目测试替身。
+- 已就绪：MinIO 端点已起（`agentexam-minio-test:local`，`127.0.0.1:9000`）；`agentexam_dev` 已装完整 11 表 schema（`initialize_empty_database`）；核对脚本写在 `runtime/verify-six-tasks.py`（Git 忽略）。
+- **卡点**：脚本第一步 `initialize_schema(DSN)` 抛 `CatalogUnavailable`——底层是 `adapters/persistence/connection.py` 的 `transaction()` 助手把 psycopg 异常统一收敛成 unavailable，而该助手带 `connect_timeout=3`、`statement_timeout=5000`、`lock_timeout=2000`。两个库（`agentexam_dev`、`agentexam_identity_test`）都复现；手工用 psycopg 直连同一 DSN 正常，且 PG 门禁用例（走同一助手但用沙箱 DSN）一直是通过的。
+- 下一步该查（留给下轮）：把该助手的异常透出真实类型（临时打印 `type(e)/e`）确认是超时、锁等待还是 DSN 形态问题；或先绕开 `initialize_schema`（表已在）直接进注册流程。
+- 结论（对当前问题的建议）：B 的浏览器套件按验证规范本来跑合成后端，**不需要真后端访问**；真后端"六题可选"的证据最省事的来源是**任务 08 在组长机器上的正式部署窗口**（那台机器有完整真 PG/MinIO/数据），C 提供 6 个 preset id 与门禁证据即可，不必在本机重复搭真后端。
+
 ### 补上最后一块：MinIO 一致性用例真跑通过
 
 - 用户开启 Clash"允许局域网连接"后，构建容器得以通过 `host.docker.internal:7892` 走代理；按 `tests/catalog/runtime/Dockerfile.minio` 用**固定源码归档**（sha256 `71794c2d…` 校验通过）成功构建 `agentexam-minio-test:local`（112 MB，与组长那份 111,899,710 字节一致，说明固定输入可复现）。
