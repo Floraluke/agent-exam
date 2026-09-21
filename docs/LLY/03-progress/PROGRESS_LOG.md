@@ -70,6 +70,10 @@
 - 顺带发现一处同类隐患（**未改**，留给 S8 主体）：`catalog_schemas.py` 的 `AgentDetail.from_record` 把 `agent_type`/`model_provider` 写死而非从记录读取；今天因两者是 `Literal` 而一致，登记第二个提供方时会不符。
 - 本机 PostgreSQL 曾未运行（便携版不注册服务），已按本地环境文档命令手动启动；实时状态仍只以[本地环境记录](../02-environment/LOCAL_SETUP.md)为准。
 
+- **用户确认 S8 采用方案 A**（只放开到受控假提供方；DeepSeek/Kimi 真实身份留给 06/07），已写入[设计冻结第 3.8 节](../01-plan/STAGE1_PROXY_DESIGN_FREEZE.md)。同节记录三处硬钉 `openai_chatgpt` 的位置与一处需 B 配合的契约变更。
+- **已按任务单"E 侧提前告知"向 B 提出契约请求**（写入任务单 Comments）：`AgentSummary`/`AgentDetail` 的 `model_provider` 与 `agent_type` 现为只含既有值的 `Literal`，登记受控预设会在**响应序列化**阶段被拒，故需扩为受控集合；`catalog_schemas.py` 的 `from_record` 写死这两个值的问题一并交由 S8 修复。
+- 用户告知**负责人机器窗口随时可用**；T2（固定 Harbor 是否允许替换其侧车网络附加）因此具备开工前提，仍缺一句书面授权（实施开工 + T1/T2 拆分）与本次创建/删除带标签资源的操作授权。
+
 ### 当前停点
 
 - 阶段 0 环境仍可用（PostgreSQL `127.0.0.1:55432`、`agentexam_dev` 11 表）；实时状态只在[本地环境记录](../02-environment/LOCAL_SETUP.md)维护。
