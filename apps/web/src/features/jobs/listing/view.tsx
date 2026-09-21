@@ -5,6 +5,7 @@ import { ApiError } from "../../../lib/api-client";
 import type { Actor, JobSummary, Page } from "../../../lib/contracts";
 import { JOB_STATUSES } from "../../../lib/contracts";
 import { jobs } from "../../../lib/job-client";
+import { COMPARISON_LIMIT } from "../../../lib/reporting/comparison-shapes";
 import { JOB_STATUS_NAMES } from "./labels";
 
 type Filters = { status: string; mine: boolean };
@@ -32,10 +33,16 @@ export default function JobList({
   actor,
   openJob,
   newJob,
+  selected,
+  toggle,
+  compare,
 }: {
   actor: Actor;
   openJob: (id: string) => void;
   newJob: () => void;
+  selected: string[];
+  toggle: (id: string) => void;
+  compare: () => void;
 }) {
   const [initial] = useState(() => filtersFromUrl(actor.role === "owner"));
   const [data, setData] = useState<Page<JobSummary> | null>(null);
@@ -90,7 +97,12 @@ export default function JobList({
   return <section aria-label="评测列表">
     <div className="section-heading">
       <div><span className="eyebrow">服务器可见范围</span><h2>评测列表</h2></div>
-      <button onClick={newJob}>新建评测</button>
+      <div className="heading-actions">
+        <button onClick={newJob}>新建评测</button>
+        <button disabled={selected.length === 0} onClick={compare}>
+          对比所选（{selected.length}/{COMPARISON_LIMIT}）
+        </button>
+      </div>
     </div>
     <form className="filter-bar" onSubmit={apply}>
       <label>状态筛选<select value={status} disabled={busy}
@@ -116,6 +128,13 @@ export default function JobList({
     </div>}
     <div className="job-list">{data?.items.map((job) => <article key={job.job_id}
       className="job-row">
+      <label className="inline-check">
+        <input type="checkbox" checked={selected.includes(job.job_id)}
+          disabled={busy || (!selected.includes(job.job_id) &&
+            selected.length >= COMPARISON_LIMIT)}
+          onChange={() => toggle(job.job_id)} />
+        选择对比
+      </label>
       <div><strong>{JOB_STATUS_NAMES[job.status]}</strong>
         <span>{job.trial_count} 个 Run · {new Date(job.created_at).toLocaleString("zh-CN")}</span>
         <code>{job.job_id}</code></div>

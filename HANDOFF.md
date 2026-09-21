@@ -144,6 +144,8 @@
 
 ### Git 与必须保留的增量
 
+**2026-09-21 fork 提 PR 的远程布局（当前协作约定，适用于所有克隆）：** 团队采用“fork 提 PR”方式，`origin` 是各人自己的 fork，`upstream` 是团队仓库 `git@github.com:anphuchoang5-sys/agent-exam.git`。`git push origin` 只更新个人 fork，**不会进入团队仓库**；要进入团队仓库须从 fork 向 `upstream` 提 PR；本机对 `upstream` 没有写权限。B 的工作机已于 2026-09-20 用 SSH 关联 `upstream`（与 `origin` 协议一致），过程与验证见[行动文档](docs/actions/2026-09-20-fork-upstream-remote.md)。2026-09-02/04/05 的行动文档把 `origin` 记为团队仓库，那是各自日期的历史证据，不追改。恢复时先 `git fetch upstream --prune` 再比较，**不用 `upstream` 覆盖本地未提交增量**。
+
 **2026-09-17 持久化开工前快照（不是当前 HEAD）：** 当时 HEAD/main/本地 origin/main=`19a0b63`（task14真实私有流程记录），左右差异0/0，暂存区为空，13 份既有已跟踪文档为 dirty，另有旧规划文档与缓存。随后持久化配置和 Worker 控制已新增本地检查点，当前以第 6 节、实施行动及实际 git log 为准；未重新联网核验远端。下方 2026-09-08/12 的提交数和授权也只作历史证据。
 
 历史 2026-09-08 交接开始时 `main` 工作树干净，HEAD 与本地 `origin/main` 均为 `a011b78f78457e0ba11bb4c74bdecbff49b40678`。上一轮已实际推送并独立查询远端确认该哈希；当轮只读本地 Git，不重新 fetch、pull 或查询远端。`729dd88` 是 M0 实现/真实结果文档提交，`a011b78` 是发布记录提交，均已上传至原有 `origin/main`。
@@ -173,6 +175,9 @@
 
 ### 环境与证据
 
+- **B 的工作机（本仓库位于 `D:\agent-exam`，与 owner 主机不是同一台）**：2026-09-20 装好 GitHub CLI `gh` 2.101.0（用户级 `%APPDATA%\Programs\GitHub CLI\bin`，Authenticode 签名与官方 SHA-256 均已核对），**尚未登录**，首次使用需 `gh auth login`；浏览器授权若直连 `github.com` 超时，先设 `HTTPS_PROXY=http://127.0.0.1:7892` 再重试。同日按[依赖总表](docs/dependencies/DEPENDENCIES.md)恢复后端环境：`uv 0.12.17`（`python -m pip install --user uv`，直连 PyPI 成功）+ **uv 管理的 Python 3.13.15**（该机原先只有 3.14.5，不满足 `requires-python = ">=3.13,<3.14"`；处理方式是把解释器作为独立一步装好、项目命令 `uv sync --locked --no-python-downloads` 保持原样），随后 `.venv` 建立、`argon2`/`pytest`/`ruff`/`mypy` 可用。
+- **该机的网络特性**：直连下载 GitHub 大文件会被重置（实测拿到截断文件、被 checksum 拦下），经 `127.0.0.1:7892` 代理才完整；PyPI 与 GitHub API 直连正常。
+- **测试基线不可跨机器照抄**：全量的 `passed/skipped` 数随本机门禁环境（`AGENTEXAM_RUN_*` 与 `framework/harbor` 是否恢复）而变。可移植的只有“**2 failed，固定为 `tests/contract/test_execution_network.py` 的两条 Harbor 契约用例，原因是本机缺 `framework/harbor`**”。B 的工作机 2026-09-21 在 `main = fd369cc` 上实测：`test_comparison_http.py` **4 passed**、`tests/jobs/reporting` 16 passed / 2 skipped、全量 **2 failed / 408 passed / 86 skipped**。
 - `framework/` 与 `runtime/` 被主仓库忽略，但含固定源码、依赖环境、题目/镜像安装缓存和实验记录。恢复时核对依赖身份并复用；不要无理由重建 Harbor/Fork 环境。Harbor 首次 Windows 源码编译曾耗时约 275 分钟。
 - WSL 更新、UAC 确认和内核预检此前已完成。第三次运行的预检、实际容器与收尾查询均成功访问 Docker；历史全局资源计数仍不是当前状态。若恢复时访问 named pipe 被拒绝，先区分权限错误与引擎停止。
 - FlClash 和校园网背景见运维文档；第四场实际模型访问已成功，但具体代理路由及完整网络边界未全部验收。未经对应授权不重启 WSL/Docker、不更改系统代理、防火墙或现有容器。清理只定位对应 Trial，不能全局 prune。

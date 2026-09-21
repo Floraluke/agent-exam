@@ -73,7 +73,12 @@ passwords = Argon2Passwords()
 service = IdentityService(repository, passwords, browser_clock)
 browser_owner = service.bootstrap_owner("owner", "synthetic browser password")
 task_source = FixedSource(task_bundle())
-task_source.bundles["example__repo-2"] = task_bundle("example__repo-2")
+# 任务 04：夹具扩到六题与两个配置；这些 preset 只有被 spec 显式登记后才进入
+# 目录，因此不会改变既有 spec 看到的数量。
+for _index in range(2, 7):
+    task_source.bundles[f"example__repo-{_index}"] = task_bundle(
+        f"example__repo-{_index}"
+    )
 task_repository = MemoryTasks()
 tasks = TaskCatalog(
     task_repository,
@@ -82,24 +87,46 @@ tasks = TaskCatalog(
     {
         "swe-gym-lite-mypy-15413": "example__repo-1",
         "swe-gym-lite-example-2": "example__repo-2",
+        "swe-gym-lite-example-3": "example__repo-3",
+        "swe-gym-lite-example-4": "example__repo-4",
+        "swe-gym-lite-example-5": "example__repo-5",
+        "swe-gym-lite-example-6": "example__repo-6",
     },
 )
+
+
+def _codex(display: str, preset: str, model: str, effort: str, reference: str):
+    return display, AgentConfiguration(
+        preset,
+        "codex",
+        "test-version",
+        "openai_chatgpt",
+        model,
+        "chatgpt_auth_json",
+        reference,
+        {"reasoning_effort": effort},
+    )
+
+
 agents = AgentRegistry(
     MemoryAgents(),
     {
-        "codex-0153-terra-medium": (
+        "codex-0153-terra-medium": _codex(
             "Synthetic Codex",
-            AgentConfiguration(
-                "test-preset",
-                "codex",
-                "test-version",
-                "openai_chatgpt",
-                "test-model",
-                "chatgpt_auth_json",
-                "private-test-reference",
-                {"reasoning_effort": "medium"},
-            ),
-        )
+            "test-preset",
+            "test-model",
+            "medium",
+            "private-test-reference",
+        ),
+        # 第二个配置的显示名刻意不含 "Synthetic Codex"：既有助手的子串
+        # 匹配会因此变成歧义定位。
+        "codex-0153-terra-low": _codex(
+            "Synthetic Terra",
+            "test-preset-2",
+            "test-model-2",
+            "low",
+            "private-test-reference-2",
+        ),
     },
 )
 job_repository = ExecutableMemoryJobs()

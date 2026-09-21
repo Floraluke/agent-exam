@@ -35,7 +35,11 @@
 
 - 计划书：[`01-plan/PLAN.md`](01-plan/PLAN.md)
 - 阶段 1 测试设计：[`01-plan/STAGE1_PROXY_TEST_DESIGN.md`](01-plan/STAGE1_PROXY_TEST_DESIGN.md)（准备性设计，05 未开工，不代表已授权或已运行）
-- 扩展任务进展：P、任务 01、任务 02 已完成；03–08 未发布。E 模块主责 05、06、07，配合 04 与 08，详见[计划书第 1、3 节](01-plan/PLAN.md)
+- 阶段 1 设计冻结底稿：[`01-plan/STAGE1_PROXY_DESIGN_FREEZE.md`](01-plan/STAGE1_PROXY_DESIGN_FREEZE.md)（负责人 9 项决定已确认；机制设计仍是候选，**尚未整体冻结**）
+- 阶段 1 负责人交付要求：[`01-plan/TASK05_OWNER_DELIVERY.md`](01-plan/TASK05_OWNER_DELIVERY.md)（9 项决定与 6 项前置已回填；当前 **STOP 3/6**，拓扑未执行）
+- 负责人首次回复（填充版）：[`01-plan/TASK05_OWNER_DELIVERY_FILLED.md`](01-plan/TASK05_OWNER_DELIVERY_FILLED.md)（保留首次只读核对历史，并在第 7 节追加后续负责人回执）
+- 负责人决定与授权回执：[`01-plan/TASK05_OWNER_ACTION_REQUIRED.md`](01-plan/TASK05_OWNER_ACTION_REQUIRED.md)（9 项决定已确认；资源范围已确认，但本轮无执行窗口、不运行探针）
+- 扩展任务进展：P、任务 01、任务 02、任务 04 已完成；03 无独立任务单但 B 在推进；05 任务单已进入主线但仍为 `needs-info`，**未获实施开工授权**。E 模块主责 05、06、07，配合 04 与 08，详见[计划书第 1、3 节](01-plan/PLAN.md)
 - 本地环境：阶段 0 已完成；数据库实时运行状态只在 [`02-environment/LOCAL_SETUP.md`](02-environment/LOCAL_SETUP.md) 维护
 - 未决问题：见 [`04-issues/KNOWN_ISSUES.md`](04-issues/KNOWN_ISSUES.md)
-- 对应行动记录：[初始环境搭建](../actions/2026-09-18-lly-local-dev-environment.md)、[阶段 0 两库隔离与验收](../actions/2026-09-19-stage0-local-development-plan.md)、[归档计划文档与同步 origin/main](../actions/2026-09-21-file-plan-docs-and-sync.md)、[阶段 1 测试设计准备](../actions/2026-09-21-stage1-proxy-test-design.md)
+- 对应行动记录：[初始环境搭建](../actions/2026-09-18-lly-local-dev-environment.md)、[阶段 0 两库隔离与验收](../actions/2026-09-19-stage0-local-development-plan.md)、[归档计划文档与同步 origin/main](../actions/2026-09-21-file-plan-docs-and-sync.md)、[阶段 1 测试设计准备](../actions/2026-09-21-stage1-proxy-test-design.md)、[起草任务 05 任务单](../actions/2026-09-21-draft-task-05-issue.md)、[组长机器执行预案](../actions/2026-09-21-task05-owner-machine-runbook.md)、[任务 05 设计冻结](../actions/2026-09-21-task05-design-freeze.md)、[任务 05 负责人侧交付要求](../actions/2026-09-21-task05-owner-delivery.md)、[归档负责人回复与修复断链](../actions/2026-09-21-task05-owner-response-filing.md)、[待负责人回执文档](../actions/2026-09-21-task05-owner-round2.md)、[本次分支同步与负责人回执填写](../actions/2026-09-21-feng-sync-task05-owner-docs.md)

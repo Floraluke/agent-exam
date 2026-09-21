@@ -2,6 +2,7 @@
   color-scheme: light; --ink: #17211d; --muted: #63706a; --line: #dce4df;
   --soft-line: #edf1ee; --paper: #fff; --canvas: #f4f6f3;
   --accent: #126b4f; --accent-dark: #0b503b; --accent-soft: #e5f3ec;
+  --warn: #8a5a00; --danger: #a3341f;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
   color: var(--ink); background: var(--canvas);
 }
@@ -70,6 +71,8 @@ details { margin-top: 10px; }
 summary { cursor: pointer; font-weight: 700; }
 .comparison-picker { display: grid; gap: 8px; }
 .comparison-picker label { grid-template-columns: auto minmax(0, 1fr); align-items: start; padding: 9px; border-radius: 9px; background: #f8faf8; }
+.comparison-selection { display: grid; gap: 8px; padding: 0; list-style: none; }
+.comparison-selection li { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; }
 .comparison-picker small, .comparison-table small { display: block; margin-top: 4px; color: var(--muted); font-weight: 400; }
 .comparison-block { margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--line); }
 .comparison-scroll { max-width: 100%; overflow-x: auto; }
@@ -84,10 +87,21 @@ summary { cursor: pointer; font-weight: 700; }
 .configuration-grid, .metric-configurations, .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
 .configuration-grid article, .metric-configurations > article, .metric-grid > div { padding: 14px; }
 .metric-configurations > article { border: 1px solid var(--line); border-radius: 12px; }
-.configuration-grid p { font-size: .84rem; }
+.configuration-grid p { overflow-wrap: anywhere; font-size: .84rem; }
 .metric-grid { margin: 0; }
 .metric-grid dt { color: var(--muted); font-size: .78rem; }
 .metric-grid dd { margin: 5px 0 0; font-weight: 750; }
+/* 对比矩阵在带标题的区域内横向滚动；body 已 overflow-x: hidden，宽表必须靠这里承载。 */
+.comparison-matrix { margin-top: 16px; overflow-x: auto; }
+.comparison-matrix table { width: 100%; border-collapse: collapse; }
+.comparison-matrix caption { padding-bottom: 8px; color: var(--muted); font-size: .8rem; text-align: left; }
+.comparison-matrix th, .comparison-matrix td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+.comparison-matrix thead th, .comparison-matrix tfoot th { background: #fbfcfb; }
+.comparison-matrix td[data-outcome="resolved"] { color: var(--accent-dark); font-weight: 700; }
+.comparison-matrix td[data-outcome="unresolved"] { color: var(--warn); }
+.comparison-matrix td[data-outcome="infrastructure_error"] { color: var(--danger); }
+.comparison-matrix td[data-outcome="incomplete"] { color: var(--muted); }
+.comparison-matrix td[data-outcome="missing"] { color: var(--muted); font-style: italic; }
 @media (max-width: 700px) {
   .workbench-shell { display: block; padding-top: 62px; }
   .workbench-mobilebar { position: fixed; z-index: 50; inset: 0 0 auto; display: flex; align-items: center; justify-content: space-between; height: 62px; padding: 9px 14px; border-bottom: 1px solid var(--line); background: #fbfcfb; }

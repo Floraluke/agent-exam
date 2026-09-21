@@ -12,7 +12,16 @@ from eval_platform.application.task_catalog import TaskCatalog
 from eval_platform.domain.agent import AgentConfiguration
 from eval_platform.domain.task import TaskBundle
 
-TASK_PRESETS = {"swe-gym-lite-mypy-15413": CANDIDATE_INSTANCE_ID}
+TASK_PRESETS = {
+    # 旧题：M0 单题入口，身份不变
+    "swe-gym-lite-mypy-15413": CANDIDATE_INSTANCE_ID,
+    # 2026-09-21 通过三补丁门禁的五道新题（证据见任务 04 行动文档）
+    "swe-gym-lite-mypy-15131": "python__mypy-15131",
+    "swe-gym-lite-mypy-15139": "python__mypy-15139",
+    "swe-gym-lite-mypy-15184": "python__mypy-15184",
+    "swe-gym-lite-mypy-15208": "python__mypy-15208",
+    "swe-gym-lite-mypy-15876": "python__mypy-15876",
+}
 AGENT_PRESETS = {
     "codex-0153-terra-medium": (
         "Codex 0.153.0 / gpt-5.6-terra / medium",

@@ -635,6 +635,8 @@ Header：`Idempotency-Key: <客户端生成的不透明值>`；正文必须为 `
 
 M1 保留上述响应兼容形状，但 `judge_analyses=[]`、`human_review=null`、`quality_tiebreak=null`、`review_status=NOT_REQUIRED`；不为填充字段调用模型或新建分析/复核表。基础设施失败时 `deterministic_result=null`，并在 `run.failure_code/failure_summary` 明确说明，不能冒充普通 `resolved=false`。
 
+`failure_code` 是受控枚举；`failure_summary` 与 `stage_message` 是**面向用户的受控短文案**，只允许说明失败类别与阶段，不得包含上游主机名或 URL、文件系统路径、凭据 profile 名、令牌或 Key 的任何片段、容器与网络拓扑。这两个字段会被网页原样呈现（恢复页把 `failure_summary` 标为“安全原因”），**内容安全由写入方负责**；Web 层不猜测自由文本是否安全，只按本节契约呈现。任务 05 的假提供方链、以及任何未来的 provider 实现都必须遵守该约束。
+
 `artifact_links` 返回当前 Run 全部闭合类型的第 9.2 节安全元数据形状，便于页面同时展示核心证据与受限原始制品的保留状态；这不扩大正文权限，下载仍只允许 `agent_patch/public_test_summary/public_trajectory` 三种公开类型。两个报告端点及制品索引、轨迹和下载采用同一授权：owner 可读全部，协作者只读自己创建的 official Job/Run，其他资源按不存在处理，`internal_test` 只允许显式测试装配。对象键、文件名、正文、消息正文、工具参数、私密轨迹和原始配置均不在元数据响应中。
 
 ### 10.3 排行榜

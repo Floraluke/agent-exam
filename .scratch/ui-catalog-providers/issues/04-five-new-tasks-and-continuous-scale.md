@@ -1,0 +1,41 @@
+Status: needs-info
+
+# 04：五道新题合格入库与 1–20 连续规模
+
+**What to build:** 所有者在受控入口登记至少五道经资格验证的固定题目，与旧题并存且身份不可改写；提交规模支持连续 1–20 道题、最多 3 个配置，总数上限 60 次 Run。做题侧、HTTP 与网页均不出现参考补丁、隐藏测试与判分答案。
+
+**Blocked by:** 题库半边需要在固定数据、Fork、镜像与专属存储条件可核验后取得下载范围授权（没有授权不拉镜像），且必须在组长机器上或由 E 执行；目录侧与规模侧（合成受控目录）不依赖这些外部条件。任务 03 按当前节奏完成——计划第 6 节已写明本任务技术上不依赖新 UI，故不构成硬前置。
+
+**Spec stories:** 7、16、17、18。
+
+- [x] 逐个读取固定快照记录，冻结 instance、base commit、公开题干摘要、隐藏判卷字段摘要及镜像 digest；先列出本地缓存/缺失镜像、磁盘需求与下载来源，未获下载范围授权前不拉取镜像。 **（2026-09-21 完成：快照已下载并按固定身份校验；六题身份冻结表、本地缺失镜像清单、磁盘需求与下载来源见任务 04 行动文档"04 第一步产出"。）**
+- [x] 按候选顺序资格验证 `python__mypy-15184`、`python__mypy-15208`、`python__mypy-15131`、`python__mypy-15139`、`python__mypy-15876`；它们只是同一固定数据集的候选，不能共用旧题镜像；`15876` 额外确认存在真实 FAIL_TO_PASS，不用仅文档修改凑数量。 **（2026-09-21 完成：五题均在快照中；`15876` 预检通过——gold patch 改 1 个 `.py`、FAIL_TO_PASS 6 项，不是文档凑数。）**
+- [x] 每题在独立容器、固定 Fork、外网关闭条件下依次跑参考补丁、空补丁、可应用但错误的补丁；确认测试确实执行且参考通过、负例未解决。基础设施错误不算负例成功；空补丁本来就通过的题不合格。记录镜像/数据/报告身份与精确清理结果。 **（2026-09-21 完成：五题 × 参考/空/错误 = 15/15 场景通过；每题容器清理 `verified`、`remaining_ids` 空、Fork 进程 `returncode=0`；证据 `runtime/fork-evidence/` 15 个 scope。）**
+- [x] 只有通过门禁的题进入受控目录白名单；保留旧题身份与 M0 单题入口。**（2026-09-21 完成：五道候选 15/15 场景通过门禁后已写入白名单——`adapters/tasks/catalog.py` 的 `FIXED_TASK_IMAGES` 与 `delivery/catalog_presets.py` 的 `TASK_PRESETS` 各新增五条，旧题身份与 M0 单题入口保持不变；证据见任务 04 行动文档「04 门禁实跑」一节。）**候选不合格时从同一固定 mypy 集合选替补并重走全部门禁；不足五题时停止汇报，不无声更换项目或数据集。
+- [x] 规模侧已由 D 于 2026-09-20 实现并合入 `main`，本任务**不重复实现、不改写 D 的测试**；剩余范围收窄为「核对既有覆盖」（复核后确认无需补测试）。已覆盖（逐条核对现有测试）：4/6/9 题通过、0 题与 21 题拒绝、20×3=60 允许、第 4 个配置拒绝（`tests/jobs/scale/test_continuous_preset.py`）；未知条目（`tests/jobs/test_security.py:60`）与停用条目（`tests/jobs/test_concurrency.py:58`）拒绝。（原记的「0 个配置」空白项经 2026-09-20 复核**不成立**：`tests/jobs/test_security.py:41-42` 已断言 0 题与 0 个配置都返回 `400 EMPTY_JOB_SELECTION`。）**已确认（2026-09-20 深夜，D 回复）：去重是刻意设计，不是缺陷，实现不改。**统一规则是「未知/重复**参数键**拒绝、值列表**去重归一化**」——`report_comparisons.py` 的 `_parse_job_ids` 对列表内重复值去重、对重复或未知的查询参数键拒绝。依据二：[任务 04 行动记录](../../../docs/actions/2026-09-12-m1-job-submission.md)第 22 行原文即「题目与配置**去重后计数**；空选择、规模不符、非法覆盖在创建前拒绝」；[HTTP_API.md](../../../docs/interfaces/HTTP_API.md) 第 426/430 行写「必须非空、去重」「列表在规范正文中去重并排序」。**待办在措辞侧**：已提请组长把本项与 `plan.md` 第 6 节第 5 步的「重复 ID…拒绝」一并对齐为「重复项去重后计数」。 **（2026-09-21 收口：实现侧由 D 完成且本行动只做核对；仅剩措辞对齐，见下方 Comments 第 4 条。）**
+- [x] 打通目录 → HTTP options → 三步向导 → 冻结 Job/全部 Runs/初始事件的事务；创建只返回“等待 owner 批准”。验证读取旧 Job、恢复新 Job、双存储一致性与指纹/摘要防漂移。**（进程更新 2026-09-20：C 侧打通链已实现并测试——`apps/backend/tests/catalog/test_catalog_job_flow.py` 覆盖“目录列表与 HTTP 选项驱动 6 题 × 2 配置提交 → 创建只返回 `AWAITING_OWNER_APPROVAL` → 全部 Runs 恰好覆盖笛卡尔积 → Job 与每个 Run 都带 `JOB_SUBMITTED` → 冻结身份与目录记录逐字段一致”，并覆盖“配置停用后旧 Job 不被改写、新提交被拒”。剩余：三步向导的浏览器动线（与 B 交接）、恢复新 Job 与双存储一致性。）** **（2026-09-21 收口（C 侧）：打通链、"等待批准"、读旧 Job、指纹/摘要防漂移已有测试；**双存储一致性已完成**（2026-09-21：按固定源码归档构建 MinIO 测试镜像并起本地端点，7 个原跳过用例真跑通过——`tests/catalog` 49 passed / 15 skipped、全量 481 passed / 39 skipped / 0 failed）、三步向导浏览器动线归 B、恢复新 Job 归 D。）**
+- [x] 暴露面收敛：`gold_patch`、`test_patch`、测试名单、环境对象键、凭据逻辑引用均不进入做题侧、HTTP、网页与制品。**（进程更新 2026-09-20：C 侧 HTTP 读取面已加全量扫描用例——`tests/catalog/test_security.py::test_hidden_evaluation_fields_never_reach_public_surfaces` 逐条请求 12 个公开端点，断言 `HIDDEN_ANSWER` / `hidden_test` / `hidden_pass` / `private-test-reference` 一处都不出现，并用公开题面作为对照。剩余：网页读取面（B）、Run 产出制品后的制品/轨迹读取路径（D 已覆盖，需在验收时合并结论）、提供方凭据相关字段（05–07）。）** **（2026-09-21 收口（C 侧）：12 个公开读取面全量扫描，四个哨兵值零命中；网页面归 B，制品/轨迹读取路径由 D 的用例覆盖。）**
+- [x] 同步权威文档（模块架构、模块契约、数据模型、HTTP API、依赖总表）并建立独立行动记录；不读真实 `auth.json`、不调用模型。**（2026-09-21：模块架构的"当前限制"已改为六题现状；依赖总表新增五题镜像 digest 与门禁结论、§9 锁定项已更新；模块契约与数据模型核对后无需改动——Interface 与 schema 未变；`HTTP_API.md` 归 B 维护，经用户确认本轮不改。行动记录为 `docs/actions/2026-09-19-task-04-catalog-candidates-and-scale.md`。）**
+
+## Comments
+
+2026-09-20 由成员 C 起草，等待项目负责人发布与开工授权。起草依据：[执行计划第 6 节](../plan.md)、[分层验收规范](../verification.md)需求覆盖表 Q5/Q7、[团队分工](../../../docs/architecture/modules/TEAM_WORK_ALLOCATION.md)第 5 节。
+
+起草时已核对的事实：受控题目目录当前只有 `swe-gym-lite-mypy-15413` 一道题；规模侧 `continuous(1–20)` 已由 D 合入 `main`，本任务规模部分因此收窄为核对与剩余拒绝项归属。开工所需的固定数据集获取方式、候选镜像下载授权与磁盘配额、Fork 判卷的执行安排（E 主责）尚未取得，故状态为 `needs-info`。
+
+2026-09-20 晚间由 C 更新（四点事实更正与进展）：
+
+1. **上游已同步**：`issues/01`、`issues/02` 与更新版 `plan.md` 已随 `ff46cec` 进入上游 `main`；`plan.md` 与本分支版本逐字节相同。本文件是本仓库与上游在 `.scratch/ui-catalog-providers/` 下的唯一差异，此前“请组长推送更新版”的请求作废。
+2. **规模侧范围收窄**（见左列对应条）：既有覆盖已包含全部拒绝项（含 0 题、0 个配置）；「重复 ID」的现有行为是**去重**，与早期草案措辞冲突，需先与 D 确认。
+3. **C 侧打通链已实现并测试**：新增 `apps/backend/tests/catalog/test_catalog_job_flow.py`（2 个用例）。实测：目录模块 **35 passed / 7 skipped**；全量 **454 passed / 36 skipped / 2 failed**（2 项为缺 `framework/harbor` 的既有环境失败）；`ruff check`、`ruff format --check`、`mypy src/eval_platform` 对本文件均通过。已做变异检查（注入错误断言后测试确实失败），断言有效。
+4. **本机环境已就绪**：Python 3.13.15 + 便携 PostgreSQL 15.14（`127.0.0.1:55432`），见 `docs/LYQ/06-environment/LOCAL_SETUP.md` 与 `docs/actions/2026-09-20-local-environment-setup.md`。原先“本机不能验证”不再成立；仍需组长机器的部分只有五道候选题的三补丁门禁与固定数据类验证。
+
+2026-09-20 深夜补记（D 的回复，含我方核实）：
+
+8. **实现机制已就绪，只等门禁结果**：`adapters/tasks/swe_gym.py` 已从「单题镜像写死」改为 `FIXED_TASK_IMAGES`（instance_id → 含 digest 的固定镜像身份）查表，未登记 instance 一律拒绝；白名单内容未变（仍只有旧题）。门禁通过的题以后在映射里加一行即可，不再需要改代码结构。详见行动文档「本次代码增量 4」。
+
+5. **去重语义已定案**：「重复项拒绝」的冲突不成立——D 确认去重是刻意的，并给出两处依据（`docs/actions/2026-09-12-m1-job-submission.md` 第 22 行「题目与配置去重后计数」；`docs/interfaces/HTTP_API.md` 第 426/430 行「必须非空、去重」「在规范正文中去重并排序」）。我逐条核对了这两处原文，均属实；另核实 `report_comparisons.py` 的 `_parse_job_ids` 确实对列表内重复值去重。两处小出入：D 引的 「plan.md 第 5 节」实际在**第 6 节第 5 步**（第 5 节是任务 03），HTTP_API 的行号在我的版本是 **426/430**（D 处为 384/388，属版本差异）。**结论：实现不改，改措辞。**
+6. **格式问题已由 D 消除**：D 已对其 5 个文件跑 `ruff format` 并验证 `format --check` 全绿（293/293）、受影响用例 8 个通过（含 4 个真实 PG 门禁用例）、diff 为纯格式差异。**注意：**该修复不在本分支当前基线（`beed93f`）上，我方本地 `ruff format --check` 仍报那 5 个文件；等本分支 rebase 到含该修复的提交后再复核。
+7. **本机新增第三个测试增量**：`tests/catalog/test_http.py` 增加配置列表的游标分页与状态筛选用例（详见行动文档），目录模块 37 passed / 7 skipped，全量 456 passed / 36 skipped / 2 failed（失败集合同前）。
+
+：题库半边的外部条件（数据、镜像、Fork 安排）仍未取得，按事实保持 `needs-info`。

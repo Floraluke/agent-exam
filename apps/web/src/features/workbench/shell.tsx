@@ -46,6 +46,8 @@ export default function WorkbenchShell({
   const [view, setView] = useState<View>(normalizedViewFromUrl);
   const [routeVersion, setRouteVersion] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
+  // 对比选择只存在于本机会话，不进 URL、刷新即空；列表与矩阵共用这一份。
+  const [comparisonIds, setComparisonIds] = useState<string[]>([]);
 
   useEffect(() => {
     const restore = () => {
@@ -62,6 +64,12 @@ export default function WorkbenchShell({
     else url.searchParams.delete("job");
     window.history.pushState(null, "", url);
     setView(next); setMenuOpen(false); setRouteVersion((value) => value + 1);
+  }
+
+  function toggleComparison(id: string) {
+    setComparisonIds((items) => items.includes(id)
+      ? items.filter((item) => item !== id)
+      : [...items, id]);
   }
 
   const owner = actor.role === "owner";
@@ -112,8 +120,11 @@ export default function WorkbenchShell({
           onCreated={(job) => navigate("jobs", job.job_id)} />
       </section>}
       {activeView === "jobs" && <JobWorkspace key={routeVersion} actor={actor}
-        newJob={() => navigate("new")} />}
-      {activeView === "reports" && <ComparisonWorkspace />}
+        newJob={() => navigate("new")} selected={comparisonIds}
+        toggle={toggleComparison} compare={() => navigate("reports")} />}
+      {activeView === "reports" && <ComparisonWorkspace ids={comparisonIds}
+        toggle={toggleComparison} clearAll={() => setComparisonIds([])}
+        openJob={(id) => navigate("jobs", id)} />}
       {activeView === "tasks" && <TasksPanel owner={owner} />}
       {activeView === "agents" && <AgentsPanel owner={owner} />}
       {activeView === "leaderboard" && <LeaderboardView />}
