@@ -257,7 +257,7 @@ source_snapshot_ref 通过 `(task_id, source_snapshot_ref, raw_record_sha256)` �
 
 ### 4.2 `agent_configurations`
 
-任务 03 实际子集：UUID 主键，display_name/agent_version/model/credential_profile_id 为 varchar(128)，agent_type 仅 codex、提供方仅 openai_chatgpt、authentication_type 仅 chatgpt_auth_json。认证类型参与既有 AgentConfiguration 指纹，credential_profile_id 仅允许非秘密字母/数字/下划线/短横线逻辑引用，普通 HTTP 不返回。public_options 为 JSONB，当前只允许字符串 reasoning_effort 的 low/medium/high/xhigh；指纹 char(64) 唯一，读取时重算核对。limit_profile_id 暂为必须空的可空 UUID，后续绑定模板时明确升级约束；不预建 P2 source_submission_id。
+任务 03 实际子集：UUID 主键，display_name/agent_version/model/credential_profile_id 为 varchar(128)，**agent_type 仅 codex**；提供方与认证方式为**受控集合**：`openai_chatgpt`/`chatgpt_auth_json` 与 `internal_test_fake`/`provider_run_token` 两种身份对（任务 05 起，唯一权威清单见 `domain/agent.py` 的 `CONTROLLED_IDENTITIES`，库级 CHECK 与 HTTP 枚举都由测试与它对齐）。其中受控 API 身份只供 `internal_test` 使用，其固定上游位于保留域 `.invalid`，生产环境无法解析。认证类型参与既有 AgentConfiguration 指纹，credential_profile_id 仅允许非秘密字母/数字/下划线/短横线逻辑引用，普通 HTTP 不返回。public_options 为 JSONB，当前只允许字符串 reasoning_effort 的 low/medium/high/xhigh；指纹 char(64) 唯一，读取时重算核对。limit_profile_id 暂为必须空的可空 UUID，后续绑定模板时明确升级约束；不预建 P2 source_submission_id。
 
 enabled 与 disabled_at 保持一致：启用时禁用时间为空，禁用时有 UTC 时间；重复禁用不覆盖原禁用时间。同指纹登记返回原记录，不重新启用，不覆盖展示名/配置或凭据引用。created_at/disabled_at 为 timestamptz，enabled/ID 为分页索引。以下为含后续扩展的完整字段目标，不表示本次全部建列。
 
@@ -270,7 +270,7 @@ enabled 与 disabled_at 保持一致：启用时禁用时间为空，禁用时�
 | `display_name` | 面向页面的名称，不参与唯一性判断 |
 | `agent_type` | `custom`、`codex`、`aider`、`claude_code`；执行方式另由受控 Adapter 映射 |
 | `agent_version` | 精确 Agent/CLI/代码 revision |
-| `model_provider` | 精确提供方身份；当前 Codex 记录 `openai_chatgpt`；新增 Codex `deepseek`/`kimi` 规划见本文开头；P2自研范围另行启用 |
+| `model_provider` | 精确提供方身份；受控集合见 4.2 节（`openai_chatgpt` 与 `internal_test_fake`）；新增 Codex `deepseek`/`kimi` 规划见本文开头；P2自研范围另行启用 |
 | `model` | 精确模型身份；若无则明确 `none` |
 | `credential_profile_id` | 执行节点可解析的非秘密逻辑引用；不得包含 Key、真实路径或 Token |
 | `public_options` | JSONB；只含 Adapter schema 允许且可公开的行为配置 |

@@ -18,6 +18,8 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Any
 
+from eval_platform.domain.agent import INTERNAL_TEST_PROVIDER, INTERNAL_TEST_UPSTREAM
+
 MAX_BYTES = 64 * 1024
 STRUCTURE_VERSION = 1
 PROFILE_ID = re.compile(r"[a-z][a-z0-9-]{1,31}")
@@ -26,6 +28,9 @@ PROFILE_ID = re.compile(r"[a-z][a-z0-9-]{1,31}")
 REGISTERED_UPSTREAMS = {
     "deepseek": "https://api.deepseek.com",
     "kimi": "https://api.moonshot.cn/v1",
+    # internal_test only: the reserved .invalid domain cannot resolve outside the
+    # isolated trial network, so binding it elsewhere fails closed.
+    INTERNAL_TEST_PROVIDER: INTERNAL_TEST_UPSTREAM,
 }
 _SYNC_MARKERS = (
     "onedrive",

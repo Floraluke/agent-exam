@@ -110,6 +110,7 @@
 背景：登记一个 API 预设要动三处硬钉 `openai_chatgpt` 的地方——库级 CHECK、注册表校验、HTTP 响应枚举。用户 2026-09-21 确认采用**方案 A：只放开到受控假提供方**。
 
 - **只新增一个受控的假提供方身份**（provider/auth 值），且**只在 `internal_test` 用途下可登记**；生产目录仍不得登记假服务（与本任务验收第 3 项一致）。
+  - **身份机制已定稿（E 侧，2026-09-21）**：provider = `internal_test_fake`，authentication_type = `provider_run_token`，二者成对且唯一权威清单在 `domain/agent.py` 的 `CONTROLLED_IDENTITIES`；该身份可见的"固定上游"登记为 `https://fake-upstream.t05.invalid`，**用保留域 `.invalid` 保证它在隔离网络之外永远解析不到**，因此生产若误配也只失败关闭、不会打到任何真实供应商。假上游需终止 TLS（测试专属证书/CA，属集成层）。依据：机制设计由 E 定稿，额度与账户侧数值由负责人决定（本文第 3 行边界）。
 - **DeepSeek / Kimi 的真实提供方身份不在本任务放行**，留给 06/07 各自任务单按其冻结范围处理。
 - OpenAI/Codex 既有身份与指纹保持不变；旧的 `chatgpt_auth_json` 链不退化。
 - **需要 B 从契约侧配合的一处**：`AgentSummary` / `AgentDetail` 的 `model_provider` 目前是只含 `openai_chatgpt` 的字面量集合，而 `AgentDetail.from_record` 把 `agent_type` / `model_provider` **写死**而不读记录。2026-09-21 实测（临时用例）：给一条 `model_provider="deepseek"` 的记录，列表响应照旧回 `"model_provider":"openai_chatgpt"`，即**当前不是被拒，而是假报告**。`agent_type` 保持 `codex`（本方案只放开提供方与认证方式），故只需扩 `model_provider` 的受控集合；扩宽与"读取记录"必须同批，否则先改读取会直接 500。已按任务单约定"E 侧提前告知"写入任务单 Comments，交 B 决定契约正文的写法。

@@ -110,9 +110,14 @@ CREATE TABLE agent_configurations (
     display_name varchar(128) NOT NULL CHECK (length(display_name) > 0),
     agent_type text NOT NULL CHECK (agent_type = 'codex'),
     agent_version varchar(128) NOT NULL CHECK (length(agent_version) > 0),
-    model_provider text NOT NULL CHECK (model_provider = 'openai_chatgpt'),
+    -- Controlled identities: see CONTROLLED_IDENTITIES in domain/agent.py.
+    model_provider text NOT NULL
+        CONSTRAINT agent_configurations_model_provider_check
+        CHECK (model_provider IN ('openai_chatgpt', 'internal_test_fake')),
     model varchar(128) NOT NULL CHECK (length(model) > 0),
-    authentication_type text NOT NULL CHECK (authentication_type = 'chatgpt_auth_json'),
+    authentication_type text NOT NULL
+        CONSTRAINT agent_configurations_authentication_type_check
+        CHECK (authentication_type IN ('chatgpt_auth_json', 'provider_run_token')),
     credential_profile_id varchar(128) NOT NULL
         CHECK (credential_profile_id ~ '^[a-zA-Z0-9_-]+$'),
     public_options jsonb NOT NULL CHECK (

@@ -118,3 +118,12 @@ E 侧已有准备产物：[阶段 1 代理测试设计](../../../docs/LLY/01-pla
 - **第 2 项验收的机器归属已按同意口径更新**为"T1 本机 / T2 负责人机器"，原措辞"（组长机器）"在括号内保留可查。**T1 已证成**：七条断言全部测到并通过（28 项判定全 PASS，含反向对照自检），探针已纳入 `apps/backend/tests/providers/runtime/` 供负责人复用。**T2 仍未执行**——它要回答的是固定 Harbor 是否允许替换其侧车网络附加，只能在负责人机器回答。
 - **T2 就绪**：窗口已可用（用户确认随时可跑）；执行命令、前置核对现状、需要的那句操作授权与回报要求已写入[组长机器预案附二](../../../docs/actions/2026-09-21-task05-owner-machine-runbook.md)。
 - **本机实施进展**：S3–S7 与 T1 完成、S8 首个片段（`agent_type` 筛选接线）完成；S8 主体（受控 API 预设）已定范围（方案 A，见[设计冻结第 3.8 节](../../../docs/LLY/01-plan/STAGE1_PROXY_DESIGN_FREEZE.md)），其中"受控提供方用什么身份"这一处架构选择待用户拍板；S2 待固定 CLI 复核字段名；`service.py` 网络接线待 T2。
+
+2026-09-21 S8 主体完成：受控 API 预设可登记（身份机制已定稿）
+
+- **身份（E 侧机制决定，记入设计冻结第 3.8 节）**：provider `internal_test_fake` + authentication `provider_run_token`，成对校验；唯一权威清单在 `domain/agent.py` 的 `CONTROLLED_IDENTITIES`。该身份的"固定上游"登记为 `https://fake-upstream.t05.invalid`——**保留域 `.invalid` 在隔离网络之外永不解析**，故生产误配也只失败关闭，不会打到任何真实供应商；假上游需终止 TLS（测试专属证书，属集成层）。
+- **顺带修掉一处真实缺陷**：`catalog_schemas.py` 原把 `agent_type`/`model_provider` 写死，导致非既有提供方的记录被**假报告**成 `openai_chatgpt`（指纹却按真实记录算）。现改为按记录如实呈现，并对超出受控集合的值失败关闭。
+- **生产目录仍不含假服务**：受控预设单独放在 `INTERNAL_TEST_AGENT_PRESETS`，生产 `AGENT_PRESETS` 不变，并有专门用例钉住这一点（对应本任务第 3 项验收"生产目录不得登记假服务"）。
+- **库级约束放宽且可显式升级**：`schema.sql` 的两条 CHECK 改为受控集合并命名；新增 `upgrade_api_constraints()`，复用 Job 包既有的"读定义 → 升级 → 复核"模式，未知形状直接拒绝、不静默重写。**已在本机真实旧库 `agentexam_dev` 上实测**：首次 `True`、再次 `False`。
+- **验证**：默认回归 **489/104/2**、开启 PG **541/52/2**（增量正好是 5 个新用例），静态检查全绿，2 项失败仍是缺 `framework/harbor` 的 ISSUE-04。用例区分力实测两处（退回写死值即失败；升级用例先制造真实失败）。
+- **仍需 B 一件事（措辞，不阻塞代码）**：`HTTP_API.md` 的响应示例与 query 说明请补上受控提供方值 `internal_test_fake`（§195 示例、§297/§315 说明目前只提 `codex`/既有提供方），并确认该非秘密元数据在列表/详情公开是否可接受。代码侧已完成，B 若要求改为隐藏，E 按新措辞调整。

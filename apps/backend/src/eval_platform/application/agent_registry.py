@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 from eval_platform.application.ports.repositories import AgentConfigurationRepository
-from eval_platform.domain.agent import AgentConfiguration
+from eval_platform.domain.agent import CONTROLLED_IDENTITIES, AgentConfiguration
 from eval_platform.domain.catalog import (
     CatalogForbidden,
     CatalogInvalid,
@@ -32,8 +32,11 @@ class AgentRegistry:
         options = configuration.critical_config
         if (
             configuration.agent_name != "codex"
-            or configuration.model_provider != "openai_chatgpt"
-            or configuration.authentication_type != "chatgpt_auth_json"
+            or (
+                configuration.model_provider,
+                configuration.authentication_type,
+            )
+            not in CONTROLLED_IDENTITIES
             or set(options) != {"reasoning_effort"}
             or options["reasoning_effort"] not in ("low", "medium", "high", "xhigh")
         ):

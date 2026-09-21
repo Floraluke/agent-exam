@@ -214,9 +214,20 @@ runtime/prototype/t05-topology-20260921-02/   # T1 证成时的开发副本（�
 - 行为变化：`?agent_type=codex` 对现有调用方不变（仍返回 codex 条目），未知类型仍 422；新增的行为是**合法但无匹配的类型返回空页**，与 HTTP 契约第 315 行一致。
 - **顺带发现一处同类隐患（未改）**：`delivery/http/catalog_schemas.py` 的 `AgentDetail.from_record` 把 `agent_type="codex"`、`model_provider="openai_chatgpt"` **写死**而不是从记录读取；今天因两者都是 `Literal` 而一致，但登记第二个提供方时会与记录不符。应与 S8 主体的"响应枚举扩宽"一并处理。
 
+**S8 主体：受控 API 预设的身份与登记（已完成并验证）**
+
+- 范围依据：用户确认方案 A（只放开到受控假提供方）；**身份机制由 E 定稿**（设计冻结第 3 行边界：机制 E 定，数值负责人定），已记入[设计冻结第 3.8 节](../LLY/01-plan/STAGE1_PROXY_DESIGN_FREEZE.md)。
+- 身份：provider `internal_test_fake` + authentication `provider_run_token`，成对校验；唯一权威清单是 `domain/agent.py` 的 `CONTROLLED_IDENTITIES`。其"固定上游"登记为 `https://fake-upstream.t05.invalid`——**保留域 `.invalid` 在隔离网络之外永不解析**，故生产误配也只失败关闭。
+- 改动文件：`domain/agent.py`（受控身份常量与集合）、`application/agent_registry.py`（按身份对校验，不再只认 Codex）、`delivery/http/catalog_schemas.py`（**按记录如实呈现** + 受控枚举 + 受控检查失败关闭）、`adapters/persistence/catalog/schema.sql`（两条约束放宽并命名）、`adapters/persistence/catalog/__init__.py`（新增 `upgrade_api_constraints`）、`adapters/execution/provider_access/secrets.py`（登记受控上游）、`delivery/catalog_presets.py`（新增 `INTERNAL_TEST_AGENT_PRESETS`，**生产 `AGENT_PRESETS` 不含假服务**）。
+- 新增测试 `tests/catalog/agent_identity/test_registration.py`（5 个用例；该子目录沿用 `qualification/` 的分组做法，避免超出每层 8 文件指标）：受控预设能登记且**如实报告身份**、响应枚举与域常量**不可漂移**、生产预设不含假服务、未受控身份对在入仓前被拒、真实 PG 上受控身份可往返且**升级显式且可验证**。
+- 自验证（本机实测）：默认回归 **489 passed / 104 skipped / 2 failed**、开启 PG **541 passed / 52 skipped / 2 failed**（相对上一片 `485/103/2` 增量正好是 5 个新用例：4 运行 1 按开关跳过）；`ruff check` 通过、`ruff format --check` 315 文件、`mypy` 174 源文件无问题；2 项失败始终是缺 `framework/harbor` 的 ISSUE-04。
+- **用例区分力已实测两处**：① 把 `from_record` 退回写死值 → "如实报告"用例失败，还原后通过；② 升级用例先制造真实失败（旧约束拒绝受控记录）再验证升级为真、再调返回 False、未知形状抛 `CatalogUnavailable`。
+- **真实旧库升级已验证**：对本机阶段 0 的 `agentexam_dev`（真实旧约束）调用 `upgrade_api_constraints` → 首次 `True`、再次 `False`，`pg_get_constraintdef` 复核两条约束均已放宽。
+- **两处计划偏差（如实记录）**：① 实施方案原写新增 `upgrade_api.sql`，实际**复用 Job 包既有的"读定义→升级→复核"Python 模式**（`upgrade_continuous_preset`），不新增 SQL 文件，理由是与既有约定一致且能校验未知形状；② 原写"响应枚举扩宽待 B 确认"，实际**代码侧先落地**（不落地则链条根本不通），只把**契约正文措辞**留给 B，避免阻塞。
+
 ### 未完成与遗留
 
-- **S2、`service.py`、S8 主体与 S9 尚未实施**；已完成前置验证、S3–S7、T1 与 S8 的筛选接线片段。**代理中所有能以纯逻辑表达的安全不变量均已落地并有测试**：私有文件可信、请求出站前拒绝、额度不超支、未知不记零、令牌不跨 Run、出站目标不由请求决定、重试与重定向结构上不可配。
+- **S2、`service.py` 与 S9 尚未实施**；已完成前置验证、S3–S7、T1、S8（筛选接线 + 受控身份与登记）。**代理中所有能以纯逻辑表达的安全不变量均已落地并有测试**：私有文件可信、请求出站前拒绝、额度不超支、未知不记零、令牌不跨 Run、出站目标不由请求决定、重试与重定向结构上不可配。
 - **T1 已不再是 `service.py` 的未知项**：拓扑在本机（纯 Docker 层）成立，且七条断言的每一条都有实际输出。**但 `service.py` 仍不应据 T1 直接定稿**，理由有二：① T1 结论只在纯 Docker/Compose 层成立，固定 Harbor 能否替换侧车网络附加仍未回答（T2，负责人机器）；② T1 的转发实现是中继替身，不含 HTTP 语义。可行做法是先实现与拓扑无关的部分（鉴权、令牌生命周期、错误码映射、流收束），把网络形态留到 T2 之后接线。
 - **S2 暂缓**：Codex TOML 字段名研究第 1 节有据，但仓库内无 `config.toml` 样例（探针样例在被 Git 忽略的 `runtime/`，只在负责人机器）。定稿前须用固定 CLI 在契约层复核一次字段名，不凭文档当已确认。
 - **本轮未改动任何产品代码**，故静态检查与默认回归沿用同一 HEAD（`4c7c4d6`）的实测结果：`ruff check` 通过、`ruff format --check` 313 文件、`mypy` 174 源文件无问题、默认回归 **484 passed / 102 skipped / 2 failed**（失败项仍为缺 `framework/harbor` 的 ISSUE-04），`pytest tests/providers` **67 passed / 1 skipped**。
