@@ -74,3 +74,9 @@ git diff --stat
 剩余风险：无新增。本行动不改任何代码行为；PG 门禁用例依赖本机便携 PG 手动启动，属既有已知限制（见 `2026-09-19-d-module-preparation.md` 的本机数据库小节），非本次引入。
 
 另记录 C 转来的已知问题（本行动不改动）：`agent_type` 查询参数经路由字面量校验但不参与过滤（`routes/catalog.py` 校验后未传入，`agent_registry.list` 只收 enabled/cursor/limit）；当前因登记路径仅接受 codex 而行为等价，06/07 接入 DeepSeek/Kimi 时须真正接入过滤，否则筛选会静默失灵。
+
+> **2026-09-21 E 侧更正（原文不动）**：上文"06/07 接入 DeepSeek/Kimi 时须真正接入过滤，否则筛选会静默失灵"的**触发条件不准确**。按权威定义，`agent_type` 是**执行器类型**而非模型提供方：[DATA_MODEL.md 第 271 行](../../docs/architecture/DATA_MODEL.md) 列其为 `custom`/`codex`/`aider`/`claude_code`，[HTTP_API.md 第 297 行](../../docs/interfaces/HTTP_API.md) 写明"MVP 为 `codex`；后续加入 `aider`、`claude_code`；P2 才启用 `custom`"。因此 DeepSeek/Kimi 预设的 `agent_type` **仍是 `codex`**（变化的是 `model_provider` 与 `authentication_type`），06/07 不会因此失灵。
+>
+> 真实的缺口是另一条：[HTTP_API.md 第 315 行](../../docs/interfaces/HTTP_API.md) 要求"**合法筛选无匹配返回空列表**"，而实现从不把该参数传下去，所以一旦出现第二个**合法 agent_type**，请求它只会拿到全部条目、不会返回空列表。今天只有 `codex` 一种合法值，行为等价，故不可观测。
+>
+> 代码未改动。该接线属任务 05 实施方案 S8（目录与身份扩展）范围，建议与"解除 `model_provider` / `authentication_type` 的库级 CHECK 以登记受控 API 预设"同批处理。
