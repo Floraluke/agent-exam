@@ -17,7 +17,7 @@ export default function RunReportView({ report }: { report: RunReport }) {
       <p>补丁：{result.patch_exists ? "已产生" : "空补丁"}；
         {result.patch_successfully_applied ? "成功应用" : "未成功应用"}</p>
       <p>固定判卷版本：{result.harness_revision}</p>
-    </> : <p role="status">基础设施失败：
+    </> : <p role="status">基础设施错误：
       {report.run.failure_code ?? "结果证据不可用"}。本次没有形成确定性成绩。</p>}
     <p>用量：输入 {shown(usage.n_input_tokens)} / 缓存 {shown(usage.n_cache_tokens)} /
       输出 {shown(usage.n_output_tokens)} tokens；成本 {shown(usage.cost_usd, " USD")}</p>

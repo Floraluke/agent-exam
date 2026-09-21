@@ -67,7 +67,7 @@ export default function ComparisonView({
       <div><span className="eyebrow">只读聚合</span><h2>跨批次对比报告</h2></div>
       <button onClick={clearAll}>清空选择</button>
     </div>
-    <p className="muted">每题一行、每个批次（配置）一列；缺失只表示没有结果，不当作未通过或零。</p>
+    <p className="muted">每题一行、每个批次（配置）一列；缺失只表示没有结果，不当作未解决或零。</p>
     {ids.length === 0
       ? <div className="empty-state">
         <h3>还没有选择要对比的批次</h3>
