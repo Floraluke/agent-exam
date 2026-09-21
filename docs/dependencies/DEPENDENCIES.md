@@ -210,6 +210,13 @@ AIStor 标准版固定为 `quay.io/minio/aistor/minio@sha256:dfa8e241413464755a9
 - 同一 README 声明实例预构建镜像位于 Docker Hub 的 `xingyaoww/sweb.eval.x86_64` 前缀下。
 - 团队已确认首个真实原型使用 `SWE-Gym/SWE-Gym-Lite` 的 1～3 道任务。M0 当前固定 revision `61231f2c90b18985b42a1419738a240085a15107`、`train` split 和候选 `python__mypy-15413`；固定 Parquet 大小为 `931,193` bytes，SHA-256 为 `f3a7cd934e8cc523b6053298d0abb2c82fd7db2b83f9f2ccba5944545aaa4eb1`。
 - 当前候选镜像固定为 `xingyaoww/sweb.eval.x86_64.python_s_mypy-15413@sha256:f069dfc74592d438ad870bbc6dfb369bff1b125d21237ead49190b414f5f3456`，已拉取并确认 `/testbed` HEAD 为任务 base commit `e7b917ec7532206b996542570f4b68a33c3ff771`。这只证明镜像身份，不证明 Harness 或 Codex Trial 通过。
+- **2026-09-21 扩题（任务 04）**：同一固定快照内另有五道候选题通过三补丁门禁并进入受控目录白名单，镜像身份如下（均按 digest 拉取）：
+  `python__mypy-15131@sha256:7fcf8e1c849ffd2a3436c056f9b3b8f1ec0103ed7f429e5001d5f77f64f735c5`、
+  `python__mypy-15139@sha256:a41d688fba76599fcc2bfbfbfe580e864c0c4c6a8ee6ce7edec9b83b34bd0037`、
+  `python__mypy-15184@sha256:affb925329f2dfb2173482c64a1b65648b250777b66b0d7417ee5340fce74835`、
+  `python__mypy-15208@sha256:4fd4bf6ae2d9e6f8b2fe6565018c15b35b9ed7bc1207a9b604b8c82061235c8f`、
+  `python__mypy-15876@sha256:cc465fe939951b1f3ab43bf834b41a9017efc404cc9c9d5ad8b0ff95b90678f1`。
+  门禁结果：每题参考补丁 `resolved`、空补丁未解决、可应用但错误的补丁未解决，容器清理与 Fork 进程记录齐备；`15131` 另核对了容器内 `/testbed` HEAD 与数据集 `base_commit` 一致。证据见任务 04 行动文档；镜像用完即删，可按上述 digest 重新拉取。
 - OpenHands 和 MoatlessTools 出现在上游复现实验说明中；它们当前不是 AgentExam 已固定的直接依赖，不能仅凭上游示例自动纳入项目。
 
 当前验证状态：Task Adapter 的公开/隐藏隔离、固定 Parquet、摘要镜像与 Harbor NOP 已核验；同一固定镜像又用于通过的 Fork 五类真实补丁验证。第四场真实 Codex 与独立 Fork 已通过，具体结果见第 2.1 节执行状态指针。
@@ -354,8 +361,8 @@ Harbor 已恢复到本机固定提交且工作树干净；若上述核验失败�
 
 以下事项必须通过后续架构确认或真实运行完成，当前不得补猜：
 
-1. 首个原型已经固定 Lite revision、`train` split、单题和内容校验值，并取得真实核心闭环证据；正式榜最终数据范围另行确认，不因原型单题通过自动扩大；
-2. M0 预构建实例镜像的固定 digest 和 `/testbed` base commit 已核验，该固定环境已支持第 2 节记录的真实单题；扩题或改变环境时仍须重新验证兼容性；
+1. 首个原型已经固定 Lite revision、`train` split、单题和内容校验值，并取得真实核心闭环证据；**2026-09-21 受控目录已扩到 6 道题（任务 04，逐题三补丁门禁）**；正式榜最终数据范围仍另行确认，不因原型或扩题自动扩大；
+2. M0 预构建实例镜像的固定 digest 和 `/testbed` base commit 已核验，该固定环境已支持第 2 节记录的真实单题；**扩题的兼容性已验证**：2026-09-21 五道新题各自在其固定镜像内通过三补丁门禁，受控白名单见 `apps/backend/src/eval_platform/adapters/tasks/catalog.py`；改变环境时仍须重新验证；
 3. 后端 Python 与身份切片应用依赖已有精确基线（见第 2 节），Node.js、Docker/Compose、PostgreSQL、MinIO 的正式部署版本/形态仍需确认；不能用本机测试版本代替部署决定；
 4. SWE-Bench-Fork 已有 Linux Python 3.12 哈希锁与单题实测；新增题目/升级依赖时重新验证，不默认把当前单题扩展成全题库通过；
 5. Codex 首轮 CLI 版本、模型 ID、推理强度与认证政策已确认；制品身份及无凭据容器安装见第 2.1 节，第四场账号/模型路径和实际工具执行已通过，完整生命周期与网络边界仍按专题接口收尾。Aider、Claude Code 的精确 CLI 版本、安装来源和校验方式仍待确认；

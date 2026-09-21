@@ -1,0 +1,274 @@
+# 任务 04：五道新题合格入库与 1–20 连续规模（目录与配置）
+
+## 状态与情况说明
+
+- 状态：In progress（准备阶段，未获实施授权；本机开发环境已于 2026-09-20 建立）。本行动由 C（目录与配置 DRI、任务 04 任务 DRI）建立，先记录范围、前置门禁、计划文件树与验证方式。**截至当前未修改任何产品代码、未下载镜像或数据、未调用模型、未读取真实凭据、未连接共享数据库。**
+- 对应任务：[执行计划](../../.scratch/ui-catalog-providers/plan.md)第 6 节任务 04；分工见[团队分工](../architecture/modules/TEAM_WORK_ALLOCATION.md)第 4.2 与第 5 节。任务 04 当前为“已规划、未发布 issue”，按计划第 1 节第 5 条与第 5.2 节，任务单发布且用户安排前不进入实施。
+- 本行动是独立实施任务的行动文档；`ui-catalog-providers` 的规划正文仍由[规划行动](2026-09-17-ui-catalog-provider-planning.md)维护，本文件不复制规则正文，只记录 04 的实施、偏差与验证证据。
+- 实施基线（2026-09-21 更新）：团队上游仓库 `anphuchoang5-sys/agent-exam`，只作只读同步、不直接推送；交付分支为个人 fork `Floraluke/agent-exam` 的 `lyq`，**2026-09-21 已 rebase 到上游 `main` 的 `fd369cc`（20 个提交）**；PR #2 从 fork 提到上游 `main`。本机克隆 `C:\Users\陆泳倩\Desktop\agent-exam`。
+
+### 当前事实（2026-09-19 实际核对）
+
+- 受控题目目录只有一道题：`delivery/catalog_presets.py` 的 `TASK_PRESETS` 仅含 `swe-gym-lite-mypy-15413`；`adapters/tasks/swe_gym.py` 用单一常量 `CANDIDATE_INSTANCE_ID` / `CANDIDATE_IMAGE` 冻结该题身份。固定数据源为 `SWE-Gym/SWE-Gym-Lite` `train`，revision `61231f2c…`，快照 931193 字节、sha256 `f3a7cd93…`，并按实例 id 过滤读取。
+- 受控配置目录只有一个配置：`codex-0153-terra-medium`（Codex 0.153.0 / gpt-5.6-terra / medium）。
+- 规模策略：`delivery/job_presets.py` 当前给 `demo(1,3)`、`quick(5,5)`、`standard(10,20)` 三个 `BatchPreset`；`domain/jobs/policy.py` 的 `SubmissionPolicy` 已有 `maximum_agent_configurations=3` 与 `maximum_runs=60`。缺的是“连续 1–20 题”这一档，不是 60 次上限本身。
+- 本机运行条件（2026-09-21 更新）：**开发环境、前置源码与 Harbor 依赖环境均已就位**——`apps/backend/.venv`（Python 3.13.15 + 锁定依赖）、便携 PostgreSQL 15.14 于 `127.0.0.1:55432`、测试库与开发库、**固定数据集**（`runtime/cache/swe-gym-lite/<revision>/train-0000.parquet`，已校验）、**三个固定框架源码**（`framework/{swe-gym,swe-bench-fork,harbor}`，按依赖总表 §7 恢复到固定提交）、**Harbor 依赖环境**（`framework/harbor/.venv`，Harbor 0.22.0，实测 3 分 20 秒装完）。当前基线：`tests/catalog` 37 passed / 7 skipped、`qualification` 5 passed、全量 **474 passed / 31 skipped / 0 failed**（**本机首次零失败**）。**仍不具备**：Docker Desktop（未运行）、五个题目镜像（未拉、待授权）、Fork 的 Linux(WSL2) 依赖环境、固定 MinIO 测试镜像——因此三补丁门禁仍需要组长机器或由 E 执行（**门禁不需要 Harbor**，它只走固定 Fork 判卷）。
+- 上游 `.scratch/ui-catalog-providers/` **已同步**（2026-09-20 晚间复核）：`issues/01`、`issues/02` 与更新版 `plan.md` 已随 `ff46cec` 进入上游 `main`；我方与上游在该目录下的唯一差异是本人起草的 `issues/04-*` 草案。[ISSUE-02](../LYQ/04-issues/KNOWN_ISSUES.md) 因此关闭。
+- 上游 `main` 当前为 `beed93f`（2026-09-20 20:49）：除 D 的任务 03 报告语义设计、对比服务与对比端点、任务 08 runbook 外，还包含 D 的 `continuous(1–20)` 预设与其边界测试、B 的工作台合并。任务 03 仍无任务单，`01 → 02 → 03 → 04` 的顺序门禁未解除。
+
+### 上游门禁（未满足前不进入实施）
+
+- 计划第 6 节前置：固定数据、Fork、镜像与专属存储条件可核验；**没有下载范围授权时不拉镜像**。
+- 顺序门禁：执行顺序为 `01 → 02 → 03 → 04`，任务 03 完成后才进入 04；多任务并行需先单独修改执行计划，本分工文档不授权越阶段。
+- 交接门禁：E 主责参考/空/错误补丁的固定 Fork 资格验证；D 负责 Job 快照与最多 60 Runs 兼容；B 负责 HTTP options 与三步向导；A 负责磁盘与长期 schema 变更窗口。
+- 数量门禁：至少五道题未完成不得标记任务完成，不足五题时停止汇报，不从同一固定 mypy 集合之外改项目或数据集。
+
+### 待确认
+
+- 任务 04 的独立任务单（`.scratch/ui-catalog-providers/issues/04-*.md`）由谁发布、以何范围发布；本人已起草草案（`Status: needs-info`）并随 PR #2 提交给上游，**尚无评论与评审**。计划第 5.2 节的措辞是「任务未发布/用户未安排时」不提前改产品代码，即发布或明确安排任一满足即可开工。
+- 镜像/数据的下载授权范围与磁盘配额；以及五道候选题三补丁门禁的执行安排（E 主责，需组长机器的执行窗口）。
+- 规模侧收口口径（见实施措施第 5 条）：既有覆盖是否已满足计划要求，以及「重复 ID」应维持去重还是改为拒绝。
+- 05–07 提供方配置的最终型号与协议以规格 Q8–Q10 为准，C 的受控配置部分需在其任务发布后另行建立或并入本行动。
+
+### 明确排除
+
+- 不改 Web 产品代码（任务 02/03 属 B）；不改 05–07 的代理与执行链（属 E）。
+- 不新增顶层 Module、公共 Interface 或数据库表；若 04 需要 schema 变更，先说明理由并取得用户确认，再由 A 安排变更窗口。
+- 不调用真实模型、不读真实 `auth.json`、不把隐藏答案或判卷字段暴露给做题侧或 HTTP/Web。
+
+## 实施措施
+
+1. 按候选顺序逐个读取固定快照记录，冻结 instance、base commit、公开题面摘要、隐藏判卷字段摘要与镜像 digest；先列本地缓存/缺失镜像、磁盘需求与下载来源，未获授权不拉取。
+2. 资格验证候选顺序：`python__mypy-15184`、`python__mypy-15208`、`python__mypy-15131`、`python__mypy-15139`、`python__mypy-15876`。同项目不共用旧题镜像；`15876` 额外确认存在真实 FAIL_TO_PASS，不用仅文档修改凑数量。
+3. 每题独立容器、固定 Fork、外网关闭，依次跑参考补丁、空补丁、可应用但错误的补丁；确认测试确实执行且参考通过、负例未解决。基础设施错误不算负例成功；空补丁本来就通过的题不合格。记录镜像/数据/报告身份与精确清理结果（执行由 E 主责，C 组织交接并收口证据）。
+4. 只有通过门禁的题进入受控目录白名单；保留旧题身份与 M0 单题入口。候选不合格时从同一固定 mypy 集合选替补并重走全部门禁。
+5. 规模侧（2026-09-20 核对后收窄）：连续预设 `continuous(1–20)` 及其边界用例**已由 D 合入上游**——4/6/9 题通过、0/21 题拒绝、20×3=60 允许、第 4 个配置拒绝均已有测试；「未知条目」「停用条目」的拒绝也已覆盖（`tests/jobs/test_security.py:60`、`tests/jobs/test_concurrency.py:58`）。剩余工作改为：**核对**上述既有覆盖是否覆盖计划要求的全部拒绝项。**2026-09-20 复核更正**：所谓「0 个配置」空白项并不存在——`tests/jobs/test_security.py:41-42` 已同时断言 0 题与 0 个配置返回 `400 EMPTY_JOB_SELECTION`，我先前的结论核查不充分。**已定案（2026-09-20 深夜，D 回复）**：「重复 ID」的**去重是刻意设计，实现不改**。统一规则为「未知/重复**参数键**拒绝、值列表**去重归一化**」。依据：[任务 04 行动记录](2026-09-12-m1-job-submission.md)第 22 行「题目与配置**去重后计数**；空选择、规模不符、非法覆盖在创建前拒绝」，[HTTP_API.md](../interfaces/HTTP_API.md) 第 426/430 行「必须非空、去重」「列表在规范正文中去重并排序」（两处已逐字核对属实）。剩余动作在措辞侧：请组长把 `verification.md` Q7 与 `plan.md` 第 6 节第 5 步的「重复 ID…拒绝」对齐为「重复项去重后计数」。本行动 09-19 版的「重复题目必须拒绝」表述作废。
+6. 打通目录 → HTTP options → 三步向导 → 冻结 Job/全部 Runs/初始事件的事务；创建只返回“等待批准”。验证读取旧 Job、恢复新 Job、双存储一致性与指纹/摘要防漂移；同步权威文档后收尾。**进展（2026-09-20）：C 侧打通链已实现并测试**——新增 `apps/backend/tests/catalog/test_catalog_job_flow.py`，用目录列表与 HTTP 选项驱动 6 题 × 2 配置提交，断言创建只返回 `AWAITING_OWNER_APPROVAL`、全部 Runs 恰好覆盖笛卡尔积、Job 与每个 Run 都带 `JOB_SUBMITTED`、冻结身份与目录记录逐字段一致；并覆盖“配置停用后旧 Job 不被改写、新提交被拒”。剩余：三步向导的浏览器动线（与 B 交接）、恢复新 Job 与双存储一致性。
+
+7. 暴露面收敛的 HTTP 层断言（2026-09-20 第二增量，实施中）：现有断言只在契约层（`tests/contract/test_m0_pipeline.py:47` 的 `not hasattr(request.runs[0].task, "gold_patch")`）与个别响应上成立，**没有任何测试逐条扫描公开读取面**。做法：用带哨兵值的合成目录（`HIDDEN_ANSWER`、`hidden_test`、`hidden_pass`、`private-test-reference` 分别来自 `gold_patch`/`test_patch`、`fail_to_pass`、`pass_to_pass`、`credential_profile_id`）登记并提交后，逐条请求目录、配置、选项、Job、报告、对比、制品索引与轨迹端点，断言哨兵一处都不出现，并用公开题面仍在作为对照，避免"响应为空所以通过"。加在既有 `tests/catalog/test_security.py`（该文件已负责"隐藏答案与 Key 不进入公开输出"，且 `tests/catalog/` 内容文件数已达 8 的上限，不再新增第 9 个）。浏览器页面与其他读取面仍归 B/后续任务。
+
+## 需要修改的文件树（计划；实施时按实际回填）
+
+```text
+apps/backend/src/eval_platform/
+├─ adapters/tasks/catalog.py        # 新增（2026-09-21）：受控白名单 instance → 固定镜像身份（含 digest），六条
+├─ adapters/tasks/swe_gym.py        # 2026-09-21：白名单移到 catalog.py 并显式 re-export（保持 198 行内；preflight 未改动）
+├─ delivery/catalog_presets.py      # 2026-09-21：TASK_PRESETS 由 1 条扩为 6 条（旧题 + 五道过门禁的新题）
+├─ adapters/tasks/collect_patch.sh  # 题目侧 patch 收集；多题时核对参数与路径假设
+├─ delivery/catalog_presets.py      # TASK_PRESETS 扩展为旧题+合格新题；AGENT_PRESETS 预留 05–07
+├─ application/task_catalog.py      # 白名单登记与校验；多题语义按需扩展，不放松 allowlist
+├─ domain/jobs/policy.py            # （已由 D 完成，本行动不改）BatchPreset 连续 1–20 与既有区间解释
+├─ delivery/job_presets.py          # （已由 D 完成，本行动不改）continuous(1,20) 已于 2026-09-20 合入上游
+├─ application/job_submission.py    # （2026-09-20 复核：空选择的拒绝已有覆盖，无需改动）
+└─ delivery/http/routes/jobs/routes.py  # job-options 暴露新预设（与 B 交接前端展示）
+apps/backend/tests/
+├─ catalog/test_http.py             # 目录 HTTP：登记与读取；2026-09-20 增补配置列表分页与状态筛选
+├─ catalog/conftest.py              # 2026-09-20：catalog_api 增加可选 agent_presets（默认行为不变）
+├─ catalog/qualification/           # 新增子目录（2026-09-20）：固定候选身份机制测试；
+│                                   #   理由＝tests/catalog 内容文件已达 8 个上限，且实现地图 §3
+│                                   #   已把 04 的资格类测试规划在 qualification/ 子目录
+├─ catalog/test_catalog_job_flow.py # 新增（2026-09-20 已实现）：目录→options→提交→冻结 Job/Runs/初始事件的打通链
+├─ catalog/test_consistency.py      # 目录记录与对象摘要一致
+├─ catalog/test_security.py         # 隐藏答案与 Key 不进入公开输出（2026-09-20 新增公开读取面全量扫描用例）
+├─ integration/test_swe_bench_integration.py  # 新题固定 Fork 离线判卷（E 执行，C 收证据）
+├─ jobs/scale/test_continuous_preset.py  # （D 已建，不改）规模边界覆盖现状见实施措施第 5 条
+├─ jobs/test_concurrency.py         # 并发批准/claim 只有一个合法结果
+├─ jobs/test_postgres.py            # 真实 PG 下的快照与事务
+└─ jobs/recovery/test_retry.py      # 恢复不自动续跑旧 Job
+docs/
+├─ architecture/modules/catalog-and-configuration/ARCHITECTURE.md  # 目录能力现状与规划边界
+├─ architecture/MODULE_CONTRACTS.md # Task/Agent Catalog 契约与稳定错误
+├─ architecture/DATA_MODEL.md       # 仅在确实需要 schema 变更时同步（A 的窗口）
+├─ interfaces/HTTP_API.md           # 目录、job-options 与提交契约同步
+└─ actions/2026-09-19-task-04-catalog-candidates-and-scale.md      # 本行动
+HANDOFF.md                          # 当前停点与下一步（收尾时更新）
+```
+
+不修改：`.scratch/ui-catalog-providers/plan.md` 等规划正文（归规划行动维护）、`apps/web/` 产品代码（归 B）、代理与执行链实现（归 E）。
+
+
+## 04 第一步产出：固定快照与候选身份冻结（2026-09-21 完成）
+
+> 组长 2026-09-21 授权下载 SWE-Gym 数据集（该数据集为上游原样拉取、未修改，故不入 Git）。本节记录按计划第 6 节第 1 步完成的"读快照、冻结身份、列本地缺失镜像与磁盘需求"。
+> **本轮未拉取任何题目镜像**（镜像下载授权与磁盘配额仍在申请）；**未把任何新题写进受控白名单**（门禁未跑）。
+
+### 1. 数据集到位并本地校验
+
+| 项 | 值 |
+|---|---|
+| 来源 | HuggingFace `SWE-Gym/SWE-Gym-Lite`，revision `61231f2c90b18985b42a1419738a240085a15107`，文件 `default/train/0000.parquet` |
+| 落地路径 | `runtime/cache/swe-gym-lite/61231f2c90b18985b42a1419738a240085a15107/train-0000.parquet`（与 `preflight.py`、契约与集成测试引用的一致；`/runtime/` 已在 `.gitignore`，不入仓库） |
+| 校验 | 大小 **931,193 字节**、sha256 **`f3a7cd93…aaa4eb1`**——与 `adapters/tasks/swe_gym.py` 中 `DatasetIdentity` 的固定身份逐位一致；远程 `X-Linked-Size`/`X-Linked-ETag` 也与之一致 |
+| 快照内容 | 共 **230 道题**，其中 mypy 题 **40 道** |
+
+### 2. 五道候选都在快照中（逐条确认，非推断）
+
+`python__mypy-15184`、`15208`、`15131`、`15139`、`15876` 均存在于该快照。
+
+### 3. 冻结身份（用产品代码 `SWEGymTaskSource` 读取，只记摘要不记正文）
+
+| instance | repo | base_commit | 题面字节 | gold 字节 / 文件 | test 字节 / 文件 | F2P | P2P | raw_record_sha256(前 16) |
+|---|---|---|---|---|---|---|---|---|
+| `python__mypy-15413`（旧题，对照） | python/mypy | `e7b917ec…` | 1225 | 506 / 1 个 `.py` | 517 / 1 个 `.test` | 1 | 0 | `e69f9b60d6731384` |
+| `python__mypy-15131` | python/mypy | `00f3913b…` | 510 | 843 / 1 个 `.py` | 6394 / 3 个 `.test` | 2 | 1 | `9d8ed278dc21786a` |
+| `python__mypy-15139` | python/mypy | `16b936c1…` | 769 | 513 / 1 个 `.py` | 643 / 1 个 `.test` | 1 | 0 | `a2ad5e1bbb633f89` |
+| `python__mypy-15184` | python/mypy | `13f35ad0…` | 912 | 836 / 1 个 `.py` | 1023 / 1 个 `.test` | 2 | 1 | `cd7f6c10977ead6d` |
+| `python__mypy-15208` | python/mypy | `7832e1f4…` | 680 | 1865 / 1 个 `.py` | 531 / 1 个 `.test` | 1 | 1 | `5a16f7eeea2cd101` |
+| `python__mypy-15876` | python/mypy | `b49be105…` | 998 | 1303 / 1 个 `.py` | 11257 / 8 个 `.test` | 6 | 10 | `81ce02923c5ceb41` |
+
+说明：完整摘要（sha256）与完整 base commit 在门禁执行时随证据一起记录；本表只列前缀以免文档与真实身份混淆。**用产品代码读取成功本身也是一项检查**——五条记录都通过 `_map_record` 的字段完整性校验，没有缺字段。
+
+### 4. 本地镜像缓存/缺失、下载来源与磁盘需求（只查元数据，未拉取）
+
+- **本地缓存：0 个**（Docker Desktop 未运行，本机也没有这些镜像）。
+- **五个镜像在 Docker Hub 上均真实存在**（每库仅一个 `latest` 标签，digest 如下）：
+
+| 镜像 | digest | 压缩后字节 |
+|---|---|---|
+| `xingyaoww/sweb.eval.x86_64.python_s_mypy-15184` | `sha256:affb925329f2dfb2173482c64a1b65648b250777b66b0d7417ee5340fce74835` | 1,057,697,427 |
+| `xingyaoww/sweb.eval.x86_64.python_s_mypy-15208` | `sha256:4fd4bf6ae2d9e6f8b2fe6565018c15b35b9ed7bc1207a9b604b8c82061235c8f` | 1,058,095,278 |
+| `xingyaoww/sweb.eval.x86_64.python_s_mypy-15131` | `sha256:7fcf8e1c849ffd2a3436c056f9b3b8f1ec0103ed7f429e5001d5f77f64f735c5` | 1,057,680,703 |
+| `xingyaoww/sweb.eval.x86_64.python_s_mypy-15139` | `sha256:a41d688fba76599fcc2bfbfbfe580e864c0c4c6a8ee6ce7edec9b83b34bd0037` | 1,058,080,224 |
+| `xingyaoww/sweb.eval.x86_64.python_s_mypy-15876` | `sha256:cc465fe939951b1f3ab43bf834b41a9017efc404cc9c9d5ad8b0ff95b90678f1` | 1,089,720,552 |
+
+- **磁盘需求**：压缩层合计 **5,321,273,184 字节 ≈ 4.96 GiB**；解压落盘按常见 2–3 倍估 **10–15 GB**（估算，需实测定值）。本机可用空间：`D:` 约 19 GB、`C:` 约 16 GB——**够但不宽裕**，建议把 Docker 数据根放在 `D:` 并在门禁后精确清理，这也正是需要组长给磁盘配额的量化依据。
+- **未执行**：没有 `docker pull`，没有运行任何容器。
+
+### 5. `15876` 的额外预检（计划点名要求）
+
+计划要求"`15876` 额外确认存在真实 FAIL_TO_PASS，不用仅文档修改凑数量"。预检结果：gold patch 改的是 **1 个 `.py` 文件**（1303 字节），test patch 覆盖 **8 个 `.test` 文件**，FAIL_TO_PASS **6 项** —— **不是纯文档修改**。真实判定仍需按门禁在容器里跑参考/空/错误三种补丁。
+
+
+
+## 04 门禁实跑：五道候选全部通过（2026-09-21）
+
+> 前提：Docker Desktop 启动、该候选镜像按 digest 拉取、`framework/swe-bench-fork` 的 WSL Linux 依赖环境就位。
+> 新增参数化门禁测试 `apps/backend/tests/catalog/qualification/test_candidate_gate.py`（5 候选 × 参考/空/错误），
+> **镜像身份由测试注入**——候选在通过门禁前不写入产品白名单 `FIXED_TASK_IMAGES`。
+> 运行方式：`AGENTEXAM_RUN_FORK_INTEGRATION=1 pytest tests/catalog/qualification/test_candidate_gate.py -k "<instance>"`。
+
+### 五道候选结果汇总（每题三场景 15/15 通过）
+
+| 候选 | 镜像 digest | 参考补丁 | 空补丁 | 错误补丁 | 耗时 |
+|---|---|---|---|---|---|
+| `python__mypy-15131` | `sha256:7fcf8e1c…f735c5` | resolved ✅ | 未解决 ✅ | 未解决（可应用）✅ | 2:26 + 1:29 |
+| `python__mypy-15139` | `sha256:a41d688f…bd0037` | resolved ✅ | 未解决 ✅ | 未解决（可应用）✅ | 2:33 |
+| `python__mypy-15184` | `sha256:affb9253…e74835` | resolved ✅ | 未解决 ✅ | 未解决（可应用）✅ | 2:20 |
+| `python__mypy-15208` | `sha256:4fd4bf6a…235c8f` | resolved ✅ | 未解决 ✅ | 未解决（可应用）✅ | 2:33 |
+| `python__mypy-15876` | `sha256:cc465fe9…678f1` | resolved ✅ | 未解决 ✅ | 未解决（可应用）✅ | 2:47 |
+
+（完整 digest 见上文第 4 节镜像表；每题的容器清理 `verified=True`、`remaining_ids=[]`、Fork 进程 `returncode=0`、`warnings=[]`。）
+
+**证据位置**：`runtime/fork-evidence/qualify-mypy-<题号>-<场景>-<8位随机>/`，共 **15 个 scope**（5 题 × 3 场景），
+每个含判卷报告、Fork 进程记录与清理记录；Git 忽略、按项目要求不覆盖旧 scope。
+**镜像已按串行方案逐个删除**（可随时按 digest 重新拉取），C 盘余量在执行前后为 11 GB → 9.4 GB。
+
+### 单题明细（以 15131 为例）
+
+| 补丁 | 期望 | 实测（15131） |
+|---|---|---|
+| 参考补丁（`gold_patch`） | `resolved=True`、`patch_applied=True` | ✅ 一致（2 分 26 秒） |
+| 空补丁（`""`） | `resolved=False`、`patch_applied=False` | ✅ 一致 |
+| 可应用但错误的补丁 | `resolved=False`、`patch_applied=True` | ✅ 一致 |
+
+三个场景的容器清理均 `verified=True`、`remaining_ids=[]`、Fork 进程 `returncode=0`、`warnings=[]`；证据留在 `runtime/fork-evidence/`（Git 忽略，不覆盖旧 scope）。
+
+**镜像与题目的交叉验证**：容器内 `/testbed` 的 `git log -1` = `00f3913b314994b4b391a2813a839c094482b632`，与数据集里该题的 `base_commit` 逐位一致；镜像内 Python 3.11.9。
+
+**资源事实（供后续串行执行）**：该镜像解压后 2.49 GB，Docker 数据盘 1.43→4.21 GB，C 盘余量 16→11 GB。因此五个候选**必须串行**（拉一个 → 跑门禁 → 删镜像 → 下一个），峰值只占一个镜像。
+
+**环境侧改动**：Docker Desktop 的代理原本指向 `127.0.0.1:7897`（无监听）导致拉取失败，已改为实际可用的 `127.0.0.1:7892`（设置文件已备份为 `settings-store.json.bak-20260921`）。
+
+**剩余**：~~15139、15184、15208、15876 四个候选按同一流程串行执行~~ **已于同日完成**，见上表。
+
+**入库（2026-09-21）**：门禁通过后把五道题写进受控白名单——新增 `adapters/tasks/catalog.py` 承载
+`FIXED_TASK_IMAGES`（六条：旧题 + 五道新题，各带 digest），`swe_gym.py` 改为从该模块显式 re-export
+（自身 198 行，未超 200 行指标；`preflight.py` 一行未改），`delivery/catalog_presets.py` 的
+`TASK_PRESETS` 由 1 条扩为 6 条——即"六题可选"。门禁测试改为读白名单（digest 单一来源），
+成为白名单的回归门禁。复验：`ruff check` 全绿、`mypy src` 通过、全量 **474 passed / 46 skipped / 0 failed**
+（跳过数 +15 即新门禁用例，需 Docker + 镜像 + `AGENTEXAM_RUN_FORK_INTEGRATION=1` 才跑）。
+
+
+## 任务 04 测试设计（准备阶段成果，未执行）
+
+按[分层验收规范](../../.scratch/ui-catalog-providers/verification.md)第 2 节需求覆盖表（Q5、Q7 归 04）与第 4 节负例整理。用例先落在此处，实施时再落到具体测试文件；本轮未编写也未运行任何测试。
+
+### A. 目录层：新题入库
+
+1. 六题可选：登记旧题与五道新题后，目录读取返回六道，每道带固定的 dataset revision、base commit 与镜像 digest。
+2. 公开与隐藏分离：登记响应、目录列表与网页里都不出现 `gold_patch`、`test_patch`、测试名单、环境对象键与认证文件内容。
+3. 摘要一致：目录记录与对象存储摘要吻合；对象被替换或损坏后读取必须失败，不返回看似正常的任务。
+4. 未知与停用拒绝：不在受控白名单的 instance、已停用条目、重复登记返回稳定错误，不静默接受。
+5. 旧题不退化：`swe-gym-lite-mypy-15413` 仍可读，M0 单题入口仍可用。
+6. 镜像未冻结的候选不得登记：镜像 digest 未确认时拒绝登记，不用占位值放行。
+
+### B. 规模层：1–20 连续
+
+1. 合法通过：1、4、6、9、20 道题，配 1、2、3 个配置均可提交。
+2. 必须拒绝：0 道题、21 道题、0 个配置、4 个配置、重复题目、重复配置、未知或停用条目。
+3. 总上限：题数×配置数超过 60 必须拒绝（例如 20×4、21×3）。
+4. 旧快照兼容：`demo`、`quick`、`standard` 三个旧预设对历史 Job 的解释不变；新策略不改写任何历史 Job 快照。
+5. 事务完整性：创建失败不留下半个 Run 矩阵；同一幂等键配不同请求体必须冲突。
+6. 并发：并发批准与并发 claim 各自只有一个合法结果。
+
+### C. 新题判卷：固定 Fork 离线（E 执行，C 组织交接并收证据）
+
+逐题跑三种补丁并分类：参考补丁必须 resolved；空补丁必须不通过，且不能是“本来就通过”的题；可应用但错误的补丁必须不通过。基础设施错误单独归类，不得算作负例成功。
+
+### D. 浏览器：少量动线（与 B 交接）
+
+向导能选到六道题、能看清题数×配置数与最多 60 次 Run 的提示、提交后只显示“等待 owner 批准”。
+
+## 自验证方式与成功标准
+
+获授权实施后，按[分层验收规范](../../.scratch/ui-catalog-providers/verification.md)执行；命令在对应任务获安排、依赖与工具核对后才运行，本轮不运行：
+
+- 后端（`apps/backend`）：`ruff check`、`ruff format --check`、`mypy`、`pytest tests/catalog tests/jobs -q`、最终全量 `pytest`；默认跳过的真实存储/容器用例逐项列 skipped，不算通过。
+- 重型入口（需授权与镜像）：`tests/catalog/runtime/verify.ps1`、`tests/jobs/runtime/verify.ps1`、`tests/integration/test_swe_bench_integration.py`。
+- Web（与 B 交接后）：`npm run typecheck`、`npm run build`、`npm run test:e2e`。
+- 成功标准：原题+至少五道新题合格可选；五组参考/空/错误判卷证据齐备；六题×三配置的合成提交、20×3 边界与旧快照兼容通过；不读真实 auth、不调用模型、隐藏答案不出现在做题侧与 HTTP。
+
+## 自验证情况
+
+- 2026-09-19 至 09-20 白天：准备阶段，未修改代码，未运行任何检查。
+- **2026-09-20 晚间：本机环境已建立并实测**（只建立环境、只跑既有测试，未改任何产品代码）：
+  - `pytest tests/catalog -q`（带 `AGENTEXAM_RUN_IDENTITY_POSTGRES=1` 与专属回环测试库 DSN）→ **33 passed, 7 skipped**；7 项为需 MinIO 的集成用例，按设计跳过，不计为通过。
+  - 全量 `pytest -q` → **452 passed, 36 skipped, 2 failed**（119.75s）。2 个失败为 `tests/contract/test_execution_network.py` 缺 `framework/harbor` 的既有环境失败；已用 `--tb=line` 核对报错为 `git -C .../framework/harbor rev-parse HEAD` 失败，非代码缺陷，也无法在本机修复。
+  - 静态检查（同期补跑）：`ruff check .` → **All checks passed**；`mypy src/eval_platform` → **Success: no issues found in 166 source files**（直接跑 `mypy` 会因 editable 安装缺 `py.typed` 标记报错，须给显式路径）；`ruff format --check` → **2026-09-21 重放到上游 `fd369cc` 后复核：仍有 2 个文件不合格**（`tests/jobs/cancellation/test_cancel_races.py`、`tests/jobs/reporting/test_matrix_rehearsal.py`），均为 D 的文件、非本行动引入；原先 5 个中的另外 3 个已随上游 `7553ce0` 修好。D 报的本地修复 `5172ae2` 尚未推送到上游，推送前建议先 rebase 到 `fd369cc`，只需再修这 2 个。
+- 任务 04 的题库侧与判卷侧验收项**未开始**（需组长机器/E）；目录侧的打通链已按实施措施第 6 条落地，其余目录侧项未开始。
+
+### 本次代码增量（2026-09-20，用户明确要求开工后实施）
+
+- 新增 `apps/backend/tests/catalog/test_catalog_job_flow.py`（2 个用例，只加测试、未改任何产品代码）：
+  1. `test_catalog_and_options_drive_one_frozen_submission`：登记 6 题 + 2 配置 → 读目录列表 → 读 `/api/v1/job-options` → 按选项提交 `continuous` → 断言 `202` 且 `AWAITING_OWNER_APPROVAL`、`trial_count == 12`；读回 Job 详情后断言冻结的题目身份（instance_id / dataset_id / dataset_revision / split / base_commit / problem_statement）与配置指纹与目录记录逐字段一致；断言 12 个 Runs 恰好覆盖 题目 × 配置 的笛卡尔积，且 Job 与每个 Run 都带 `JOB_SUBMITTED` 初始事件。
+  2. `test_frozen_job_keeps_its_snapshot_when_the_catalog_changes`：提交后停用该配置 → 旧 Job 的冻结快照与状态不变（不被目录变更改写）；新提交返回 `409 AGENT_CONFIGURATION_DISABLED`。
+- 实测结果：`pytest tests/catalog -q`（带 `AGENTEXAM_RUN_IDENTITY_POSTGRES=1`）→ **35 passed / 7 skipped**（此前 33 passed，新增 2 个）；全量 `pytest -q` → **454 passed / 36 skipped / 2 failed**（103.73s，失败项与本次改动前完全相同，无回归）；`ruff check`、`ruff format --check`、`mypy src/eval_platform` 对新增文件均通过。
+- **变异检查**（确认断言有效，非空跑）：把 `base_commit` 比对改成必然不等的值和把笛卡尔积期望缩小一格后跑测试，结果 `1 failed, 1 passed`，探针文件已删除。
+- 未覆盖（如实记录）：三步向导的浏览器动线（B）、恢复新 Job、双存储一致性（MinIO 集成在本机跳过）、五道题的三补丁门禁。
+
+### 本次代码增量 2（2026-09-20，暴露面收敛的 HTTP 层断言）
+
+- 修改 `apps/backend/tests/catalog/test_security.py`（只加测试）：新增 `test_hidden_evaluation_fields_never_reach_public_surfaces`。
+- 做法：用带哨兵值的合成目录登记并提交一道题（`HIDDEN_ANSWER` 来自 `gold_patch`/`test_patch` 与原始记录的 `patch` 字段、`hidden_test` 来自 `fail_to_pass`、`hidden_pass` 来自 `pass_to_pass`、`private-test-reference` 来自 `credential_profile_id`），随后逐条请求 12 个公开读取面——`/tasks`、`/tasks/{id}`、`/agent-configurations`、`/agent-configurations/{id}`、`/job-options`、`/jobs`、`/jobs/{id}`、`/reports/jobs/{id}`、`/reports/runs/{id}`、`/reports/comparisons?job_ids=`、`/runs/{id}/artifacts`、`/runs/{id}/trajectory`——断言四个哨兵一处都不出现。
+- 实测结果：`pytest tests/catalog -q` → **36 passed / 7 skipped**（此前 35）；全量 `pytest -q` → **455 passed / 36 skipped / 2 failed**（104.16s，失败项与改动前完全相同）；`ruff check`、`ruff format --check` 通过。
+- 如实记录：`/runs/{id}/trajectory` 对**未执行**的 Run 按契约返回 **409**（内容尚未产出），本用例把拒绝集合显式断言为 `⊆ {trajectory}` 并**不把 409 当作通过**，只验证"拒绝响应里同样不含隐藏字段"；一旦 Run 真正产出制品，读取成功路径由 D 的 `tests/jobs/artifacts/test_http_limits.py`、`tests/jobs/execution/test_evidence_publication.py` 覆盖。
+- **变异检查**：把公开题面 `"Fix the visible bug."` 混入哨兵列表后跑该用例，结果 `1 failed`（说明断言确实在扫描响应体，不是空跑）；探针文件已删除。
+
+
+### 本次代码增量 3（2026-09-20，目录 HTTP 的配置列表分页与筛选）
+
+- 修改 `apps/backend/tests/catalog/conftest.py`（加可选参数 `agent_presets`，默认与原先完全一致）与 `apps/backend/tests/catalog/test_http.py`（新增 `test_agent_list_paginates_and_filters_by_state`）。
+- 补的缺口：目录 HTTP 支持 `cursor`/`limit`/`agent_type`/`enabled`，但此前只有「停用后 `?enabled=true` 返回空」一个断点；**配置列表的游标往返与状态筛选没有测试**，而三步向导真实调用是 `GET /api/v1/agent-configurations?limit=100&agent_type=codex&enabled=true`。
+- 用例断言：3 个配置两页取完、不重不漏、末页无 `next_cursor`；`?limit=100&agent_type=codex` 返回全部 3 个；`?agent_type=other` 被 422 拒绝；停用一个后 `enabled=true` 返回其余两个、`enabled=false` 只返回被停用的那个。
+- 实测：`pytest tests/catalog -q` → **37 passed / 7 skipped**；全量 `pytest -q` → **456 passed / 36 skipped / 2 failed**（失败集合同前，无回归）；`ruff check`、`ruff format --check` 对改动文件通过。
+- **变异检查**：把首页期望改为 3 项、把停用侧期望改为空列表后，用例确实失败（探针已删）。
+
+
+### 本次代码增量 4（2026-09-20，固定候选的镜像身份机制）
+
+- **这是任务 04 里唯一不依赖外部资源的实现改造。** 原状：`adapters/tasks/swe_gym.py` 把镜像写成单一常量 `CANDIDATE_IMAGE`，并在 `_map_record` 里用 `instance_id != CANDIDATE_INSTANCE_ID` 拒绝其他所有题——即题目目录在**代码层**只可能有一道题。
+- 改法：改为 `FIXED_TASK_IMAGES: Mapping[str, str]`（instance_id → 含 digest 的固定镜像身份），取值时按 instance 查表，未登记一律 `ValueError`；`CANDIDATE_IMAGE` 保留为旧题的别名，继续服务既有 M0 诊断入口（`adapters/execution/preflight.py`），**该文件未改动**（计划要求保留旧题身份与 M0 单题入口）。构造器新增可选 `images` 注入，空映射**不得**回落到内置白名单。
+- **白名单内容未变**：仍只有 `python__mypy-15413`。门禁通过的题以后只需在映射里加一行。
+- 新增 `apps/backend/tests/catalog/qualification/test_fixed_task_identity.py`（5 个用例，用合成 Parquet 快照，不读真实数据集、不需要容器）：两道题各自拿到自己的镜像、公开/隐藏分离、摘要按规范化 JSON 重算；未登记 instance 即使存在于快照中也拒绝；空白名单不服务任何题；生产映射的每条都必须带 `@sha256:`；数据集大小或 SHA-256 不匹配即拒绝。
+- 实测：`pytest tests/catalog/qualification -q` → **5 passed**；全量 `pytest -q` → **461 passed / 36 skipped / 2 failed**（失败集合同前，无回归）；`ruff check`、`ruff format --check`、`mypy src/eval_platform` 均通过。
+- **变异检查**：把两道题改成共用第一张镜像、以及放行未登记实例，两处都让用例失败（探针已删）。

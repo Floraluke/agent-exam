@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -9,6 +10,15 @@ from typing import Any
 import pyarrow.parquet as pq  # type: ignore[import-untyped]
 
 from eval_platform.adapters.execution.network import compose_profile
+from eval_platform.adapters.tasks.catalog import (
+    CANDIDATE_IMAGE as CANDIDATE_IMAGE,
+)
+from eval_platform.adapters.tasks.catalog import (
+    CANDIDATE_INSTANCE_ID as CANDIDATE_INSTANCE_ID,
+)
+from eval_platform.adapters.tasks.catalog import (
+    FIXED_TASK_IMAGES as FIXED_TASK_IMAGES,
+)
 from eval_platform.application.ports.execution import RunLimits
 from eval_platform.domain.task import EvaluationTask, EvaluatorTaskData, TaskBundle
 
@@ -17,11 +27,6 @@ DATASET_REVISION = "61231f2c90b18985b42a1419738a240085a15107"
 DATASET_SPLIT = "train"
 DATASET_SIZE = 931_193
 DATASET_SHA256 = "f3a7cd934e8cc523b6053298d0abb2c82fd7db2b83f9f2ccba5944545aaa4eb1"
-CANDIDATE_INSTANCE_ID = "python__mypy-15413"
-CANDIDATE_IMAGE = (
-    "xingyaoww/sweb.eval.x86_64.python_s_mypy-15413"
-    "@sha256:f069dfc74592d438ad870bbc6dfb369bff1b125d21237ead49190b414f5f3456"
-)
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,9 +41,16 @@ class DatasetIdentity:
 class SWEGymTaskSource:
     """Read a content-verified local Parquet snapshot, never a moving HF branch."""
 
-    def __init__(self, parquet_path: Path, identity: DatasetIdentity | None = None):
+    def __init__(
+        self,
+        parquet_path: Path,
+        identity: DatasetIdentity | None = None,
+        images: Mapping[str, str] | None = None,
+    ):
         self._path = parquet_path
         self._identity = identity or DatasetIdentity()
+        # 空映射必须表示“没有任何已登记候选”，不得回落到内置白名单。
+        self._images = FIXED_TASK_IMAGES if images is None else images
 
     def load(self, instance_id: str) -> TaskBundle:
         self._verify_dataset()
@@ -78,7 +90,8 @@ class SWEGymTaskSource:
         if missing:
             raise ValueError(f"SWE-Gym record is missing fields: {', '.join(missing)}")
         instance_id = _string(record, "instance_id")
-        if instance_id != CANDIDATE_INSTANCE_ID:
+        image = self._images.get(instance_id)
+        if image is None:
             raise ValueError(f"No fixed M0 image is registered for {instance_id!r}")
         raw = json.dumps(
             record,
@@ -94,7 +107,7 @@ class SWEGymTaskSource:
             repo=_string(record, "repo"),
             base_commit=_string(record, "base_commit"),
             problem_statement=_string(record, "problem_statement"),
-            environment_image=CANDIDATE_IMAGE,
+            environment_image=image,
             raw_record_sha256=hashlib.sha256(raw).hexdigest(),
         )
         evaluator = EvaluatorTaskData(

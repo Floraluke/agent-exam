@@ -74,4 +74,4 @@ TaskSource、Repository 和 ArtifactStore 是三个不同 seam；SWE-Gym、Postg
 
 历史验证见[任务 03 行动](../../../actions/2026-09-12-m1-task-agent-catalog.md)。本轮没有访问数据集、MinIO 或测试环境。
 
-当前限制：只有 `python__mypy-15413` 和 `codex-0153-terra-medium` 预设。五道新题、1–20 规模和两家新提供方配置只是[扩展规格](../../../../.scratch/ui-catalog-providers/spec.md)中的候选；在资格验证、代理安全门禁和用户授权前不能登记为正式配置。长期 MinIO 的版本/运维风险由[所有者单机运行](../owner-host-runtime/ARCHITECTURE.md)处理，不改变本 Module 的 ArtifactStore Interface。
+当前状态（2026-09-21）：**受控题目目录已有 6 道题**——旧题 `python__mypy-15413` 与五道新题（`15131`/`15139`/`15184`/`15208`/`15876`）。五道新题已在隔离容器中逐题跑过三补丁门禁（参考通过、空补丁不通过、可应用但错误的补丁不通过，15/15 场景），白名单实现位于 `adapters/tasks/catalog.py` 的 `FIXED_TASK_IMAGES`（instance → 含 digest 的固定镜像身份），未登记的 instance 一律拒绝；门禁与镜像证据见[任务 04 行动](../../../actions/2026-09-19-task-04-catalog-candidates-and-scale.md)与[依赖总表](../../../dependencies/DEPENDENCIES.md)。受控配置目录仍只有 `codex-0153-terra-medium`；1–20 连续规模已由成员 D 落地，两家新提供方配置（DeepSeek/Kimi）仍是[扩展规格](../../../../.scratch/ui-catalog-providers/spec.md)中的候选，在代理安全门禁与用户授权前不能登记。长期 MinIO 的版本/运维风险由[所有者单机运行](../owner-host-runtime/ARCHITECTURE.md)处理，不改变本 Module 的 ArtifactStore Interface。
