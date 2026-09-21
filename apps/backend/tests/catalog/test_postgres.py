@@ -167,3 +167,27 @@ def test_explicit_upgrade_is_not_destructive_or_automatic(postgres_sandbox):
     with pytest.raises(CatalogUnavailable):
         initialize_schema(postgres_sandbox.dsn)
     assert repository.get(first.task_id) == first
+
+
+def test_agent_list_filters_by_type_on_the_real_database(postgres_sandbox):
+    """The SQL path honours the filter: a type with no row returns an empty list."""
+    from identity.conftest import WRITE_HEADERS
+
+    from catalog.conftest import catalog_api
+    from eval_platform.adapters.persistence.catalog.agents import (
+        PostgresAgentRepository,
+    )
+
+    initialize_schema(postgres_sandbox.dsn)
+    repository = PostgresAgentRepository(postgres_sandbox.dsn)
+    with catalog_api(agents=repository) as api:
+        api.login()
+        api.client.post(
+            "/api/v1/agent-configurations",
+            json={"preset_id": "verified-codex"},
+            headers=WRITE_HEADERS,
+        )
+
+    assert len(repository.list("codex", None, None, 10)) == 1
+    assert repository.list("aider", None, None, 10) == []
+    assert repository.list("aider", True, None, 10) == []

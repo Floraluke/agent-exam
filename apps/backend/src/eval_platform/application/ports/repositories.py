@@ -47,6 +47,7 @@ class AgentConfigurationRepository(Protocol):
 
     def list(
         self,
+        agent_type: str | None,
         enabled: bool | None,
         cursor: str | None,
         limit: int,

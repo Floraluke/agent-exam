@@ -1,8 +1,21 @@
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from eval_platform.domain.agent import CONTROLLED_AGENT_TYPES, CONTROLLED_PROVIDERS
 from eval_platform.domain.catalog import CatalogTask, RegisteredAgent
+
+
+def _controlled(value: str, allowed: tuple[str, ...], code: str) -> Any:
+    """Publish a record's own identity, or refuse instead of misreporting it.
+
+    The controlled sets live in the domain; a value outside them means a record
+    escaped the registry and the CHECK constraint, so failing closed is the only
+    safe answer.
+    """
+    if value not in allowed:
+        raise ValueError(code)
+    return value
 
 
 class RegisterPreset(BaseModel):
@@ -51,11 +64,15 @@ class PublicOptions(BaseModel):
 
 
 class AgentSummary(BaseModel):
+    """Public identity. Values come from the record; a test pins them to the
+    controlled sets, so the enum and the domain constants cannot drift apart."""
+
     agent_configuration_id: str
     display_name: str
     agent_type: Literal["codex"]
     agent_version: str
-    model_provider: Literal["openai_chatgpt"]
+    # The enums are pinned to the domain constants by the agent-identity test.
+    model_provider: Literal["openai_chatgpt", "internal_test_fake"]
     model: str
     configuration_fingerprint: str
     enabled: bool
@@ -71,9 +88,17 @@ class AgentDetail(AgentSummary):
         return cls(
             agent_configuration_id=configuration.configuration_id,
             display_name=record.display_name,
-            agent_type="codex",
+            agent_type=_controlled(
+                configuration.agent_name,
+                CONTROLLED_AGENT_TYPES,
+                "UNCONTROLLED_AGENT_TYPE",
+            ),
             agent_version=configuration.agent_version,
-            model_provider="openai_chatgpt",
+            model_provider=_controlled(
+                configuration.model_provider,
+                CONTROLLED_PROVIDERS,
+                "UNCONTROLLED_PROVIDER",
+            ),
             model=configuration.model_name,
             configuration_fingerprint=configuration.fingerprint,
             enabled=record.enabled,

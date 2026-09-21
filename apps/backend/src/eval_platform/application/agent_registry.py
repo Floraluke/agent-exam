@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 from eval_platform.application.ports.repositories import AgentConfigurationRepository
-from eval_platform.domain.agent import AgentConfiguration
+from eval_platform.domain.agent import CONTROLLED_IDENTITIES, AgentConfiguration
 from eval_platform.domain.catalog import (
     CatalogForbidden,
     CatalogInvalid,
@@ -32,8 +32,11 @@ class AgentRegistry:
         options = configuration.critical_config
         if (
             configuration.agent_name != "codex"
-            or configuration.model_provider != "openai_chatgpt"
-            or configuration.authentication_type != "chatgpt_auth_json"
+            or (
+                configuration.model_provider,
+                configuration.authentication_type,
+            )
+            not in CONTROLLED_IDENTITIES
             or set(options) != {"reasoning_effort"}
             or options["reasoning_effort"] not in ("low", "medium", "high", "xhigh")
         ):
@@ -52,13 +55,14 @@ class AgentRegistry:
     def list(
         self,
         actor: AuthenticatedActor,
+        agent_type: str | None,
         enabled: bool | None,
         cursor: str | None,
         limit: int,
     ) -> tuple[list[RegisteredAgent], str | None]:
         if not 1 <= limit <= 100:
             raise CatalogInvalid
-        records = self.repository.list(enabled, cursor, limit + 1)
+        records = self.repository.list(agent_type, enabled, cursor, limit + 1)
         page = records[:limit]
         cursor = (
             page[-1].configuration.configuration_id if len(records) > limit else None
