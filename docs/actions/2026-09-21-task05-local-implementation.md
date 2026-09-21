@@ -101,9 +101,22 @@ runtime/prototype/t05-topology-<日期>-<序号>/   # T1 探针与证据（被 G
 - 其它已覆盖：输入与输出上限分别生效、截止时间按账本起点计时（注入时钟）、非正输出请求拒绝、同一预留只能结算一次（重复结算抛 `BUDGET_RESERVATION_UNKNOWN`）、正文不可序列化、上限参数非法。
 - 本片测试暴露的一处**是我自己写错的测试**（注入时钟序列多排了一个值），不是实现缺陷；与前两片不同，如实记录。
 
+**S6 `provider_access/binding.py`——已实现并验证**
+
+- 文件：`binding.py`（134 行，≤200）；`provider_access/` 现有 5 个源文件（上限 8）；测试 `tests/providers/policy/test_run_binding.py`。
+- 定向测试：`pytest tests/providers -q` → **56 passed, 1 skipped**（含 S3–S5 的 45 项）。
+- 静态检查：`ruff check`（全量）→ `All checks passed!`；`ruff format --check` → `311 files already formatted`；`mypy` 新增包 → `no issues found in 5 source files`。
+- 全量回归：`473 passed, 102 skipped, 2 failed`；相对上一片 `462/102/2` 通过数 **+11**（本片新增用例），失败项完全相同，无新增失败。
+- **令牌刻意不是一次性码**：一个 Run 含多轮模型请求，故同一令牌可反复 `resolve`；测试断言同一令牌连续 5 次解析均成功。设计冻结第 3.5 节写明"多轮请求共用，不是一次性码"，本片据此实现。
+- **三类必须拒绝的情况各有用例**：跨 Run（令牌属于 run-1、以 run-2 呈现 → `PROVIDER_TOKEN_CROSS_RUN`）；过期（注入时钟越过 `expires_at` → `PROVIDER_TOKEN_EXPIRED`，且**同时丢弃该绑定**，再解析报 `UNKNOWN`、活动 Run 列表变空）；撤销（按令牌与按 Run 两种，重复撤销返回 `False`）。
+- **令牌不外泄**：`RunBinding.token` 设 `repr=False, compare=False`，测试断言其不出现在 `repr`/`str`；`active_run_ids()` 只返回 Run 身份、绝不列令牌。
+- **一个 Run 只签发一个令牌**：重复签发报 `PROVIDER_BINDING_ALREADY_ISSUED`；令牌工厂若返回重复值则报 `PROVIDER_TOKEN_NOT_UNIQUE` 而不是覆盖既有绑定（防止静默顶掉别人的令牌）。
+- **有限 provider 选择**：签发时要求 `provider` 属于 `secrets.REGISTERED_UPSTREAMS`（`deepseek`/`kimi`），未登记一律拒绝；复用同一常量而非另立一份注册表。
+- 令牌用 `secrets.token_urlsafe(32)` 生成（密码学随机），测试可注入工厂以便断言唯一性。
+
 ### 未完成与遗留
 
-- **S2、S6–S9 与 T1 尚未实施**；已完成前置验证、S3、S4、S5。代理的**策略核心（私有文件、请求白名单、账本）已齐**。
+- **S2、S7–S9 与 T1 尚未实施**；已完成前置验证与 S3–S6。代理的**策略核心（私有文件、请求白名单、账本）与访问能力（Run 绑定）均已齐**；剩 `service.py`（代理入口与流）、`transport.py`（出站）、`provider_config.py`（做题侧配置）、拓扑与目录扩展。
 - **S2 暂缓**：Codex TOML 字段名研究第 1 节有据，但仓库内无 `config.toml` 样例（探针样例在被 Git 忽略的 `runtime/`，只在负责人机器）。定稿前须用固定 CLI 在契约层复核一次字段名，不凭文档当已确认。
 - **T1 未执行**：本机 Docker 能力已验证，但拓扑探针与 7 条断言仍未做。
 - 授权依据：用户会话内明确"同意"，并追加"其它需要开工授权的也同意"；本行动按其**只覆盖 E 本机实施与 T1 执行**理解执行——**不含真实模型/供应商调用**（项目规定须单独授权、历史 ChatGPT 许可不覆盖 DeepSeek/Kimi），**也不含负责人机器的 T2 操作**。负责人书面回执原写"未授予实施开工许可"，建议补一句书面确认后再同步任务单第 2 项验收的机器归属。
