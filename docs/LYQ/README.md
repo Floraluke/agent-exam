@@ -63,7 +63,7 @@ git push                   # 推到我自己的 fork 的 lyq 分支，上游 PR 
 
 注意事项：
 
-- 本仓库已配置 `http.proxy` 走本机代理（原因见 [ISSUE-01](04-issues/KNOWN_ISSUES.md)），所以上面这些命令能正常联网；若代理端口变了需要改配置。**如果 fetch/push 又报 `Failed to connect to github.com port 443`，先检查这条配置是不是还在**（`git config --get http.proxy`），2026-09-20 就发生过一次配置丢失。恢复克隆或换机器后必须重新确认。
+- GitHub 在本机的连通性不稳定（见 [ISSUE-01](04-issues/KNOWN_ISSUES.md)）：**当前配置为直连**（仓库本地 `http.proxy` 已移除）。报 `Failed to connect to github.com port 443` 超时时，开 Clash 并执行 `git config --local http.proxy http://127.0.0.1:7892`；报 `Failed to connect to 127.0.0.1 port 7892` 时，说明代理没在跑，用 `git config --unset http.proxy` 切回直连。恢复克隆或换机器后必须重新确认这条配置。
 - `git push` 只会推到我的 fork，不影响团队仓库；从 fork 到上游的 PR 已经开好，push 之后 PR 会自动更新。
 - 不要在没有明确授权时推送 `main`；合并由组长在 PR 页面操作。
 - 写文档前先确认事实来源：能查代码的查代码，需要人类判断的（业务规则、范围）先问组长。
