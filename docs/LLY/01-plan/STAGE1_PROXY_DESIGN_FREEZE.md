@@ -112,7 +112,7 @@
 - **只新增一个受控的假提供方身份**（provider/auth 值），且**只在 `internal_test` 用途下可登记**；生产目录仍不得登记假服务（与本任务验收第 3 项一致）。
 - **DeepSeek / Kimi 的真实提供方身份不在本任务放行**，留给 06/07 各自任务单按其冻结范围处理。
 - OpenAI/Codex 既有身份与指纹保持不变；旧的 `chatgpt_auth_json` 链不退化。
-- **需要 B 从契约侧配合的一处**：`AgentSummary` / `AgentDetail` 的 `model_provider`（以及 `agent_type`）目前是只含既有值的 `Literal`，登记受控预设时会在**序列化**阶段被拒，因此这条链要走通必须把它扩为受控集合。已按任务单约定"E 侧提前告知"写入任务单 Comments，交 B 决定契约正文的写法。
+- **需要 B 从契约侧配合的一处**：`AgentSummary` / `AgentDetail` 的 `model_provider` 目前是只含 `openai_chatgpt` 的字面量集合，而 `AgentDetail.from_record` 把 `agent_type` / `model_provider` **写死**而不读记录。2026-09-21 实测（临时用例）：给一条 `model_provider="deepseek"` 的记录，列表响应照旧回 `"model_provider":"openai_chatgpt"`，即**当前不是被拒，而是假报告**。`agent_type` 保持 `codex`（本方案只放开提供方与认证方式），故只需扩 `model_provider` 的受控集合；扩宽与"读取记录"必须同批，否则先改读取会直接 500。已按任务单约定"E 侧提前告知"写入任务单 Comments，交 B 决定契约正文的写法。
 - 顺带待修（与本方案同批）：`catalog_schemas.py` 的 `AgentDetail.from_record` 把 `agent_type` / `model_provider` **写死**而非从记录读取；扩枚举时必须一并改成从记录读取，否则登记第二种身份会与记录不符。
 
 ## 4. 负责人已确认的数值与账户侧事项（2026-09-21）
