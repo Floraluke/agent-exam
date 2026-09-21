@@ -36,10 +36,10 @@
 - 计划书：[`01-plan/PLAN.md`](01-plan/PLAN.md)
 - 阶段 1 测试设计：[`01-plan/STAGE1_PROXY_TEST_DESIGN.md`](01-plan/STAGE1_PROXY_TEST_DESIGN.md)（准备性设计，05 未开工，不代表已授权或已运行）
 - 阶段 1 设计冻结底稿：[`01-plan/STAGE1_PROXY_DESIGN_FREEZE.md`](01-plan/STAGE1_PROXY_DESIGN_FREEZE.md)（候选，**尚未冻结**；含 9 项待负责人拍板的额度与账户侧事项）
-- 阶段 1 负责人交付要求：[`01-plan/TASK05_OWNER_DELIVERY.md`](01-plan/TASK05_OWNER_DELIVERY.md)（**可整份转发**给负责人或其 AI 助手照做；自足形态，权威位置在文末列出）
-- 负责人回复（填充版）：[`01-plan/TASK05_OWNER_DELIVERY_FILLED.md`](01-plan/TASK05_OWNER_DELIVERY_FILLED.md)（负责人只读核对结论：**前置总判定 STOP、拓扑实证未执行、9 项仍待拍板**；原文未改，仅加一行归档说明）
-- 待负责人回执：[`01-plan/TASK05_OWNER_ACTION_REQUIRED.md`](01-plan/TASK05_OWNER_ACTION_REQUIRED.md)（**可整份转发**；9 项决定表 + 可直接批准的授权范围 + 拿到回执后 E 侧开工顺序。三份构成"请求 → 回复 → 回执"配对）
+- 阶段 1 负责人交付要求：[`01-plan/TASK05_OWNER_DELIVERY.md`](01-plan/TASK05_OWNER_DELIVERY.md)（负责人已回填 9 项决定；**6 项前置 3/6，总判定仍 STOP**）
+- 负责人只读核对（填充版）：[`01-plan/TASK05_OWNER_DELIVERY_FILLED.md`](01-plan/TASK05_OWNER_DELIVERY_FILLED.md)（第 0–6 节为首次核对当时状态，第 7 节为后续回执；原文未改，仅加一行归档说明）
+- 负责人决定与授权回执：[`01-plan/TASK05_OWNER_ACTION_REQUIRED.md`](01-plan/TASK05_OWNER_ACTION_REQUIRED.md)（**9 项已全部拍板，第 7 项选 A 保守上界**；资源范围已确认但**本轮无执行窗口、不运行探针**）。三份构成"请求 → 回复 → 回执"配对
 - 扩展任务进展：P、任务 01、任务 02、任务 04 已完成；03 无独立任务单但 B 在推进；**05 已由 E 起草、待负责人发布**。E 模块主责 05、06、07，配合 04 与 08，详见[计划书第 1、3 节](01-plan/PLAN.md)
 - 本地环境：阶段 0 已完成；数据库实时运行状态只在 [`02-environment/LOCAL_SETUP.md`](02-environment/LOCAL_SETUP.md) 维护
 - 未决问题：见 [`04-issues/KNOWN_ISSUES.md`](04-issues/KNOWN_ISSUES.md)
-- 对应行动记录：[初始环境搭建](../actions/2026-09-18-lly-local-dev-environment.md)、[阶段 0 两库隔离与验收](../actions/2026-09-19-stage0-local-development-plan.md)、[归档计划文档与同步 origin/main](../actions/2026-09-21-file-plan-docs-and-sync.md)、[阶段 1 测试设计准备](../actions/2026-09-21-stage1-proxy-test-design.md)、[起草任务 05 任务单](../actions/2026-09-21-draft-task-05-issue.md)、[组长机器执行预案](../actions/2026-09-21-task05-owner-machine-runbook.md)、[任务 05 设计冻结](../actions/2026-09-21-task05-design-freeze.md)、[任务 05 负责人侧交付要求](../actions/2026-09-21-task05-owner-delivery.md)、[归档负责人回复与修复断链](../actions/2026-09-21-task05-owner-response-filing.md)、[待负责人回执文档](../actions/2026-09-21-task05-owner-round2.md)
+- 对应行动记录：[初始环境搭建](../actions/2026-09-18-lly-local-dev-environment.md)、[阶段 0 两库隔离与验收](../actions/2026-09-19-stage0-local-development-plan.md)、[归档计划文档与同步 origin/main](../actions/2026-09-21-file-plan-docs-and-sync.md)、[阶段 1 测试设计准备](../actions/2026-09-21-stage1-proxy-test-design.md)、[起草任务 05 任务单](../actions/2026-09-21-draft-task-05-issue.md)、[组长机器执行预案](../actions/2026-09-21-task05-owner-machine-runbook.md)、[任务 05 设计冻结](../actions/2026-09-21-task05-design-freeze.md)、[任务 05 负责人侧交付要求](../actions/2026-09-21-task05-owner-delivery.md)、[归档负责人回复与修复断链](../actions/2026-09-21-task05-owner-response-filing.md)、[待负责人回执文档](../actions/2026-09-21-task05-owner-round2.md)、[归档负责人回执与 B 对齐](../actions/2026-09-21-task05-owner-receipt-and-b-alignment.md)
