@@ -87,9 +87,23 @@ runtime/prototype/t05-topology-<日期>-<序号>/   # T1 探针与证据（被 G
 - 另实现 `strip_client_auth`：大小写不敏感地剥离 `Authorization`/`Proxy-Authorization`/`X-Api-Key`/`Api-Key`，由可信侧添加真实凭据；测试断言剥离结果中不含假值。
 - 字段集合（`model`/`stream`/`input`/`tools`/`max_output_tokens`/`instructions`/`reasoning`）与研究第 1、2、4 节一致，但**属候选**：仓库内无 `config.toml` 样例，须在契约层用固定 CLI 复核实际请求字段后再定稿。
 
+**S5 `provider_access/budget.py`——已实现并验证**
+
+- 文件：`budget.py`（186 行，≤200）；测试 `tests/providers/policy/test_budget_ledger.py`。
+- 定向测试：`pytest tests/providers -q` → **45 passed, 1 skipped**（含 S3/S4 的 28 项）。
+- 静态检查：`ruff check`（全量）→ `All checks passed!`；`ruff format --check` → `309 files already formatted`；`mypy` 对新增包 → `no issues found in 4 source files`。
+- 全量回归：`462 passed, 102 skipped, 2 failed`；相对上一片 `445/102/2` 通过数 **+17**（本片新增用例），失败项完全相同，无新增失败。
+- **复用现有接口，未自造形状**：usage 直接采用既有的 `domain/result.py::UsageSummary`（`n_input_tokens`/`n_cache_tokens`/`n_output_tokens`，均为 `int | None`）。该类型的 `None` 语义恰好就是"未知"，与"未知不得当 0"的要求天然一致。
+- **A 保守上界的依据写进代码**：字节级 tokenizer 的最坏情况是**每字节一个 token**，故取请求正文 UTF-8 字节数为上界，再叠加固定框架开销 `FRAMING_ALLOWANCE_TOKENS = 256`。测试用非 ASCII 文本断言宽字符上界**不低于其 UTF-8 长度**且严格大于等长 ASCII。**未经真实 tokenizer 验证**，故只承诺上界、不承诺精确账单（与负责人第 7 项决定一致）。
+- **未知 usage 的处理**：`settle` 遇到 usage 为 `None`、或输入/输出任一为 `None` 时，**按整笔预留全额计费**（不退款为零）、`measured=False`，并**关闭该 Run**（`closed_reason="usage-unknown"`），此后 `reserve` 抛 `BUDGET_RUN_CLOSED`；四种未知形态各有参数化用例。
+- **重启不重置**：`consumed_input_tokens` / `consumed_output_tokens` 是**必填构造参数、无默认值**，调用方无法在代理重启后无意间从零开始；携带值超出上限直接 `BUDGET_CONSUMED_INVALID` 失败关闭。测试断言缺参会报 `TypeError`。
+- **预留原子**：全部状态变更在同一把 `threading.Lock` 下。并发用例用 8 线程同时抢 `max_output_tokens=8000`（上限 32000），断言**恰好 4 个成功、4 个被拒**且剩余额度为 0。
+- 其它已覆盖：输入与输出上限分别生效、截止时间按账本起点计时（注入时钟）、非正输出请求拒绝、同一预留只能结算一次（重复结算抛 `BUDGET_RESERVATION_UNKNOWN`）、正文不可序列化、上限参数非法。
+- 本片测试暴露的一处**是我自己写错的测试**（注入时钟序列多排了一个值），不是实现缺陷；与前两片不同，如实记录。
+
 ### 未完成与遗留
 
-- **S2、S5–S9 与 T1 尚未实施**；已完成前置验证、S3、S4。
+- **S2、S6–S9 与 T1 尚未实施**；已完成前置验证、S3、S4、S5。代理的**策略核心（私有文件、请求白名单、账本）已齐**。
 - **S2 暂缓**：Codex TOML 字段名研究第 1 节有据，但仓库内无 `config.toml` 样例（探针样例在被 Git 忽略的 `runtime/`，只在负责人机器）。定稿前须用固定 CLI 在契约层复核一次字段名，不凭文档当已确认。
 - **T1 未执行**：本机 Docker 能力已验证，但拓扑探针与 7 条断言仍未做。
 - 授权依据：用户会话内明确"同意"，并追加"其它需要开工授权的也同意"；本行动按其**只覆盖 E 本机实施与 T1 执行**理解执行——**不含真实模型/供应商调用**（项目规定须单独授权、历史 ChatGPT 许可不覆盖 DeepSeek/Kimi），**也不含负责人机器的 T2 操作**。负责人书面回执原写"未授予实施开工许可"，建议补一句书面确认后再同步任务单第 2 项验收的机器归属。
