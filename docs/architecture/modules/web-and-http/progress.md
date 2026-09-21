@@ -21,7 +21,7 @@ print(len(create_runtime_app().openapi()['paths']))"
 
 **为什么用真实装配而不是测试夹具**：`create_app(...)` 按传入的服务**条件注册**路由器，测试夹具不传 `leaderboard` 等依赖，用夹具读 OpenAPI 会少算端点、对不上 §2.1。真实装配必须走 `create_runtime_app()`；它只构造 Postgres 仓储、不在装配期连接，因此给一个假 DSN 即可读到完整路由表。
 
-**仍未验证**：OpenAPI 的**字段级** schema 与 §10.4 正文仍只做过静态对照（20/20 字段命中，见[对比接口契约行动](../../../actions/2026-09-20-task03-comparison-api-doc.md)），没有把 OpenAPI 的响应 schema 与正文逐字段程序化比对。
+**仍未验证**：OpenAPI 的**字段级** schema 与 §10.4 正文仍只做过静态对照（20/20 字段命中；该对照记录在已关闭的 `task03/comparison-api-spec` 分支的 `docs/actions/2026-09-20-task03-comparison-api-doc.md`，**不随 main 发布，故此处不写链接**），没有把 OpenAPI 的响应 schema 与正文逐字段程序化比对。
 
 ## 2026-09-21：对比接口的加固与契约已由 main 完成；两个 PR 的处置
 
