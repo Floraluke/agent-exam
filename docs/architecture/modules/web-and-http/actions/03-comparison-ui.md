@@ -92,7 +92,7 @@ apps/web/tests/jobs/comparison.spec.ts           # 新增：本表 2.1 节的浏
 **未覆盖（如实记录）**：
 
 - 后端的两条 400（空选择、超过 20）**未在浏览器用例里断言**：前端在 0 项时禁用按钮、在 20 项时禁用勾选框，所以正常操作打不到这两条错误；服务端边界由后端契约测试覆盖。
-- ~~手机用例只断言"容器接管横向滚动且页面不溢出"，没有强制制造宽表溢出（本次只用 2 列，390px 下并不溢出）~~ **已补（2026-09-21）**：新增 `a wide matrix scrolls inside its container instead of breaking the page`——用接口批量建 12 个批次（六题 × 两配置）后，在 390px 下断言列头为 13（题目 + 12 列）、容器**真的被压出横向滚动**（`scrollWidth > clientWidth`）且页面无横向溢出；截图 `runtime/tests/03-comparison-wide-390.png`。
+- **多列量级的横向滚动仍属缺口（2026-09-21 保留）**：曾写过一个宽矩阵用例（经接口批量建 12 个批次、在 390px 下断言容器 `scrollWidth > clientWidth`），**单独跑能通过，但在全量 suite 里不稳定**——先后出现两种失败：列表异步加载导致勾选框计数为 0、矩阵表未渲染出来。按"不稳定的测试比没有测试更糟"（会随机把全量打红、挡住所有人）**已撤掉**。补测前需先查清它与全量长时运行的相互影响（同轮全量还出现过一次 `page.reload: net::ERR_TOO_MANY_RETRIES` 的 dev server 重载错误，怀疑相关）。`runtime/tests/03-comparison-wide-390.png` 仍在该用例单独通过时留下的，可作参考证据但不是通过记录。
 - `data-outcome` 是为可测性加的 DOM 语义属性，属实现细节，**未写进 `HTTP_API.md`**。
 - 矩阵页的手机截图在 `runtime/tests/`（gitignored），**没有进仓库**；需要长期证据时另行安排。
 
