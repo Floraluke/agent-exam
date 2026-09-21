@@ -22,7 +22,7 @@
 1. `apps/backend/src/eval_platform/delivery/job_presets.py`：新增 `BatchPreset("continuous", 1, 20)`。
 2. `apps/backend/tests/jobs/test_http.py`：选项"精确形状"断言同步加入新预设（该断言按设计为精确匹配）。
 3. 新增 `apps/backend/tests/jobs/scale/test_continuous_preset.py`：4/6/9 题在 `continuous` 下可提交；0 题与 21 题被拒；既有预设（`demo`/`quick` 各 4 题）仍被拒。
-4. 新增 `apps/backend/tests/jobs/reporting/test_matrix_rehearsal.py`：真实 PostgreSQL 上两批 Job（配置 A 跑 6 题；配置 B 跑 5 题且其中 1 题判卷失败）→ 走真实状态机 → 读批次报告 → 用 `matrix.py` + `matrix_markdown.py` 聚合渲染 → 断言覆盖率 6/6 与 5/6、1 格"缺失"、1 格"基础设施失败"。
+4. 新增 `apps/backend/tests/jobs/reporting/test_matrix_rehearsal.py`：真实 PostgreSQL 上两批 Job（配置 A 跑 6 题；配置 B 跑 5 题且其中 1 题判卷失败）→ 走真实状态机 → 读批次报告 → 用 `matrix.py` + `matrix_markdown.py` 聚合渲染 → 断言覆盖率 6/6 与 5/6、1 格"缺失"、1 格"基础设施失败"（该格文案 2026-09-21 已改名为"基础设施错误"，见[术语统一行动](2026-09-21-d-five-outcome-wording-alignment.md)）。
 5. 运行新增用例、含数据库门禁的全量回归、`ruff`、`mypy`，记录真实结果。
 
 完成标准：新用例全部通过；全量回归失败集合不变；除下列文件外无其他改动。

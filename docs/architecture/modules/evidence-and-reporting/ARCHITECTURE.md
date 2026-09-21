@@ -14,12 +14,28 @@
 - `ArtifactStore` / `ArtifactReader`：不可变写入、按摘要验证读取、限长验证读取和受控删除的 seam。
 - `EvidencePublication`：把 patch、判卷摘要、公开轨迹和 raw 证据归一化并发布。
 - `JobReporting`：检查结果—制品引用完整性及 owner/创建者访问后，提供报告、正文和轨迹。
-- `ReportMatrix`：在已有授权报告上按 `(repo, task_instance_id)` 组合题目×配置矩阵；缺失保持 `null`，不折算成未通过或零。
+- `ReportMatrix`：在已有授权报告上按 `(repo, task_instance_id)` 组合题目×配置矩阵；缺失保持 `null`，不折算成未解决或零。
 - `LeaderboardReporting` / `LeaderboardRepository`：只读、按完整配置身份与可比条件聚合。
 - 长期核心证据与 `raw_30d` 原始证据分开；原始正文删除后保留摘要、大小、时间和删除审计。
 - `unknown` 与数值 0 不同；存储不可验证时失败关闭，不能返回“可能正确”的报告。
 
 精确制品类型、对象键、表和保留规则见[数据模型](../../DATA_MODEL.md)，HTTP 下载/分页见[HTTP Interface](../../../interfaces/HTTP_API.md)。
+
+### 2.1 五档 outcome 术语表
+
+英文 token 是契约身份（由 [`HTTP_API.md` §10.4](../../../interfaces/HTTP_API.md) 固定）；中文文案由 B 定、D 确认，**Web 界面与后端报告共用同一套词**，判据只在 `application/reporting/matrix.py` 实现一处。
+
+| 英文 token | 中文文案 | 判据（`matrix.py`） |
+|---|---|---|
+| `resolved` | 已解决 | Run `COMPLETED` 且确定性结果 `resolved=true` |
+| `unresolved` | 未解决 | Run `COMPLETED` 且 `resolved=false`（含空补丁等正常未解情形） |
+| `infrastructure_error` | 基础设施错误 | Run `FAILED`：执行或判卷的基础设施失败，不是题目失败 |
+| `incomplete` | 未完成 | Run 未到终态（待批准、排队、执行中、取消中） |
+| `missing` | 缺失 | 该组合**没有 Run**（`run_id=null`），或 Run 已完成但**报告不可读**（`run_id` 保留、`report_path=null`） |
+
+- `missing` 不等于 `unresolved`，也不写成 0；它不计入 `decided`，而 `total = decided + missing` 保持完整矩阵分母。
+- 界面把 `missing` 分列成“无运行 / 报告缺失”时，唯一判据是 `run_id` 是否为空，不新增字段、不改响应形状。
+- 中文映射唯一落在 `matrix_markdown.py` 的 `_CELL_LABELS`；改文案只改这一处，界面与报告同时生效。
 
 ## 3. 当前 Implementation 文件树
 
@@ -89,6 +105,6 @@ ArtifactStore 是对象存储 seam；MinIO 是正式 Adapter，本地 reader 只
 
 ## 6. 当前验证与缺口
 
-历史验证见[安全证据行动](../../../actions/2026-09-12-m1-safe-evidence.md)、[单 Run 报告](../../../actions/2026-09-12-m1-single-run-report.md)、[制品保留](../../../actions/2026-09-13-m1-artifact-retention.md)和[基础排行榜](../../../actions/2026-09-13-m1-base-leaderboard.md)。2026-09-20 的合并后修复定向验证了比较 HTTP、矩阵、跨仓库同名题隔离和缺失汇总；最终门禁结果见[本轮行动](../../../actions/2026-09-20-post-merge-review-fixes.md)。
+历史验证见[安全证据行动](../../../actions/2026-09-12-m1-safe-evidence.md)、[单 Run 报告](../../../actions/2026-09-12-m1-single-run-report.md)、[制品保留](../../../actions/2026-09-13-m1-artifact-retention.md)和[基础排行榜](../../../actions/2026-09-13-m1-base-leaderboard.md)。2026-09-20 的合并后修复定向验证了比较 HTTP、矩阵、跨仓库同名题隔离和缺失汇总；最终门禁结果见[本轮行动](../../../actions/2026-09-20-post-merge-review-fixes.md)。2026-09-21 统一了五档中文文案（后端报告对齐界面用词），见[术语统一行动](../../../actions/2026-09-21-d-five-outcome-wording-alignment.md)。
 
 长期 PostgreSQL/AIStor 的版本、D 盘数据目录、容量和生命周期入口由[所有者单机运行](../owner-host-runtime/ARCHITECTURE.md)维护；备份恢复已由用户明确移出课设范围。这里剩余的是任务 03 Web 对比呈现和后续运营监测，不把后端端点落地冒充页面已经完成。

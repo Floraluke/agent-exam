@@ -72,6 +72,8 @@ apps/backend/tests/jobs/reporting/
 
 渲染规则：单元格用中文标签（通过 / 未通过 / 基础设施失败 / 未完成 / 缺失），**缺失格不写成 0 或"未通过"**；汇总行给出"有结论 N / 总数 M"的覆盖率，分母保持完整矩阵。
 
+> 修订（2026-09-21）：上述三档文案已改名为「已解决 / 未解决 / 基础设施错误」，改由后端报告与 Web 界面共用一套词；本行保留当时的真实用词。见[术语统一行动](2026-09-21-d-five-outcome-wording-alignment.md)。
+
 验证（2026-09-19，`apps/backend`）：`pytest tests/jobs/reporting -q` → **6 passed**；`ruff check` → All checks passed；`mypy`（两文件）→ Success；全量回归 → **2 failed / 392 passed / 82 skipped**（失败仍为缺 `framework/harbor` 的既有环境缺口）。
 
 ## 追加增量：render-matrix 本机命令（2026-09-20）

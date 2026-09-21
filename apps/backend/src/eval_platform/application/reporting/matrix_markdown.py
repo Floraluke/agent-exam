@@ -1,7 +1,9 @@
 """Render a report matrix as a reviewable Markdown comparison table.
 
 任务 08 要交付"可复查的对比报告"；这里把 matrix.py 的只读矩阵渲染成表格文本，
-供验收报告直接粘贴。缺失格渲染为"缺失"，不显示为 0 或"未通过"。
+供验收报告直接粘贴。缺失格渲染为"缺失"，不显示为 0 或"未解决"。
+五档中文文案与 Web 界面共用同一套词（已解决/未解决/基础设施错误/未完成/缺失），
+术语表见 docs/architecture/modules/evidence-and-reporting/ARCHITECTURE.md。
 """
 
 from __future__ import annotations
@@ -9,9 +11,9 @@ from __future__ import annotations
 from eval_platform.application.reporting.matrix import ReportMatrix
 
 _CELL_LABELS = {
-    "resolved": "通过",
-    "unresolved": "未通过",
-    "infrastructure_error": "基础设施失败",
+    "resolved": "已解决",
+    "unresolved": "未解决",
+    "infrastructure_error": "基础设施错误",
     "incomplete": "未完成",
     "missing": "缺失",
 }
@@ -34,7 +36,8 @@ def render_matrix_markdown(matrix: ReportMatrix) -> str:
     lines.extend(
         [
             "",
-            "| 配置 | 通过 | 未通过 | 基础设施失败 | 未完成 | 缺失 | 有结论 | 覆盖率 |",
+            "| 配置 | 已解决 | 未解决 | 基础设施错误 "
+            "| 未完成 | 缺失 | 有结论 | 覆盖率 |",
             "|---|---|---|---|---|---|---|---|",
         ]
     )
