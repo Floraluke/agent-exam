@@ -46,7 +46,7 @@ def test_fixed_harbor_accepts_generated_job_and_public_task(
         configuration_id="contract-codex",
         agent_name="codex",
         agent_version="0.153.0",
-        model_provider="openai",
+        model_provider="openai_chatgpt",
         model_name="model-must-be-confirmed",
         authentication_type="chatgpt_auth_json",
         credential_configuration_id="owner-login",

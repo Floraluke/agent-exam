@@ -1,6 +1,6 @@
 # 执行与判卷 Module
 
-> 当前状态：固定 Codex → Harbor → patch → 固定 SWE-Bench-Fork 的真实单题核心闭环已通过；M1 任务 13 又把正式 Job/Run、持久化与 Worker 接到该链路。完整安全/生命周期验收和新提供方仍未完成。
+> 当前状态：固定 Codex → Harbor → patch → 固定 SWE-Bench-Fork 的真实单题核心闭环已通过；M1 任务 13 又把正式 Job/Run、持久化与 Worker 接到该链路。任务 05 的提供方访问策略切片已实现，但未接入 Worker/Harbor；完整安全/生命周期和真实新提供方仍未完成。
 > 权威范围：Worker 如何把冻结 Run 交给执行后端和独立判卷器；外部框架和认证细节仍由专题 Interface 维护。
 
 ## 1. 职责与非职责
@@ -43,13 +43,19 @@ apps/backend/src/eval_platform/
     codex/install.py                       # 固定离线 CLI 校验与安装
     codex/policy.py                        # 非 root、命令和运行策略
     codex/uploads.py                       # 受限私有认证输入传递
+    provider_access/                       # 任务 05 内部策略切片，不是独立业务 Module
+      binding.py                           # Run 短令牌、固定身份和撤销
+      budget.py                            # 并发预留、保守结算和超额失败关闭
+      failures.py                          # 单一受控提供方失败码/异常
+      private_file.py / secrets.py         # 私有配置 schema、权限和竞态防护
+      request_policy.py / transport.py     # 最小路径/模型/header 允许集合与固定出站请求
     network.py                             # 固定 Harbor 侧车网络策略副本适配
     preflight.py                           # 外部输入身份与运行前门禁
     redaction.py                           # 执行诊断的受限错误归一化
   adapters/evaluation/
     swe_bench.py                           # 固定 SWE-Bench-Fork PatchEvaluator Adapter
     process.py / fork_entry.py             # 有界独立判卷进程和入口
-    result_mapper.py                       # Fork report → DeterministicResult
+    result_mapper.py / result_validation.py # Fork report 校验 → DeterministicResult
   delivery/worker/
     runtime.py                             # 正式 owner 本机 Worker Composition Root
     main.py                                # 一次 claim 后委托 JobExecutor 的薄 shell
@@ -75,6 +81,8 @@ PostgreSQL claim 冻结 Job
 
 Worker 只从 owner 本机绝对路径读取固定 framework、数据集、Codex 归档和认证引用；这些秘密路径不进入 Job、HTTP、PostgreSQL 或 MinIO。
 
+当前生产数据流尚不经过 `provider_access`。该目录只证明内部策略可以拒绝越权 header/path/model、绑定和撤销 Run 令牌、保守处理并发预算、读取受限本机配置并生成安全失败码；固定测试上游使用 `.invalid` 保留域。S2 `provider_config`、代理服务、双网络生命周期、Worker/Harbor Composition Root 接线及 T2 未实现，因此任何真实 DeepSeek/Kimi 请求都不在当前能力内。
+
 ## 5. 模式、依赖和深度
 
 `ExecutionBackend` 与 `PatchEvaluator` 是两个有真实替换价值的 seam：执行后端可以换 Adapter，而最终判卷仍独立；合成 Adapter 也能在不启动真实模型时测试应用流程。Harbor 和固定 Fork 的复杂配置、子进程、网络、超时与清理被隐藏在各自 Adapter 内。
@@ -83,6 +91,6 @@ Composition Root 在 `delivery/worker/runtime.py`，不是应用用例内部临�
 
 ## 6. 当前验证、风险和规划
 
-M0 第四场真实结果见[M0 行动](../../../actions/2026-09-05-m0-codex-harbor-implementation.md)；M1 正式持久化链见[本机真实验收行动](../../../actions/2026-09-13-m1-local-real-acceptance.md)。这些是历史证据，本轮没有运行 Docker、Harbor、Fork 或模型。
+M0 第四场真实结果见[M0 行动](../../../actions/2026-09-05-m0-codex-harbor-implementation.md)；M1 正式持久化链见[本机真实验收行动](../../../actions/2026-09-13-m1-local-real-acceptance.md)。这些是历史证据；本轮核心修复没有运行 Harbor、Fork 或模型，提供方策略单元回归与 T1 历史拓扑证据不能替代 T2 或完整真实链路。
 
-现存限制包括：完整故障/强杀/刷新生命周期未全验收；当前真实提供方只有 owner ChatGPT 登录；DeepSeek/Kimi 的隔离代理只是候选；owner 电脑离线不执行。新提供方应深化现有 Execution Adapter 内部实现，不新增第二套 Job 队列或判卷器；详情见[认证 Interface](../../../interfaces/CODEX_AUTHENTICATION.md)。
+现存限制包括：完整故障/强杀/刷新生命周期未全验收；当前真实提供方只有 owner ChatGPT 登录；DeepSeek/Kimi 只有未接线的内部安全策略，没有真实身份、服务或调用；owner 电脑离线不执行。新提供方应继续深化现有 Execution Adapter 内部实现，不新增第二套 Job 队列或判卷器；详情见[认证 Interface](../../../interfaces/CODEX_AUTHENTICATION.md)。

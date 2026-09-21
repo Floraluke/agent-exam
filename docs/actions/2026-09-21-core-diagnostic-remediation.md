@@ -2,7 +2,7 @@
 
 ## 状态与情况说明
 
-- 状态：进行中。
+- 状态：进行中；业务代码、当前权威文档和本地质量门禁已收口，托管 CI 是否新增仍待用户决定。
 - 来源：用户要求先本地提交当前工作区，再拉取远端新代码；对远端增量做 Spec/Standards 双轴诊断并更新诊断报告，随后修复报告中的全部问题并完成本地提交。
 - 本地检查点：`859f1316a3204822f01c8f6a12a41eb7e2a7e6d4`。
 - 拉取后合并基线：`3676d7412065e335e2c88ef586cc0fb3ad69af0a`；远端增量固定比较命令为 `git diff 859f131...3676d74`。
@@ -90,7 +90,7 @@ apps/web/
 └─ tests/
    乱序比较与安全响应头浏览器回归。
 
-infrastructure/
+infra/
 └─ tests/（仅按现有结构调整 mark/config）
    基础设施测试入口。
 
@@ -148,4 +148,29 @@ infrastructure/
 - 文档齐平核对时发现身份约束迁移函数没有 owner CLI 入口；已在既有
   `delivery.catalog` 增加 `upgrade-api-constraints`，旧库可显式、幂等且
   失败关闭地升级。CLI 定向测试 `5 passed, 1 skipped`，Ruff/Mypy 通过。
-- Python 全量测试、覆盖率、Python 依赖审计和权威文档齐平仍待后续节点完成。
+- 在本节点时，Python 全量测试、覆盖率、Python 依赖审计和权威文档齐平仍待后续；现已由下方两个完成节点关闭。
+
+### 权威文档齐平节点（完成）
+
+- 已以当前代码与实际验证为依据同步 `HANDOFF.md`、总架构、模块契约、数据模型、模块索引、目录/执行/Web 模块架构、HTTP/认证接口、依赖表，以及扩展计划/实现地图/验证表/任务 05 当前状态。
+- 当前文档明确区分：六题/continuous/比较页和 S3–S8/T1 已实现；S2、代理服务、S9–S11、Worker/Harbor 接线、T2、完整工具循环及真实 DeepSeek/Kimi 仍未实现。
+- 历史 `docs/actions/`、`docs/research/` 与 Web 模块既有 actions 没有改写；任务单历史 Comments 和成员进度日志保留原时点内容，只追加当前对账。
+- 运维部署事实没有随本轮内部策略/质量修复改变，因此不制造新的运行态或修改现有运维事实；安全响应头、显式数据库迁移入口和测试工具依赖分别由 HTTP、数据模型/目录模块及依赖文档维护。
+- 已修正总架构设计模式表中不存在的旧文件路径，并把现实 Adapter、Repository、State、Command 与 Composition Root 路径写回当前架构树。
+- 诊断报告已追加逐项处置、最终实测和扩展 Agent 的串行边界；旧诊断正文保留发现时事实，新复核节明确取代旧修复顺序与有效性说明。
+
+### 最终本地质量节点（完成）
+
+- 依赖审计先发现并关闭三项公开漏洞：PyArrow `22.0.0 → 23.0.1`、pytest `9.0.2 → 9.0.3`，以及 Next 15.5.25 传递依赖 PostCSS `8.4.31 → 8.5.28`。PostCSS 使用同一主版本 npm override，没有采纳会把 Next 强制升级到 16 的 `npm audit fix --force`。
+- `uv lock` 只更新 PyArrow/pytest 两个锁项；`npm install` 只更新 PostCSS 及其兼容传递范围。Python `pip-audit --local` 报告无已知漏洞，只明确跳过未发布到 PyPI 的本地包；npm 官方 registry 的生产与全依赖审计均为 `0 vulnerabilities`。
+- 后端默认无参数全量结果为 `510 passed, 102 skipped`，总分支覆盖率 `86.38%`，超过 80% 门禁。跳过项来自显式 PostgreSQL、MinIO、Docker、Harbor/Fork、真实探针或 POSIX 平台门禁，不描述为通过。
+- 仓库根统一入口首次复核发现 `pytest.ini` 仍指向不存在的 `infrastructure/tests`，因此不能把只收集后端的结果记为通过；修正为 `infra/tests` 后再用节点集合对比发现 `norecursedirs = runtime` 会排除 16 项 Worker runtime 测试。移除宽泛排除并关闭缓存插件后，收集 633 项，结果为 `521 passed, 112 skipped`，无未知 mark 或缓存警告。
+- Ruff lint 通过；Ruff format 检查 321 个文件通过；无参数 Mypy 对 177 个源文件通过。旧测试夹具中不再合法的 `openai/chatgpt` 组合已改为当前受控身份对；目录筛选测试改为验证不受控 `agent_type` 被 schema 拒绝。
+- Web ESLint、TypeScript、Next 生产构建、45 项 Playwright 均通过；覆盖 PostCSS 后又重新运行生产构建与全量浏览器回归。生产及全部 npm 依赖审计均为 0 漏洞。
+- Windows 沙箱 ACL 导致的临时目录/`.next/trace` 失败，以及默认 `.next` 被既有进程占用，均单独记录为环境噪声；在沙箱外和独立构建目录得到明确产品结果后，精确删除本轮生成目录并恢复框架自动改写的引用文件。
+- 本轮没有修改已结束的 `docs/actions/` 或已完成的 `docs/research/`。用户的 `.scratch/ui-catalog-providers.zip` 与 `apps/web/%USERPROFILE%/` 仍保持未跟踪、未修改、未暂存。
+
+### 尚待用户决定
+
+- CR-05 只剩托管 CI：需要新建顶层 `.github/workflows/quality.yml`。现有目录无法承载 GitHub Actions，而项目规则要求新增顶层目录先取得用户确认。
+- 若用户同意，预计 1～3 小时完成最小矩阵、文档与验证后再做最终本地提交；若不同意，则把“完整本地门禁、无托管 CI”记为接受限制并封存本行动。

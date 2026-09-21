@@ -1,8 +1,17 @@
 # Web 与 HTTP Module：进展与未决项
 
-> 状态：2026-09-21 已对齐合并后的 `main`（`c71d342`）。本文件按时间**倒序**记录本 Module 的实际进展、环境验证结果与未决项；架构事实见[本模块架构](ARCHITECTURE.md)，接口权威见 [`HTTP_API.md`](../../../interfaces/HTTP_API.md)。
+> 状态：2026-09-22 已对齐核心诊断修复的本地提交（当前文档收尾尚未 push）。本文件按时间**倒序**记录本 Module 的实际进展、环境验证结果与未决项；架构事实见[本模块架构](ARCHITECTURE.md)，接口权威见 [`HTTP_API.md`](../../../interfaces/HTTP_API.md)。
 >
 > 记录纪律：失败、跳过和未验证一律如实写出，不把"配置存在"等同于"实测通过"；真实设备名、账号与私有网络地址不入 Git。
+
+## 2026-09-22：核心诊断修复对账
+
+- Web 比较加载已加入请求代次；清空或切换 Job 后，旧请求即使迟到也不能回写陈旧矩阵，浏览器竞态回归已覆盖。
+- FastAPI 的成功/错误/限流/500 响应统一具备 `no-store`、`nosniff`、frame、referrer 和 permissions 安全头；未预期异常以响应与脱敏日志共享的 `request_id` 关联。Next.js 同步设置上述浏览器头和 CSP，不在未确认 HTTPS 终止边界时提前设置 HSTS。
+- Web 已建立 ESLint 9 flat config，并通过 lint、TypeScript、生产构建和使用系统 Chrome 的 45 项 Playwright 回归；测试 runner 将 Next 专用输出隔离到 `.next-e2e`，且成功/失败都会恢复框架生成的配置引用。
+- 2026-09-22 的官方 npm 审计发现 Next 15.5.25 固定带入的 PostCSS 8.4.31 存在已公开漏洞；现用 npm override 锁定 8.5.28，避免强制跨大版本升级 Next。覆盖后生产/全依赖审计均为 0 漏洞，且上述构建与 45 项浏览器回归重新通过。
+- 任务 05 provider 失败码已有内部策略测试和 HTTP 文档，但生产 Worker/HTTP 尚无 provider 调用路径，所以两项端到端错误呈现验证仍待后续接线；真实 DeepSeek/Kimi 未调用。
+- 本节是当前状态增量；下方 2026-09-21 各节保留当时协作和环境事实，不反向改写。
 
 ## 2026-09-21：B 剩余工作清点（截至任务 03/04/05 的 B 切片全部合入）
 

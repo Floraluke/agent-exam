@@ -1,7 +1,7 @@
 # AI Coding Agent 评测平台总架构
 
 > 文档状态：总体方案已确认；M0 核心闭环通过；M1 任务 01–13 已验收；任务 13 的 `-04` 正式 Job/Run、固定 Fork、持久化、真实页面和双轴终审均通过；M1/MVP 未完成
-> 最后更新：2026-09-17（补充分模块现实代码地图与所有者单机候选；未宣称新能力已实现）
+> 最后更新：2026-09-22（同步扩展任务 03–05 的现实实现、受控提供方策略切片与未完成边界）
 > 权威范围：本文件只维护系统全局组成、依赖方向、已确认决定、规划文件树、风险和待讨论队列。字段级契约由第 1 节列出的专题文档维护。
 
 ## 1. 从哪里开始读
@@ -305,30 +305,30 @@ runtime/acceptance/m1-task13-20260914-04/              # 与 -03 源码等价的
 └─ results/                                            # 安全摘要、Web 日志与真实页面截图
 ```
 
-### 3.2 UI、题库与 Codex 提供方扩展（2026-09-17 规划中）
+### 3.2 UI、题库与 Codex 提供方扩展（2026-09-22 实现中）
 
 用户当前优先要求角色化 UI/HTML 原型、至少五道新题，以及 Codex 接入 DeepSeek/Kimi API 的详细计划；业务正文见[扩展规格](../../.scratch/ui-catalog-providers/spec.md)，阶段与停点见[执行计划](../../.scratch/ui-catalog-providers/plan.md)，确认历史见[独立规划行动](../actions/2026-09-17-ui-catalog-provider-planning.md#已确认的产品决定)。用户随后已确认将长期持久化和端口隔离前移为 HTML 原型之后、正式组内使用和真实模型 API 之前的独立 P 阶段，备份恢复后来明确移出课设范围；范围见[持久化规格](../../.scratch/persistence-deferred/spec.md)，当前准备度见[所有者单机模块第 10 节](modules/owner-host-runtime/ARCHITECTURE.md#10-当前代码准备度2026-09-18-实际核对)。任务 14 未完项仍按原行动验收，不能由本次持久化进展视为通过。
 
-展示层调整优先复用现有 Web、Job 列表/报告 HTTP 与两角色权限；当前不新增 Worker 健康接口。题库与提供方扩展优先深化 Task Catalog、Agent Registry 和现有 Execution Adapter，保持平台队列、所有者批准、Harbor 执行与固定 Fork 判卷的责任分界。用户已选择短命隔离凭据代理 B，作为 Execution Adapter 内部 Implementation，不新增业务队列或平行执行链；秘密生命周期与最小机制由[认证文档第 4.1 节](../interfaces/CODEX_AUTHENTICATION.md#41-codex-第三方-api-扩展规划2026-09-17)维护。八项拆分和精确内部树是已交付的待审阅候选，拓扑、计量与真实兼容性仍须按计划验证。
+展示层调整已复用现有 Web、Job 列表/报告 HTTP 与两角色权限，没有新增 Worker 健康接口。六题目录、`continuous(1–20)` 和跨批次对比已经落地。提供方部分已在现有 Execution Adapter 内形成 S3–S8 纯策略切片：私有配置读取、Run 令牌绑定、预算账本、请求白名单、受控出站构造、失败归一和测试专用假上游；它不新增业务队列、公开 Interface 或数据库表。S2 `provider_config`、`service.py`、S9–S11、T2 及 Worker/Harbor 正式接线仍未实现，秘密生命周期与未完成边界由[认证文档第 4.1 节](../interfaces/CODEX_AUTHENTICATION.md#41-codex-第三方-api-扩展规划2026-09-17)维护。
 
-C-19 的旧规模是当前代码行为，新提交规模已获用户批准但待实现，旧 Job 冻结内容保持原值。本次 Codex + 第三方 API 与 C-25/C-28/C-31 的 P2 自研 Python Agent 是不同路径：不得据旧阶段文字拒绝规划新需求，也不得把 P2 未实现的密钥隔离能力声称为现成组件。具体型号以扩展规格为准；用户已选择官方原生协议路径，不加入协议转换。固定 Codex 的假接口配置请求已有[限定探针证据](../research/2026-09-17-codex-provider-config-and-budget.md#61-固定-cli-配置探针)，真实工具循环与代理安全仍未验证。
+C-19 的新提交规模现已由 `continuous(1–20)` 实现；旧 Job 冻结内容和旧预设语义保持原值。本次 Codex + 第三方 API 与 C-25/C-28/C-31 的 P2 自研 Python Agent 是不同路径。当前领域和数据库只允许生产 `openai_chatgpt/chatgpt_auth_json` 与显式测试装配的 `internal_test_fake/provider_run_token`；DeepSeek/Kimi 仍属于后续任务 06/07，不能提前登记或真实调用。固定 Codex 的假接口配置请求已有[限定探针证据](../research/2026-09-17-codex-provider-config-and-budget.md#61-固定-cli-配置探针)，真实工具循环与完整代理生命周期仍未验证。
 
-已确认的设计变更在同一任务内同步数据模型、模块/HTTP/执行/认证接口和依赖文档；仅有意向而未定方案时保留候选标记。当前没有新增产品 Module、Interface、数据库表或源码目录。规划树如下；精确文件职责、旧入口和迁移检查见[实现地图](../../.scratch/ui-catalog-providers/implementation-map.md)，确认后才建立源码目录：
+已确认的设计变更在同一任务内同步数据模型、模块/HTTP/执行/认证接口和依赖文档；仅有意向而未定方案时保留候选标记。当前没有新增产品 Module、公开 Interface 或数据库表；下列现有职责中的源码子目录已经按任务切片深化，候选接线仍明确标注：
 
 ```text
-apps/web/src/features/workbench/                 # 候选：角色首页与导航，复用HTTP
-apps/web/src/features/jobs/{wizard,listing,reporting}/ # 候选：拆开现有长页职责
-apps/backend/src/eval_platform/adapters/tasks/   # 深化：固定题目集合与原有公开/隐藏分离
-apps/backend/src/eval_platform/delivery/         # 深化：受控目录/规模模板与Worker组合
+apps/web/src/features/workbench/                 # 已实现：角色首页与导航，复用 HTTP
+apps/web/src/features/jobs/                      # 已实现：向导、列表、报告与跨批次对比
+apps/backend/src/eval_platform/adapters/tasks/   # 已深化：六题固定集合与公开/隐藏分离
+apps/backend/src/eval_platform/delivery/         # 已深化：受控目录、连续规模及显式迁移入口
 apps/backend/src/eval_platform/adapters/execution/
-├─ codex/                                       # 深化：受控提供方配置渲染/固定CLI保护
-├─ provider_access/                             # 候选：Run令牌、私有Key、限额与专属网络
+├─ codex/                                       # 现有：固定 ChatGPT/Codex 运行保护
+├─ provider_access/                             # 已实现策略切片：私有配置、令牌、预算、请求与失败
 └─ harbor/                                      # 深化：现有Adapter和生命周期，不新增第二后端
-apps/backend/tests/{catalog/qualification,jobs/submission,providers}/ # 候选：分层门禁
-apps/web/tests/{workbench,jobs}/                 # 候选：角色/手机/报告完整路径
+apps/backend/tests/providers/                   # 已实现：纯策略与 T1 假上游/拓扑门禁
+apps/web/tests/                                 # 已实现：角色、向导、报告及浏览器回归
 ```
 
-模式仍为 Adapter：Worker 组合根→既有 ExecutionBackend→Harbor Adapter→内部 Codex/代理；PatchEvaluator 仍独立判卷。技术选择理由是现有侧车只有网络过滤，无法托管Key和原子额度；选B以隔离长期Key，代价是额外短命进程/网络与安全测试。真Key直接进容器方案已被用户放弃；协议桥和新执行链不在范围。未知计量、alias漂移、瞬时令牌滥用及崩溃残留是必测风险，未验证时不放行真实矩阵。
+模式仍为 Adapter：当前生产 Worker 组合根→既有 ExecutionBackend→Harbor Adapter→固定 Codex；PatchEvaluator 独立判卷。`provider_access` 是该 Adapter 内部未来代理的策略 Implementation，并未接入上述生产数据流。选择 B 是为了让长期 Key 不进入做题容器；协议桥和新执行链不在范围。未知计量、alias 漂移、瞬时令牌滥用、崩溃残留和 T2 网络隔离仍是必测风险，未验证时不放行真实矩阵。
 
 ## 4. 总体架构
 
@@ -761,12 +761,12 @@ E:\9.1agent_exam\
 
 | 模式 | 参与路径 | 角色关系 | 目的 |
 |---|---|---|---|
-| Adapter | `ports/execution.py` + `adapters/execution/harbor/**` + `adapters/execution/process.py` | `ExecutionBackend` 定义小 interface；Harbor 为主 Adapter，Process 为验收失败时的替代 Adapter | Harbor 复杂性只集中在一个 seam，替换不波及业务 |
-| Factory/Registry | `adapters/agents/registry.py` + P2 `adapters/agents/manifest.py` | MVP Registry 只转换项目预登记的知名 Agent；P2 才解析自研 manifest，且不执行代码 | 避免任意命令执行和 Orchestrator 条件分支 |
-| Repository | `ports/repositories.py` + `adapters/persistence/postgres.py` | 应用层依赖持久化接口；PostgreSQL 实现事务和领取 | 测试可用 Fake，SQL 不散落 |
-| State | `domain/job.py` + `domain/run.py` + PostgreSQL 状态约束 | 统一规定允许的 Job/运行迁移；API/Worker/数据库复用 | 防止各层对状态各自解释 |
-| Command | `application/submit_job.py` + `application/approve_job.py` | 提交命令只冻结请求；批准命令只作所有者决定并排队；两者都不执行 Harbor | 权限决定和重型执行之间有明确 seam，Worker 无法绕过批准 |
-| Composition Root | `delivery/http/app.py` | 唯一位置组装 ports 与生产 Adapters | 依赖构造不散落在业务逻辑 |
+| Adapter | `application/ports/execution.py` + `adapters/execution/harbor/**` + `adapters/evaluation/**` | `ExecutionBackend` 与 `PatchEvaluator` 定义两个小 interface；Harbor 与固定 Fork 分别适配执行和独立判卷 | 外部框架复杂性集中在 Adapter，判卷不被执行后端结果替代 |
+| Factory/Registry | `application/agent_registry.py` + `delivery/catalog_presets.py` + `domain/agent.py` | Registry 只从服务端预设建立受控配置；领域身份对拒绝任意 provider/auth 组合 | 避免任意命令、地址或凭据进入执行映射 |
+| Repository | `application/ports/repositories.py` + `adapters/persistence/{catalog,jobs}/**` | 应用层依赖持久化 Interface；PostgreSQL Adapter 实现目录事务、队列领取与状态推进 | 测试可用 Fake，SQL 不散落到用例 |
+| State | `domain/jobs/**` + `adapters/persistence/jobs/state_validation.py` + SQL 约束 | 领域迁移、持久化读回验证和数据库 CHECK 共同规定 Job/Run 状态 | 防止 API、Worker 和数据库各自解释状态 |
+| Command | `application/job_submission.py` + `application/owner_approval.py` | 提交只冻结请求；批准只作所有者决定并排队；两者都不执行 Harbor | 权限决定和重型执行之间有明确 seam，Worker 无法绕过批准 |
+| Composition Root | `delivery/http/app.py` + `delivery/worker/runtime.py` | HTTP 与 Worker 各自在进程边界组装 ports 和生产 Adapters | 依赖构造不散落在业务逻辑 |
 
 暂不引入装饰器、事件总线、CQRS、微服务或 Kubernetes。若未来出现真实变化点，再通过 ADR 和行动文档讨论。
 

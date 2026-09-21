@@ -2,15 +2,15 @@ Status: needs-info
 
 # 可暂停的执行计划
 
-> 顶层 `needs-info` 标签只表示 05–08 仍有未确认或未授权阶段；任务 01–04 的实现与验证已完成，任务 03、04 等待人工确认。
+> 顶层 `needs-info` 标签只表示 05–08 尚未全部验收；任务 01–04 的实现与验证已完成，任务 05 已完成策略切片与 T1，但正式执行链和 T2 仍未完成。
 
-> 2026-09-17 建立的原始计划草案；截至 2026-09-21，P、任务 01–04 已完成。任务 05 已有任务单且 9 项负责人决定已确认，但实施与拓扑探针仍未获授权；06–08 未实施。下面未实施阶段的命令、容器和真实调用仍是未来门禁，不是现在执行的指令。
+> 2026-09-17 建立的原始计划草案；截至 2026-09-22，P、任务 01–04 已完成。任务 05 已获实施授权并完成 S3–S8 纯策略切片与 T1，S2、代理服务、Worker/Harbor 接线、S9–S11、T2 和完整工具循环仍待完成；06–08 未实施。下面未实施阶段的命令、容器和真实调用仍是未来门禁，不是现在执行的指令。
 >
 > 2026-09-18 用户允许对排队任务进行五人分工；Module DRI、任务 DRI、上下游交接和工时基线见[团队分工文档](../../docs/architecture/modules/TEAM_WORK_ALLOCATION.md)。分工已确定不等于 01–08 已发布 issue 或已获实施/真实调用授权。P 已按取消备份后的 P1–P4 完成，下面 P 段保留的是旧计划快照，不再排队，也不得据此重新加入备份范围。
 >
-> 2026-09-18 [任务 01](issues/01-clickable-html-prototype.md)已完成：A/B/C 离线假数据原型通过检查，用户最终选择纯 A「侧栏工作台」，不混入 B/C。[任务 02](issues/02-role-workbench-submission-approval.md)的正式 Web 已完成；[任务 03](issues/03-comparison-report-and-evidence.md)和[任务 04](issues/04-five-new-tasks-and-continuous-scale.md)均已实现、验证并转入人工确认。[任务 05](issues/05-fake-provider-secure-execution-chain.md)仍为 `needs-info`，不因负责人决定完成而自动开工。
+> 2026-09-18 [任务 01](issues/01-clickable-html-prototype.md)已完成：A/B/C 离线假数据原型通过检查，用户最终选择纯 A「侧栏工作台」，不混入 B/C。[任务 02](issues/02-role-workbench-submission-approval.md)的正式 Web 已完成；[任务 03](issues/03-comparison-report-and-evidence.md)和[任务 04](issues/04-five-new-tasks-and-continuous-scale.md)均已实现、验证并转入人工确认。[任务 05](issues/05-fake-provider-secure-execution-chain.md)为 `ready-for-agent`；已完成部分不能扩大解释为整项验收。
 >
-> 2026-09-21 当前事实：`continuous` 1–20、跨批次比较端点/矩阵与 Web、五道新题三补丁门禁、六题白名单和向导动线均已落地；这仍不表示任务 05 代理链或任务 08 真实冻结矩阵已经完成，也不自动授权继续这些范围。
+> 2026-09-22 当前事实：`continuous` 1–20、跨批次比较端点/矩阵与 Web、五道新题三补丁门禁、六题白名单和向导动线均已落地；任务 05 的私有配置、Run 绑定、预算、请求白名单、出站构造、受控错误、测试身份和 T1 已落地。这仍不表示代理服务、Harbor 正式链、T2 或任务 08 真实冻结矩阵已完成。
 
 ## 1. 怎么使用这份计划
 

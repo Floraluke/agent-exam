@@ -4,9 +4,9 @@ Status: ready-for-agent
 
 **What to build:** 让**假提供方**走完正式执行链，把秘密隔离、请求边界、额度计量与生命周期收束固定在可证的事实上，为真实 Key 放行建立门禁。不接真实 Key、不发起真实供应商请求、不充值。
 
-**Blocked by:** 无实施授权阻塞（2026-09-21 用户转述已直接向负责人确认同意授权）。剩余待办：**T2 在负责人机器执行**（窗口已可用，只差在那台机器上运行探针与本任务授权范围的操作）；**B 的契约确认**（受控提供方的响应呈现方式，见 Comments）。
+**Blocked by:** 无实施授权或 HTTP 契约阻塞。剩余待办：**T2 在负责人机器执行**，以及 S2、`service.py`、S9–S11、Worker/Harbor 正式接线、完整工具循环和生命周期验收。
 
-安全合同三项：额度上界与账本计数方式已由负责人 2026-09-21 拍板（A 保守上界）并已实现；**请求字段白名单**仍须用固定 CLI 复核后才定稿。已有的 5/5 禁外网假令牌配置探针只作历史输入，不重复计为本项通过。
+安全合同三项：额度上界与账本计数方式已由负责人 2026-09-21 拍板（A 保守上界）并已实现；请求路径、模型和 header 白名单已由策略代码与负例固定。S2 固定 CLI 配置渲染、服务流和 T2 仍须后续复核。已有的 5/5 禁外网假令牌配置探针只作历史输入，不重复计为本项通过。
 
 （2026-09-21 事实修正：本机**已安装 Docker**，T1 已在纯 Docker 层证成——原句"本机不安装 Docker"已失效。本任务单**已进入 `main`**（起草提交 `6ccf001` 是 `origin/main` 的祖先），此前"待发布"的说法作废。）
 
@@ -134,3 +134,11 @@ E 侧已有准备产物：[阶段 1 代理测试设计](../../../docs/LLY/01-pla
 - 两条结构性门禁已进测试：**词汇表防漂移**（扫描包内所有大写码字面量，出现未决定的新码即失败）与**文案哨兵扫描**（发布文案不得含上游主机名/URL、路径、profile 名、令牌片段、容器与网络拓扑词，长度也受限）。门禁区分力已实测（注入 `TRANSPORT_NEW_UNREVIEWED_CODE` 即失败并指名）。
 - **请 B 在 `HTTP_API.md` 第 10.2 节把四个受控码列入枚举**（当前为候选）：`PROVIDER_CREDENTIAL_UNAVAILABLE`、`PROVIDER_ACCESS_DENIED`、`PROVIDER_REQUEST_REJECTED`、`PROVIDER_BUDGET_EXHAUSTED`，以及通用兜底 `PROVIDER_ACCESS_FAILED`。若 B 更倾向别的命名或粒度（例如额度与期限拆成两个码），E 按契约改映射表与用例即可。
 - 边界：映射表当前**尚无调用方**——接线在 `service.py`（其网络形态待 T2 结论），因此本片只保证"映射存在且受门禁保护"，不声称任何失败链路已端到端可用。
+
+2026-09-22 核心诊断修复后对账
+
+- S3–S8 的纯策略切片已经过本轮安全加固：客户端 `Host`、`Forwarded`、`X-Forwarded-*` 与认证头在出站前拒绝；预算用量缺失或超过预留失败关闭；私有文件打开后再次核对文件描述符身份，降低路径替换竞态；受控失败词汇仍只有五个公开 `PROVIDER_*` 码。
+- 领域 `CONTROLLED_IDENTITIES` 和 PostgreSQL 成对 CHECK 共同限制 `openai_chatgpt/chatgpt_auth_json` 与 `internal_test_fake/provider_run_token`；生产 `create_catalog` 不注册假预设。旧库升级由 `python -m eval_platform.delivery.catalog upgrade-api-constraints` 显式执行，只接受已知旧/目标形状，未知定义拒绝。
+- `provider_access/` 当前实际为 8 个源文件；`tests/providers/policy/` 为 6 个测试模块，另有 `tests/providers/runtime/` 的 T1 探针。HTTP 契约已经列出五个受控失败码并说明它们尚无生产调用路径，原“等待 B 契约确认”关闭。
+- 本轮隔离真实 PostgreSQL 已验证身份对与迁移；策略回归、Ruff、Mypy 和复杂度门禁已通过。最终全量结果由[核心修复行动](../../../docs/actions/2026-09-21-core-diagnostic-remediation.md)维护，不用本节覆盖历史数字。
+- 仍未完成：S2、代理 `service.py`、S9–S11、Worker/Harbor Composition Root、T2、完整 Responses/工具/patch/Fork 循环、崩溃与跨重启生命周期。任务 05 的九项验收因此继续保持未勾选；没有读取真实 Key、调用真实 DeepSeek/Kimi 或充值。

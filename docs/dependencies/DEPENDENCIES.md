@@ -2,7 +2,7 @@
 
 > 文档状态：持续维护；固定依赖已支持第四场真实 Codex 单题与独立 Fork 判卷通过；完整 M0 安全/生命周期验收引用执行与认证接口
 >
-> 最后更新：2026-09-17（扩展规划与假配置探针）；网络镜像核验：2026-09-07；固定CLI配置探针：2026-09-17
+> 最后更新：2026-09-22（六题/提供方策略切片、Python 测试工具与 Web 质量依赖对账）；网络镜像核验：2026-09-07；固定 CLI 配置探针：2026-09-17
 > 权威范围：依赖身份、来源、固定版本、是否进入主仓库、获取/恢复方式和验证状态
 
 ## 1. 文档边界
@@ -29,26 +29,26 @@
 | Python 运行时 | 后端及 SWE-Bench-Fork 运行时 | 后端 `>=3.13,<3.14`；Fork 当前 Ubuntu Python `3.12.3` | 不适用 | 后端使用 `pyproject.toml`/`uv.lock`；Fork 使用 `swebench-requirements.txt` 的 Linux Python 3.12 带哈希锁，63 项运行依赖已安装且启动时核对版本 |
 | FastAPI | 后端 HTTP 交付层 | `0.141.1` | 清单与 uv.lock | 身份 HTTP 已接通；见第 2.2 节 |
 | Node.js 运行时 | Web 前端构建/运行 | 正式部署版本待固定；本机测试 `20.19.0` / npm `10.8.2` | 不适用 | 未升级机器；本机测试版本不作为当前受维护的部署基线 |
-| Next.js | Web 框架 | `15.5.25` | package.json 与 package-lock.json | 延续已批准 15 主版本，身份页面/构建已验证 |
+| Next.js | Web 框架 | `15.5.25` | package.json 与 package-lock.json | 延续已批准 15 主版本；当前页面、类型检查、生产构建与浏览器回归已验证 |
 | React | Web 视图框架 | `19.3.0`（react 与 react-dom） | 前端清单与锁 | 与 Next.js peer 范围核对，身份页面已验证 |
 | Docker Engine / Docker Desktop / Compose | 隔离并运行评测环境 | 项目基线待确认；本机 Desktop `4.38.0.181591`、Engine `27.5.1` | 不适用 | Harbor NOP/超时与固定 Fork 五类真实补丁集成已验证；环境细节见 [`LOCAL_DOCKER_ENVIRONMENT.md`](../operations/LOCAL_DOCKER_ENVIRONMENT.md) |
-| PostgreSQL | 结构化业务数据存储与 MVP 平台 Evaluation Job 队列 | 正式部署待确认；本次集成 15.18 | 测试复用既有官方摘要镜像 | 身份集成已验证，镜像见第 2.2 节；不代表队列已实现 |
+| PostgreSQL | 结构化业务数据存储与 MVP 平台 Evaluation Job 队列 | 部署候选 15.19；隔离回归复用 15 系列镜像 | 固定部署摘要见第 2.4 节 | 身份、目录、Job/Run 队列和受控身份约束均已有真实 PG 分层验证；不代表所有长期部署/恢复风险已关闭 |
 | MinIO | 对象存储，即保存 patch、日志等文件制品 | 隔离测试固定源码及构建身份见第 2.3 节；正式部署未定 | 不适用 | 保留 MinIO；已完成专属合成集成，不关闭已知维护/安全风险 |
 | Codex CLI | M0 本机真实原型与 M1 平台 MVP Agent | 首轮 `0.153.0`，用户于 2026-09-07 确认 | 否 | 使用 Harbor 内置 Codex Adapter，认证沿用评测机所有者的 ChatGPT Pro（见 [`CODEX_AUTHENTICATION.md`](../interfaces/CODEX_AUTHENTICATION.md)）；固定包校验、禁网容器启动和 Harbor 预装复用已通过，见第 2.1 节；第四场真实单题已通过，剩余网络/凭据生命周期验收引用执行与认证接口 |
 | Aider CLI | Codex MVP 之后的已知 Agent | 待确认 | 否 | 已确认在 Codex 平台闭环后接入；尚未安装或固定版本，不阻塞 MVP |
 | Claude Code CLI | Codex MVP 之后的已知 Agent | 待确认 | 否 | 已确认在 Codex 平台闭环后接入；尚未安装或固定版本，不阻塞 MVP |
 | 本地自研 Agent | P2 扩展 Agent | 待实现 | 是，由提交者固定 Git commit 提交，审核后登记 | 只保留扩展接缝；P2 首版只支持 Python 和固定进程 Interface，完整 manifest、Python 版本、依赖锁格式与 Harbor 包装不阻塞 MVP |
-| DeepSeek / Kimi 模型接口 | 新增Codex API规划；P2自研Agent仍另行延期 | DeepSeek-V4.1-Flash（`deepseek-flash`）与 `kimi-k3`；服务alias非不可变版本 | 否 | 官方原生Responses与固定CLI假配置探针已核对；真实工具循环、Key代理、计量和账号资格未验收，见[研究](../research/2026-09-17-codex-provider-config-and-budget.md) |
+| DeepSeek / Kimi 模型接口 | 新增 Codex API 规划；P2 自研 Agent 仍另行延期 | 候选 alias 见历史研究；不是当前生产配置或不可变版本 | 否 | S3–S8 的假上游策略切片与 T1 已验证；真实身份、endpoint、工具循环、代理服务、T2、计量和账号资格均未验收 |
 
 “待确认”不等于推荐使用最新版；在版本被确认并写入本文件前，不得把本机偶然安装的版本当成团队基线。
 
 原M0/M1恢复顺序保持；用户新增的Codex多提供方规划按[扩展计划](../../.scratch/ui-catalog-providers/plan.md)分阶段推进，不受旧“DeepSeek/Kimi仅P2”排期限制。Aider/Claude Code与P2自研仍未进入本次范围，不升级固定Harbor/Fork/CLI或因此重建环境。
 
-### 扩展依赖规划（未安装/未运行）
+### 扩展依赖状态（部分实现，真实提供方未运行）
 
-新增五题优先固定Lite的mypy候选，名单与替换门槛见计划04；每题镜像digest、base commit、参考/负例判卷证据在资格检查通过后才写入本表对应记录。当前只有旧题已登记，不把同项目视为同镜像或已通过。代理固定运行镜像/依赖尚待05技术核验，不凭空指定最新版；实际需要下载时先列来源、大小、权限及隔离范围。
+五道新增 Lite/mypy 题已分别固定镜像 digest，并与旧题一起形成六题受控目录；每题 base commit、参考/空/错误补丁门禁见第 4.2 节与任务 04 历史行动。任务 05 当前只新增项目内策略代码和测试假上游，没有安装代理运行镜像或真实提供方 SDK；后续实际需要下载时仍须先列来源、大小、权限及隔离范围。
 
-提供方精确端点、地区、官方配置资料及价格快照唯一见[研究](../research/2026-09-17-codex-provider-config-and-budget.md)；Key管理和禁止订阅端点替代见[认证4.1](../interfaces/CODEX_AUTHENTICATION.md#41-codex-第三方-api-扩展规划2026-09-17)。长期暂停后重新核对会变化的型号alias/价格/账户资格，不把今日报价当永久承诺。5/5假配置探针不等于两家真实API验收通过。
+提供方精确端点、地区、官方配置资料及价格快照只保留在带日期的历史[研究](../research/2026-09-17-codex-provider-config-and-budget.md)中；当前实施状态与 Key 边界见[认证 4.1](../interfaces/CODEX_AUTHENTICATION.md#41-codex-第三方-api-扩展规划2026-09-22-状态对账)。长期暂停后必须重新核对会变化的型号 alias、价格和账户资格。假配置、策略单元测试及 T1 均不等于两家真实 API 验收通过。
 
 Codex 的版本选择已完成，不再根据宿主升级或 `latest` 自动变化。[官方安装文档](https://learn.chatgpt.com/docs/cli) 提供独立安装器和 npm `@openai/codex`；本项目采用该包发布的 Linux 平台制品完成无凭据离线安装探针，身份见第 2.1 节。Harbor 复用同版本预装 CLI 的条件见 [框架接口第 7 节](../interfaces/FRAMEWORK_INTERFACES.md#7-codex-cli-adapter)。
 
@@ -79,12 +79,19 @@ Codex 的版本选择已完成，不再根据宿主升级或 `latest` 自动变�
 | FastAPI / Uvicorn | 0.141.1 / 0.52.4 | HTTP 交付与回环 ASGI 服务 |
 | psycopg[binary] | 3.3.5 | PostgreSQL 客户端，不代表已部署数据库服务 |
 | argon2-cffi | 25.1.0 | Argon2id 密码哈希，time_cost=3、memory_cost=65536 KiB、parallelism=4 |
-| httpx（开发依赖） | 0.28.1 | HTTP 契约测试；当前上游有弃用提示但测试可执行 |
+| [PyArrow](https://pypi.org/project/pyarrow/23.0.1/) | 23.0.1 | 固定 Parquet 数据读取；由 22.0.0 升级以关闭 `PYSEC-2026-113` |
+| httpx / httpx2（开发依赖） | 0.28.1 / 2.13.0 | 项目 HTTP 客户端与当前 Starlette TestClient；分开固定，避免用旧兼容假设解释测试运行时 |
+| AnyIO（开发依赖） | 4.14.2 | Starlette/httpx2 测试门户；固定在仍提供当前入口且不触发下一版 alias 弃用提示的版本 |
+| [pytest](https://pypi.org/project/pytest/9.0.3/) / pytest-cov / pip-audit | 9.0.3 / 7.1.0 / 2.10.1 | 测试、分支覆盖率门禁（80%）和 Python 环境依赖审计；pytest 升级关闭 `PYSEC-2026-1845` |
 | Next.js / React、React DOM | 15.5.25 / 19.3.0 | 已确认主版本内的最小 Web |
 | TypeScript / @types/react / @types/node | 5.9.3 / 19.3.0 / 22.20.2 | 构建时类型检查；类型包版本不是 Node 运行时版本 |
 | @playwright/test | 1.63.0 | 少量真实浏览器接线测试；专属浏览器缓存留在 runtime |
+| ESLint / eslint-config-next / @eslint/eslintrc | 9.39.5 / 15.5.25 / 3.3.7 | ESLint 9 flat config；Next core-web-vitals/TypeScript 规则，`--max-warnings 0` |
+| PostCSS（npm override） | 8.5.28 | 覆盖 Next 15.5.25 固定带入的 8.4.31，关闭截至 `GHSA-fxqj-rqcc-2cmp` 的 source-map 读取链；不跨大版本升级 Next |
 
-Next.js 官方 [2026-08 安全更新](https://nextjs.org/blog/august-2026-security-release)要求 15.5 修复线至少 15.5.24；本次采用 registry 的 backport 15.5.25，而不切换到 16。以上核对不等于完整供应链审计。正式远程部署前仍须锁定受维护的 Node/PostgreSQL 运行版本，不把本机 Node 偶然版本或只存在 SQL 的状态当作已完成平台基线。
+Next.js 官方 [2026-08 安全更新](https://nextjs.org/blog/august-2026-security-release)要求 15.5 修复线至少 15.5.24；本次采用 registry 的 backport 15.5.25，而不切换到 16。Next 15.5 的 `next lint` 已弃用，因此项目使用显式 ESLint 9 flat config。2026-09-22 复核 [PostCSS 公告](https://github.com/advisories/GHSA-fxqj-rqcc-2cmp)所列最终修复下限 8.5.23 后，锁定兼容的 8.5.28；生产构建和 45 项浏览器回归已通过。当前 npm 生产/全量审计均为 0 漏洞；`pip-audit --local` 同样报告无已知漏洞，仅跳过不在 PyPI 发布的本地包 `agentexam-backend`。`pip-audit --locked` 2.10.1 不识别本项目 `uv.lock`，因此 Python 结论来自按 `uv.lock` 同步后的本地环境审计，不冒称锁文件原生审计。上述结果不等于完整供应链审计。正式远程部署前仍须锁定受维护的 Node/PostgreSQL 运行版本，不把本机 Node 偶然版本或只存在 SQL 的状态当作已完成平台基线。
+
+Playwright 默认仍可使用其捆绑浏览器；本机完整回归因未安装捆绑 Chrome 而使用 `AGENTEXAM_USE_SYSTEM_CHROME=1` 选择已安装系统 Chrome。测试专用 Next 输出在 `.next-e2e`，runner 无论成功或失败都恢复 `next-env.d.ts`/`tsconfig.json`，避免浏览器测试改变版本控制文件。该环境选择不是生产浏览器依赖。
 
 恢复依赖（项目环境，非机器升级）：后端运行既有 `uv sync --locked --no-python-downloads`；前端运行 `npm ci --ignore-scripts`。缓存可放在项目 runtime；不要将模型登录或现有服务连接配置拷入测试。
 

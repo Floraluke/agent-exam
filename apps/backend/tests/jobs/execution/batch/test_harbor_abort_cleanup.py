@@ -41,7 +41,7 @@ def _request():
         "agent-one",
         "codex",
         "0.153.0",
-        "openai",
+        "openai_chatgpt",
         "model",
         "chatgpt_auth_json",
         "owner-login",

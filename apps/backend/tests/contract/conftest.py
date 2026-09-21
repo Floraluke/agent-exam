@@ -36,9 +36,9 @@ def pipeline(tmp_path):
         "config-1",
         "codex",
         "0.0.0-probe",
-        "openai",
+        "openai_chatgpt",
         "test-only",
-        "chatgpt",
+        "chatgpt_auth_json",
         "secret-logical-id",
         {"reasoning_effort": "low"},
     )

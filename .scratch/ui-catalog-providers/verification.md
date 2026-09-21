@@ -2,7 +2,7 @@ Status: needs-info
 
 # 分层验收与证据规范
 
-> 这是分阶段验收规范。任务 01–04 已完成相应实现与验证；任务 03、04 的执行证据分别由[03 行动](../../docs/actions/2026-09-21-ui-comparison-report.md)和[04 行动](../../docs/actions/2026-09-19-task-04-catalog-candidates-and-scale.md)维护。任务 05–08 仍有未实施门禁；未实际运行、失败或跳过的检查不得写成通过。
+> 这是分阶段验收规范。任务 01–04 已完成相应实现与验证；任务 03、04 的执行证据分别由[03 行动](../../docs/actions/2026-09-21-ui-comparison-report.md)和[04 行动](../../docs/actions/2026-09-19-task-04-catalog-candidates-and-scale.md)维护。任务 05 已完成 S3–S8 纯策略与 T1，但 T2、正式 Worker/Harbor 链、工具循环和生命周期仍未通过；06–08 未实施。未实际运行、失败或跳过的检查不得写成通过。
 
 ## 1. 测试层次与通过条件
 
@@ -55,6 +55,7 @@ Web 工作目录 `E:\9.1agent_exam\apps\web`：
 
 ```powershell
 npm run typecheck
+npm run lint
 npm run build
 npm run test:e2e
 ```

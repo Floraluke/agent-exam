@@ -2,16 +2,16 @@
 
 > 文档状态：Job/Run 架构已确认；字段契约 v0.3。长期 PostgreSQL 已部署；`evaluation_jobs.batch_preset` 已支持 `continuous`
 >
-> 最后更新：2026-09-21（同步扩展任务 03 Web 对比接线；schema 不变）
+> 最后更新：2026-09-22（同步六题/连续规模与受控 Agent 身份对约束）
 > 权威范围：本文件维护 PostgreSQL 实体、运行状态持久化、队列领取规则和 MinIO 对象布局。领域词义见 [`CONTEXT.md`](../../CONTEXT.md)，模块输入输出见 [`MODULE_CONTRACTS.md`](./MODULE_CONTRACTS.md)。
 
 ## 扩展规划与现有 schema 的分界
 
-用户已确认[UI/题库/API扩展规格](../../.scratch/ui-catalog-providers/spec.md)。continuous 预设、比较报告后端及扩展任务 03 Web 页面已落地；本次 Web 接线只读既有 Job/Run/制品数据，没有新增表、列或约束。五道新题和其他 04–08 范围仍未因此完成。后文 M1 任务03/04字段与约束描述当前代码；“P2才有DeepSeek/Kimi”的旧排期不覆盖本次新增的 Codex API 路径。
+用户已确认[UI/题库/API扩展规格](../../.scratch/ui-catalog-providers/spec.md)。六题目录、`continuous` 预设、比较报告后端及扩展任务 03 Web 页面已落地；这些变化复用既有 Job/Run/制品表。任务 05 只为受控身份对深化 `agent_configurations` CHECK，并提供显式幂等迁移；DeepSeek/Kimi 真实配置及任务 06–08 仍未实现。
 
-规划深化现有表，不新增表：新合格题继续进入 `tasks`；两家 Codex 配置继续进入 `agent_configurations`；Job/Run 快照继续承载冻结的任务/配置/策略。continuous 只扩展既有 `batch_preset` CHECK，不新增列或表；其他提供方变化仍须成套扩展、在全新/旧版隔离 PG 分别验证后显式升级。HTTP 启动不自动迁移用户库。
+实现继续深化现有表，不新增表：合格题进入 `tasks`；生产 Codex 配置与显式测试配置进入 `agent_configurations`；Job/Run 快照承载冻结的任务/配置/策略。`continuous` 只扩展既有 `batch_preset` CHECK；身份迁移只把受控对扩为 `openai_chatgpt/chatgpt_auth_json` 与 `internal_test_fake/provider_run_token`，不登记真实第三方提供方。其他提供方变化仍须成套扩展、在全新/旧版隔离 PG 分别验证后显式升级。HTTP 启动不自动迁移用户库。
 
-兼容要求：连续规模使用新增预设 `continuous`（1–20），旧 `demo/quick/standard` 区间、旧 Job 快照和请求摘要不改写。旧库通过 `agentexam-jobs upgrade-continuous-preset` 显式、幂等升级；实现只接受已知旧三值约束或已完成的四值约束，未知定义失败关闭。新增配置摘要覆盖关键提供方配置/模型目录/限制版本，旧 Agent 指纹保持旧算法验证。秘密和宿主路径不入表/JSON 快照；credential profile 仍为非秘密逻辑引用。API 计量状态不得因崩溃重置满额，其候选本机账本不成为第二 Job 队列。
+兼容要求：连续规模使用新增预设 `continuous`（1–20），旧 `demo/quick/standard` 区间、旧 Job 快照和请求摘要不改写。旧库通过 `agentexam-jobs upgrade-continuous-preset` 显式、幂等升级；Agent 身份约束通过 `python -m eval_platform.delivery.catalog upgrade-api-constraints` 显式、幂等升级。两种升级都只接受已知旧形状或目标形状，未知定义失败关闭。新增配置摘要覆盖关键提供方配置/模型目录/限制版本，旧 Agent 指纹保持旧算法验证。秘密和宿主路径不入表/JSON 快照；credential profile 仍为非秘密逻辑引用。API 计量状态不得因崩溃重置满额，当前内存账本只供策略验证，不是第二 Job 队列或持久计费事实源。
 
 报告继续保留 null：无可信美元金额不填写 `cost_usd`，人民币预算不是美元实际费用；新增限制版本影响可比性时沿既有分组校验，不混改历史排行。每个切片实现后在本文同步实际字段及证据。
 

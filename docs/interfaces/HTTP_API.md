@@ -1,17 +1,17 @@
 # Web 与后端 HTTP API 契约
 
-> 文档状态：Job/Run 资源边界已确认；HTTP 契约 v0.3。任务 01–13 已验收；continuous 受控选项与跨批次比较 GET 已注册，扩展任务 03 的 Web 对比页已接入现有只读合同
+> 文档状态：Job/Run 资源边界已确认；HTTP 契约 v0.3。任务 01–13 已验收；六题、continuous 受控选项与跨批次比较页面已接入；提供方策略切片尚未形成新的公开执行端点
 >
-> 最后更新：2026-09-21（同步扩展任务 03 Web 对比页对既有跨批次比较契约的复用）
+> 最后更新：2026-09-22（同步受控 Agent 身份、统一安全响应头及安全 500 诊断）
 > 权威范围：本文件只维护 Next.js Web 与 FastAPI 交付层之间的 HTTP 契约。内部模块行为见 [`MODULE_CONTRACTS.md`](../architecture/MODULE_CONTRACTS.md)，存储字段见 [`DATA_MODEL.md`](../architecture/DATA_MODEL.md)。
 
 ## 规划增量与当前接口
 
-[扩展规格](../../.scratch/ui-catalog-providers/spec.md)已确认角色化UI、至少五道新题、新提交连续规模以及Codex第三方API方向；[计划](../../.scratch/ui-catalog-providers/plan.md)尚待拆分确认，下面接口仍按当前实现解释。
+[扩展规格](../../.scratch/ui-catalog-providers/spec.md)已确认角色化 UI、至少五道新题、新提交连续规模以及 Codex 第三方 API 方向。六题、连续规模和对比页面已实现；下面只记录当前真实接口，未接线的提供方代理不产生虚构端点。
 
 - UI首页、列表、向导与对比优先复用现有会话、目录、Job筛选/分页、批次/Run报告和制品接口，不新增Worker健康/全局统计接口。无来源的状态/指标显示未知。
-- 新合格题和API配置以服务端preset进入现有目录；前端只提交ID，仍拒绝Key、用户URL、路径、命令与任意资源值。首版不提供网页Key录入/读取/更换端点，秘密策略见认证4.1。
-- 规模变更实施时，`submission-options`发布新版本连续预设；旧preset ID语义和旧Job冻结内容保留，不能在文档先将当前demo/quick/standard写成已支持连续范围。边界与兼容测试见[验证表](../../.scratch/ui-catalog-providers/verification.md)。
+- 合格题和配置以服务端 preset 进入现有目录；前端只提交 ID，仍拒绝 Key、用户 URL、路径、命令与任意资源值。生产目录当前只公开 ChatGPT 配置；`internal_test_fake` 只允许显式测试装配。首版不提供网页 Key 录入/读取/更换端点，秘密策略见认证 4.1。
+- `submission-options` 已发布 `continuous(1–20)`；旧 preset ID 语义和旧 Job 冻结内容保留。边界与兼容测试见[验证表](../../.scratch/ui-catalog-providers/verification.md)。
 - `POST /jobs`仍只保存并返回等待批准；owner自提交自批准合法，网络/模型问题不改变应用权限。创建/批准均不读模型凭据。Job/Run、恢复重试、internal_test隔离及错误合同保持。
 - 报告优先展示同题跨配置，但不新增计费字段或改排行榜；`cost_usd=null`为未知，不用人民币估算代填。实施过程中任何实际字段变化须同时更新本合同与客户端校验。
 
@@ -112,7 +112,11 @@
 
 错误 `message` 面向人类；前端分支判断只使用稳定的 `code`，不能解析中文文案。
 
-已实现的统一错误由 Delivery 的 `ApiError` / `ErrorDetails` 同时用于实际响应与 OpenAPI，不维护另一份框架默认 `HTTPValidationError`。框架 `HTTPException` 的 404/405 按上表转换，其他状态保留状态码并使用安全通用 `HTTP_ERROR`（例如框架请求解析失败的 400）；不回显异常 detail，按需保留 `Allow`、`WWW-Authenticate`、`Retry-After`。当前身份错误的 `details` 为空对象，以上业务资源错误仍为后续契约。
+已实现的统一错误由 Delivery 的 `ApiError` / `ErrorDetails` 同时用于实际响应与 OpenAPI，不维护另一份框架默认 `HTTPValidationError`。框架 `HTTPException` 的 404/405 按上表转换，其他状态保留状态码并使用安全通用 `HTTP_ERROR`（例如框架请求解析失败的 400）；不回显异常 detail，按需保留 `Allow`、`WWW-Authenticate`、`Retry-After`。当前错误的 `details` 为空对象。
+
+未预期异常返回通用 `500 INTERNAL_ERROR`，响应和服务端结构化日志使用同一个随机 `request_id`。日志只记录 request ID、HTTP 方法、路径和异常类型，不记录异常消息、请求正文、header 或秘密；客户端也不接收内部异常文本。
+
+FastAPI 对所有成功、业务错误、限流和未预期异常响应统一设置 `Cache-Control: no-store`、`X-Content-Type-Options: nosniff`、`X-Frame-Options: DENY`、`Referrer-Policy: no-referrer` 与禁用摄像头/麦克风/定位的 `Permissions-Policy`。Next.js 对所有页面/代理入口设置相同浏览器安全头，并额外设置限制为同源、禁止 object/frame ancestor 的 CSP；尚未确认生产 HTTPS 终止边界，因此不在应用层提前声明 HSTS。
 
 ### 3.1 身份与角色边界
 
@@ -201,7 +205,7 @@
 }
 ```
 
-不返回 API key、凭据配置引用、命令模板、宿主路径或私有环境变量。MVP 先登记 Codex；闭环通过后登记 Aider、Claude Code。P2 同一自研 Agent 使用 DeepSeek 与 Kimi 时返回两个独立配置。
+不返回 API key、凭据配置引用、命令模板、宿主路径或私有环境变量。`model_provider` 是非秘密的受控身份字段：生产 `create_catalog` 当前只公开 `openai_chatgpt`；`internal_test_fake` 只能出现在显式 `internal_test` 装配和测试数据中，不能进入正式目录或排行榜。provider 必须与 authentication type 按领域/数据库约束成对，HTTP 不返回认证类型、逻辑凭据引用或任何 Key。MVP 先登记 Codex；闭环通过后登记 Aider、Claude Code。P2 同一自研 Agent 使用 DeepSeek 与 Kimi 时返回两个独立配置。
 
 ### 4.3 `JobSummary`
 
@@ -252,7 +256,7 @@ M1 的 `review_status` 使用既有 `NOT_REQUIRED`，不产生虚假的待复核
 
 ## 5. Task API
 
-任务 03 正在实现：任务与配置端点已有合成存储 HTTP 切片，生产存储组装已落地且真实集成、Web 目录流程已有验证；当前回归和评审状态见任务 03 行动。所有端点要求有效登录；沿用第 3 节同源写检查、no-store 与空 details 安全错误。ID/游标采用不透明 UUID 字符串，分页按 ID 稳定排序，不承诺跨页快照一致。无效格式为 422；未知预置为 400 INVALID_REQUEST；固定身份内容冲突为 409 CATALOG_CONFLICT；对象缺失/损坏或依赖故障为 503 DEPENDENCY_UNAVAILABLE，不回显对象键、连接、SDK 异常或原始数据。
+任务 03 已实现：任务与配置端点、生产存储组装、真实集成和 Web 目录流程已有验证。所有端点要求有效登录；沿用第 3 节同源写检查、no-store 与空 details 安全错误。ID/游标采用不透明 UUID 字符串，分页按 ID 稳定排序，不承诺跨页快照一致。无效格式为 422；未知预置为 400 INVALID_REQUEST；固定身份内容冲突为 409 CATALOG_CONFLICT；对象缺失/损坏或依赖故障为 503 DEPENDENCY_UNAVAILABLE，不回显对象键、连接、SDK 异常或原始数据。
 
 已批准的 `POST /api/v1/tasks/register` 仅 owner 可调用；正文仅 `{"preset_id":"swe-gym-lite-mypy-15413"}`，拒绝额外字段。成功或同内容重入均为 201 TaskDetail，重入保留原 task_id；普通用户不能上传任务 JSON、命令、镜像或来源路径。正式 preset 复用现有固定单题，不代表整个题库可执行。合成测试使用独立 preset 和数据，不能进入正式目录。
 
@@ -635,7 +639,9 @@ Header：`Idempotency-Key: <客户端生成的不透明值>`；正文必须为 `
 
 M1 保留上述响应兼容形状，但 `judge_analyses=[]`、`human_review=null`、`quality_tiebreak=null`、`review_status=NOT_REQUIRED`；不为填充字段调用模型或新建分析/复核表。基础设施失败时 `deterministic_result=null`，并在 `run.failure_code/failure_summary` 明确说明，不能冒充普通 `resolved=false`。
 
-`failure_code` 是受控枚举；`failure_summary` 与 `stage_message` 是**面向用户的受控短文案**，只允许说明失败类别与阶段，不得包含上游主机名或 URL、文件系统路径、凭据 profile 名、令牌或 Key 的任何片段、容器与网络拓扑。这两个字段会被网页原样呈现（恢复页把 `failure_summary` 标为“安全原因”），**内容安全由写入方负责**；Web 层不猜测自由文本是否安全，只按本节契约呈现。任务 05 的假提供方链、以及任何未来的 provider 实现都必须遵守该约束。
+`failure_code` 是受控枚举；`failure_summary` 与 `stage_message` 是**面向用户的受控短文案**，只允许说明失败类别与阶段，不得包含上游主机名或 URL、文件系统路径、凭据 profile 名、令牌或 Key 的任何片段、容器与网络拓扑。这两个字段会被网页原样呈现（恢复页把 `failure_summary` 标为“安全原因”），**内容安全由写入方负责**；Web 层不猜测自由文本是否安全，只按本节契约呈现。
+
+任务 05 策略切片当前固定的 provider 失败码为 `PROVIDER_CREDENTIAL_UNAVAILABLE`、`PROVIDER_ACCESS_DENIED`、`PROVIDER_REQUEST_REJECTED`、`PROVIDER_BUDGET_EXHAUSTED` 与兜底 `PROVIDER_ACCESS_FAILED`。它们已由内部异常映射测试约束，但策略尚未接入 Worker/HTTP 执行路径，因此当前公开 API 不会因为真实第三方调用产生这些码；后续接线必须沿用这些安全码，不回显原始异常。
 
 `artifact_links` 返回当前 Run 全部闭合类型的第 9.2 节安全元数据形状，便于页面同时展示核心证据与受限原始制品的保留状态；这不扩大正文权限，下载仍只允许 `agent_patch/public_test_summary/public_trajectory` 三种公开类型。两个报告端点及制品索引、轨迹和下载采用同一授权：owner 可读全部，协作者只读自己创建的 official Job/Run，其他资源按不存在处理，`internal_test` 只允许显式测试装配。对象键、文件名、正文、消息正文、工具参数、私密轨迹和原始配置均不在元数据响应中。
 

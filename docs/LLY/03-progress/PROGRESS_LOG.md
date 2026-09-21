@@ -3,6 +3,17 @@
 > 只记录事实与实际结果：做了什么、实际输出是什么、遇到什么。计划见 [`01-plan/PLAN.md`](../01-plan/PLAN.md)。
 > 格式：按日期倒序追加，最新在最上面。
 
+## 2026-09-22
+
+### 核心诊断修复后的当前对账
+
+- `provider_access/` 当前为 8 个源文件，`tests/providers/policy/` 为 6 个测试模块；本轮补齐最小出站 header 允许集合、Host/转发头失败关闭、预算超预留拒绝、私有文件打开后身份复核和受控错误码校验。
+- 受控身份只允许 `openai_chatgpt/chatgpt_auth_json` 与 `internal_test_fake/provider_run_token` 两对；生产目录不注册测试假配置。旧 PostgreSQL 约束已有显式 `upgrade-api-constraints` CLI，隔离真实 PG 验证通过。
+- B 的 HTTP 契约确认已经关闭：`HTTP_API.md` 现列出五个 `PROVIDER_*` 码，并说明策略尚无生产 Worker/HTTP 调用方；端到端错误呈现仍要等待正式链接线。
+- 当前仍未完成 S2、`service.py`、S9–S11、Worker/Harbor Composition Root、T2、完整工具/patch/Fork 循环和跨重启生命周期。没有读取真实 Key、调用 DeepSeek/Kimi 或充值。
+- 本轮最终门禁已完成：后端默认全量 `510 passed / 102 skipped`、分支覆盖率 `86.38%`，Ruff/格式/Mypy 通过；Web 静态、生产构建与 45 项浏览器回归通过；Python 依赖审计无已知漏洞，npm 生产/全量审计均为 0 漏洞。PyArrow、pytest 和 PostCSS 的安全版本升级已进入锁文件。
+- 核心修复只剩托管 CI 是否新增顶层 `.github/workflows/` 待用户决定；该决定不改变任务 05 的未完成产品范围。最终全量结果与限制统一记录在当前核心修复行动，不覆盖下方 2026-09-21 的时点数字。
+
 ## 2026-09-21
 
 ### 已完成
