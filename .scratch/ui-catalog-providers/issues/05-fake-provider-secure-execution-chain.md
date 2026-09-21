@@ -83,7 +83,7 @@ E 侧已有准备产物：[阶段 1 代理测试设计](../../../docs/LLY/01-pla
 
 1. **S3–S7 代理纯逻辑安全不变量全部落地并有测试**：`adapters/execution/provider_access/` 6 个源文件（均 ≤200 行，目录上限 8）；测试 `tests/providers/policy/` 5 个文件，定向 **67 passed / 1 skipped**（跳过项为 POSIX 属主位，本机 Windows 属设计如此）。同一 HEAD 实测：`ruff check` 通过、`ruff format --check` 313 文件、`mypy` 174 源文件无问题、默认回归 **484 passed / 102 skipped / 2 failed**（2 项失败仍为缺 `framework/harbor` 的 ISSUE-04，与基线一致）。
 2. 测试抓出并修掉 **4 处真实缺陷**：缺 `profiles` 时结构校验被短路；上游地址校验过宽（任意主机都能通过）；请求缺 `stream` 抛裸 `KeyError`；`transport` 的 `repr` 泄漏认证头（`repr(headers)` 同样会漏）。
-3. **T1 已在纯 Docker 层证成**：7 条断言全部测到并通过（27 项判定全 PASS，连续两次一致），含正对照（做题侧 → 代理 → 假上游，假上游自身 verbose 日志记下"连接来自代理 IP"与 `cmd=ping`）和**反向对照自检**（故意把做题侧接进出网网络时断言 2/3 如预期失败，证明负例不是空断言）。证据在 `runtime/prototype/t05-topology-20260921-02/`（被 Git 忽略）；原始记录已抄进[本机实施行动](../../../docs/actions/2026-09-21-task05-local-implementation.md)。清理按 `agentexam.task=05` 标签复核残留为 0，未执行全局 prune。
+3. **T1 已在纯 Docker 层证成**：7 条断言全部测到并通过（**28 项判定**全 PASS，连续两次一致），含正对照（做题侧 → 代理 → 假上游，假上游自身 verbose 日志记下"连接来自代理 IP"与 `cmd=ping`）和**反向对照自检**（故意把做题侧接进出网网络时断言 2/3 如预期失败，证明负例不是空断言）。**探针已纳入仓库**：`apps/backend/tests/providers/runtime/`（含 `README.md` 与假值 fixture，可在负责人机器直接复用），运行证据写到被忽略的 `.tmp/t05-topology/`；原始记录已抄进[本机实施行动](../../../docs/actions/2026-09-21-task05-local-implementation.md)。清理按 `agentexam.task=05` 标签复核残留为 0，未执行全局 prune。
 4. **run 01"未证成"的根因已定位，其 CLOSED 全部是工具链假象**：监听端容器因 `--cap-drop ALL` 去掉 `CAP_SETUID`/`CAP_SETGID`，在入口脚本降权时退出（`setpriv: setresuid failed: Operation not permitted`，退出码 127）——容器根本没起来。修法是让监听端以镜像内 redis 用户运行，`--cap-drop ALL` 与 `no-new-privileges` 全部保留。另修掉 4 处会产出假阴性的探针缺陷（监听端镜像无 bash、转发替身漏端口号、一次性监听的重生窗口、用 redis argv 做 PID 标记），并加入健康门禁：工具链不健康即中止且**不输出任何断言**。
 5. 本机 Docker 能力（前置第 1 项）验证通过：阶段 0 记录的"虚拟网络风险"未出现。
 

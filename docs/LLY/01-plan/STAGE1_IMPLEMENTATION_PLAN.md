@@ -48,10 +48,15 @@ apps/backend/tests/providers/               # 新增：分层门禁
 ├─ policy/                                  # 请求策略、令牌边界、账本、秘密外表面（本机）
 ├─ lifecycle/                               # 终止路径与令牌回收的替身测试（本机）
 ├─ integration/                             # 容器拓扑、直连拒绝、清理（负责人机器）
-└─ runtime/verify.ps1                       # 分层验证入口（沿用 catalog/jobs 既有模式）
+└─ runtime/                                 # T1 拓扑探针（已实现，5 文件）：
+   ├─ topology-probe.sh                     #   建网、逐条断言、清理、退出码
+   ├─ topology-lib.sh                       #   探针原语与健康门禁（工具链不健康即中止）
+   ├─ topology-verdicts.sh                  #   判定标准（与探针分开评审）
+   ├─ fake-provider.json                    #   假值提供方文件（仅挂进代理）
+   └─ README.md                             #   怎么跑、断言清单、已知坑
 ```
 
-注意两点：`provider_access/` 恰好 8 个文件，已达每层文件夹上限，**内部如需再拆必须建子目录**；`tests/providers/` 同为上限边界。
+注意两点：`provider_access/` 已达每层文件夹上限（已建 6 个），**内部如需再拆必须建子目录**；`tests/providers/runtime/` 现有 5 个文件。T1 探针原计划为 `verify.ps1`（沿用 catalog/jobs 的 PowerShell 入口），实际按 E 本机已跑通的 bash 版本纳入；T2 若需要容器内跑 pytest，仍可另加 `verify.ps1`。
 
 ## 3. 分片顺序
 
@@ -69,7 +74,7 @@ apps/backend/tests/providers/               # 新增：分层门禁
 | S8 | 目录与身份扩展：`domain/agent.py`、`agent_registry.py`、`catalog_schemas.py`、`catalog_presets.py`、`schema.sql`、`upgrade_api.sql`；旧指纹兼容 | E 本机（需真实 PG） | 否 | **未做** |
 | S9 | `delivery/worker/runtime.py`：按 Run 选绑定，不再无条件要求 ChatGPT auth | E 本机 | 否 | **未做** |
 | S10 | `provider_access/network.py` 与网络拓扑接线 | 待定 | **是** | **未做** |
-| S11 | 集成层验证：容器拓扑、直连拒绝、宿主隔离、假 Key 探查、精确清理 | 负责人机器 | 是 | **未做**（T2 窗口为空） |
+| S11 | 集成层验证：容器拓扑、直连拒绝、宿主隔离、假 Key 探查、精确清理 | 负责人机器 | 是 | **未做**（T2 窗口为空）；T1 探针已纳入仓库 `apps/backend/tests/providers/runtime/` 供复用 |
 
 ## 4. 每片的验证方式
 
@@ -78,7 +83,7 @@ apps/backend/tests/providers/               # 新增：分层门禁
 | 静态 | `ruff check`、`ruff format --check`、`mypy` | 现有命令，无开关 |
 | 策略 / 契约 / 生命周期 | `pytest tests/providers/{policy,contract,lifecycle}` 用替身与假上游 | 新增候选开关 `AGENTEXAM_RUN_PROVIDER_PROBE=1`（沿用现有 13 个 `AGENTEXAM_RUN_*` 形态） |
 | 真实 PG | 目录与身份扩展片；复用阶段 0 的 `agentexam_dev` / `agentexam_identity_test` | `AGENTEXAM_RUN_*` 既有开关 |
-| 集成 | 容器拓扑与清理 | 仅负责人机器；`tests/providers/runtime/verify.ps1` |
+| 集成 | 容器拓扑与清理 | T1（纯 Docker 层）：任意有 Docker 的机器，`bash tests/providers/runtime/topology-probe.sh`；T2（固定 Harbor）仅负责人机器 |
 
 "出站计数为 0"一律**以假上游服务的请求记录为证**，不凭日志文本推断。受控文案（`failure_summary` / `stage_message`）按[设计冻结第 3.7 节](STAGE1_PROXY_DESIGN_FREEZE.md)断言不命中哨兵值。
 
@@ -96,7 +101,7 @@ T1 可覆盖任务 05 断言清单中**不依赖 Harbor 的全部条目**：做�
 
 T1 第一步必须先验证**本机 Docker 能否创建自定义网络**（前置第 1 项至今未勾）。若本机因虚拟网络问题无法创建，则退回原方案：两半都在负责人机器做。
 
-**T1 执行结果（2026-09-21）**：本机 Docker 能创建自定义网络（前置第 1 项通过）；探针 run 02 七条断言全部测到并通过（27 项判定全 PASS，连续两次一致），并附反向对照自检（故意把做题侧接进出网网络时断言 2/3 如预期失败）。**T2 仍未执行**——固定 Harbor 是否允许替换侧车网络附加仍无结论。证据见[本机实施行动](../../actions/2026-09-21-task05-local-implementation.md)。
+**T1 执行结果（2026-09-21）**：本机 Docker 能创建自定义网络（前置第 1 项通过）；探针七条断言全部测到并通过（**28 项判定**全 PASS，连续两次一致），并附反向对照自检（故意把做题侧接进出网网络时断言 2/3 如预期失败）。**T2 仍未执行**——固定 Harbor 是否允许替换侧车网络附加仍无结论。证据见[本机实施行动](../../actions/2026-09-21-task05-local-implementation.md)。
 
 ## 6. 待授权清单
 

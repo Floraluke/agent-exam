@@ -16,7 +16,7 @@
 
 1. 按实施方案的文件树建立 `adapters/execution/provider_access/` 与 `tests/providers/`，逐片实现并补测试。
 2. 逐片运行 `ruff check`、`ruff format --check`、`mypy` 与定向 `pytest`，记录实际结果；每片完成后再进下一片。
-3. T1 用一次性探针（位于被 Git 忽略的 `runtime/prototype/`，不进产品树）验证不依赖 Harbor 的拓扑断言；探针资源只按 `agentexam.task=05` 标签创建与删除，复核残留为 0，禁止全局 prune。
+3. T1 用探针（开发时在被忽略的 `runtime/prototype/`，证成后按用户确认纳入 `apps/backend/tests/providers/runtime/` 供负责人复用）验证不依赖 Harbor 的拓扑断言；探针资源只按 `agentexam.task=05` 标签创建与删除，复核残留为 0，禁止全局 prune。
 4. 持续更新本行动文档的文件树、偏差与验证结果；文档层变化同步 `docs/LLY/`。
 5. 阶段完成后提交推送，并在任务单 Comments 记录本机部分的完成情况与移交给负责人侧的内容。
 
@@ -40,13 +40,14 @@ apps/backend/tests/providers/
 │                       #   test_run_binding / test_outbound_transport（67 passed, 1 skipped）
 ├─ contract/            # 待建：契约层（本机；固定 CLI 字段名复核在负责人机器）
 └─ lifecycle/           # 待建：生命周期层替身测试（本机）
-runtime/prototype/t05-topology-20260921-01/   # T1 探针 run 01：未证成（工具链故障），作为历史证据保留
-runtime/prototype/t05-topology-20260921-02/   # T1 探针 run 02：已证成（被 Git 忽略，不进产品树）
-├─ probe.sh                        # 固定断言清单 + 健康门禁 + 反向对照自检
-├─ transcript.txt                  # 正常模式原始记录（37 行）
-├─ transcript-negative-control.txt # 反向对照原始记录（故意泄漏，断言 2/3 应失败）
-├─ summary.json                    # 机器可读汇总（status=verified）
-└─ fake-secret/provider.json       # 假值提供方文件（哨兵值，非真实 Key）
+apps/backend/tests/providers/runtime/       # 已纳入仓库：拓扑探针，供负责人机器复用（5 文件，均 ≤200 行）
+├─ topology-probe.sh               # 开机、建网、逐条断言、清理、退出码（189 行）
+├─ topology-lib.sh                 # 探针原语与健康门禁：工具链不健康即中止且不输出断言（90 行）
+├─ topology-verdicts.sh            # 判定标准：每条断言期望什么（49 行，与探针分开评审）
+├─ fake-provider.json              # 假值提供方文件（哨兵值，非真实 Key）；仅挂进代理
+└─ README.md                       # 怎么跑、断言清单、已知坑（含 MSYS 假阴性陷阱）
+runtime/prototype/t05-topology-20260921-01/   # T1 首次运行：未证成（工具链故障），历史证据保留
+runtime/prototype/t05-topology-20260921-02/   # T1 证成时的开发副本（被 Git 忽略），历史证据保留
 ```
 
 ## 自验证方式
@@ -135,10 +136,10 @@ runtime/prototype/t05-topology-20260921-02/   # T1 探针 run 02：已证成（�
 - **无正文日志可证**：`safe_summary()` 的断言包含"不含假值、不含 `Bearer`、不含正文内容"。
 - 出站正文按 `sort_keys` + 紧凑分隔符序列化，因此同一语义的正文字节确定可复现（测试断言键序不同的两种写法产出相同字节）。
 
-**T1 本机拓扑预证——已证成（探针 run 02；27/27 判定通过，连续两次一致）**
+**T1 本机拓扑预证——已证成（探针 run 02；28/28 判定通过，连续两次一致）**
 
-- 探针位置：`runtime/prototype/t05-topology-20260921-02/`（`probe.sh`、`transcript.txt`、`transcript-negative-control.txt`、`summary.json`、`fake-secret/provider.json`）；`/runtime/` 被 `.gitignore` 排除，**探针与证据不进产品树**（与 M0 各次探针同做法）。
-- 结果：`status=verified`、退出码 0。七条断言全部测到并由脚本判定，连同身份记录与清理复核共 27 项判定，全部 PASS。
+- 探针位置：**已纳入仓库** `apps/backend/tests/providers/runtime/`（`topology-probe.sh` + `topology-lib.sh` + `topology-verdicts.sh` + `fake-provider.json` + `README.md`），供负责人机器复用；运行证据默认写到被忽略的 `<仓库根>/.tmp/t05-topology/`。原始开发副本保留在被忽略的 `runtime/prototype/t05-topology-20260921-02/`（同一脚本逻辑，作为首次运行的历史证据）。
+- 结果：`status=verified`、退出码 0。七条断言全部测到并由脚本判定，连同身份记录与清理复核共 **28 项判定**，全部 PASS。
 - **run 01 失败的根因已定位并修复**：监听端容器启动即退出（`Exited (1)`）的原因是 `setpriv: setresuid failed: Operation not permitted`（退出码 127）——`--cap-drop ALL` 去掉了 `CAP_SETUID`/`CAP_SETGID`，而镜像入口脚本需要它们把权限降给 redis 用户。**修法是让监听端以镜像内的 redis 用户运行**（入口脚本因此跳过降权分支），`--cap-drop ALL` 与 `no-new-privileges` 全部保留。这也说明 run 01 的 CLOSED 确为工具链假象：容器根本没起来。
 - **本轮另修掉 4 处探针工具链缺陷，每一处都会产出假阴性或假证据**：
   1. 监听端镜像（Alpine）**没有 bash**，所有 `docker exec … bash -c` 静默失败——从监听端发起的检查（如断言 4）会一律返回 CLOSED。改用镜像自带的 `redis-cli` 做应用层连通性检查。
@@ -148,11 +149,11 @@ runtime/prototype/t05-topology-20260921-02/   # T1 探针 run 02：已证成（�
   另有 2 处匹配错误：`grep` 模式以 `-` 开头被当成选项；本版 Docker 的发布端口输出 `{}` 而非 `null`。
 - **健康门禁已加入**：任一容器非 running、任一地址为空、任一监听端不应答时，探针以 `harness-failed` 中止并 dump 退出码与日志，**不输出任何断言**。run 01 的教训（坏工具链输出 CLOSED，假阴性最危险）因此被结构性阻止；本轮它实际生效过一次（发现"监听端无 bash"）。
 - **反向对照自检已加入并实测**：`NEGATIVE_CONTROL=1` 故意把做题侧接到出网网络，断言 2、3 如预期失败（`status=negative-control-ok`），证明探针**能检出泄漏**——负例断言不是空断言。
-- **第 5 条允许的最小挂载已按断言要求记录范围与理由**：仅代理容器有一个**只读**绑定挂载 `fake-secret/provider.json → /run/agentexam-private/provider.json`，理由是设计上代理需读取 owner 私有提供方文件；**做题侧挂载为空 `[]`**，无发布端口、无 Docker 套接字。
+- **第 5 条允许的最小挂载已按断言要求记录范围与理由**：仅代理容器有一个**只读**绑定挂载 `fake-provider.json → /run/agentexam-private/provider.json`，理由是设计上代理需读取 owner 私有提供方文件；**做题侧挂载为空 `[]`**，无发布端口、无 Docker 套接字。
 - 清理：每次运行后按 `agentexam.task=05` 标签复核，容器/网络/卷残留**均为 0**，未执行全局 prune。
 - **边界（不得混淆）**：本次是 T1（纯 Docker/Compose 层）。它与 Harbor 无关，**T1 通过不等于任务 05 的拓扑验收通过**——最终仍须在固定 Harbor 上成立（T2）。转发实现是中继替身，HTTP 语义与"假 Key 请求形状"属 `service.py`，本探针不覆盖。
 
-原始记录（`transcript.txt`；制表符分隔，依次为断言组 / 项目 / 值）。注：其中出现的宿主路径是本探针自己的**假值文件**（位于被忽略的 `runtime/` 下，只含哨兵字符串），**不是**负责人按第 8 项决定选定的私有提供方文件路径——真实路径按该决定不入 Git：
+原始记录（仓库位置探针的 `.tmp/t05-topology/transcript.txt`；制表符分隔，依次为断言组 / 项目 / 值）：
 
 ```text
 0	mode	normal (no deliberate leak)
@@ -169,7 +170,7 @@ runtime/prototype/t05-topology-20260921-02/   # T1 探针 run 02：已证成（�
 3	workload -> fake upstream 172.20.0.3:6379	CLOSED
 4	proxy -> fake upstream 172.20.0.3:6379	PONG
 5	workload mounts	[]
-5	proxy mounts	[{"Type":"bind","Source":"D:/agent-exam/runtime/prototype/t05-topology-20260921-02/fake-secret/provider.json","Destination":"/run/agentexam-private/provider.json","Mode":"ro","RW":false,"Propagation":"rprivate"}]
+5	proxy mounts	[{"Type":"bind","Source":"/d/agent-exam/apps/backend/tests/providers/runtime/fake-provider.json","Destination":"/run/agentexam-private/provider.json","Mode":"ro","RW":false,"Propagation":"rprivate"}]
 5	published ports (all four)	/agentexam-t05-topology-workload-1 {} /agentexam-t05-topology-proxy-1 {} /agentexam-t05-topology-fakeupstream-1 {} /agentexam-t05-topology-othertrial-1 {} 
 5	docker.sock mount sources (proxy)	0
 6	relay script in proxy	#!/bin/sh|exec nc agentexam-t05-topology-fakeupstream-1 6379|
@@ -179,7 +180,7 @@ runtime/prototype/t05-topology-20260921-02/   # T1 探针 run 02：已证成（�
 6	workload -> proxy:8080 -> upstream reply (1st)	+PONG
 6	workload -> proxy:8080 -> upstream reply (2nd)	+PONG
 6	upstream log: Accepted from proxy (before -> after)	3 -> 5
-6	upstream log line for the forwarded request	1:M 21 Sep 2026 13:39:22.390 - Accepted 172.20.0.2:37233
+6	upstream log line for the forwarded request	1:M 21 Sep 2026 13:45:58.815 - Accepted 172.20.0.2:36659
 6	upstream log: cmd=ping from proxy (before -> after)	2 -> 4
 7	proxy private file visible in workload	ABSENT
 7	workload mounts matching the private file	0
@@ -187,12 +188,14 @@ runtime/prototype/t05-topology-20260921-02/   # T1 探针 run 02：已证成（�
 7	processes with proxy marker seen from workload / from proxy (control)	0 / 1
 7	sentinel hits in workload env / argv	0/0
 8	image identity workload / listener	sha256:74d56e3931e0d5a1dd51f8c8a2466d21de84a271cd3b5a733b803aa91abf4421 sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499
-8	container identity	/agentexam-t05-topology-workload-1 4084eae8d37dfb2d57f063d9169a0242a8fcf5322fd4e093aa277d32fba7ab1b /agentexam-t05-topology-proxy-1 1740f14575f7155bf14c1c674576f9ed1ecf7876e1be440f5307e1dcbbadf9de /agentexam-t05-topology-fakeupstream-1 8480f1f3957fd6f512ec7456039bc12b527b639b406f552f508711aab6684224 /agentexam-t05-topology-othertrial-1 f1ccf14091487fb5f46e6b6dde6458d07832752797dbc996e70636044e6ddf91 
-8	network identity	agentexam-t05-topology_internal 5a6398e439b03560a8911f1de0e024a0886cdcd022169c23fc1cd78633e2d770 internal=true agentexam-t05-topology_egress c71eda3851d733e375b88b4807b5ec44c937f646e64ec0b53ebb038ed6b7a6a0 internal=false agentexam-t05-topology_other 4e51a967ab8732b00019a247ac0a029052b34bf646f656113c59f06f5be61c60 internal=true 
+8	container identity	/agentexam-t05-topology-workload-1 cf370f5b6de4c4cb6f4ce781adc37b6e615c9d079e1c0c58867132d904926fc3 /agentexam-t05-topology-proxy-1 fb3fc5299fff0600181be4fc6dc45065f5492efb5407bfbcd3a3f0ce065aa2d0 /agentexam-t05-topology-fakeupstream-1 530eaa431f25e8e0d98c1f4ca639ccadfd0c7d5ae31d2530efd2ab40c55db2f6 /agentexam-t05-topology-othertrial-1 6ec801f66e5deeec118ac69eac60733f3b1f4d0caa333a64728bf7b15e9ad088 
+8	network identity	agentexam-t05-topology_internal d8adbc0b5a816ac3101aad94090066eb5a21e9c491dae6e9727a31eed8663fd8 internal=true agentexam-t05-topology_egress 15f725f3cb30252bdfffafcc2439c6b75b4ce4b9d972dec6435c96fa712fe8ce internal=false agentexam-t05-topology_other 1f5037cea292576ab85128bb535ff9e4cdff0a2cd21553cb048eeca316b2ce39 internal=true 
 9	remaining containers with label	
 9	remaining networks with label	
 9	remaining volumes with label	
 ```
+
+注：其中出现的宿主路径是本探针自带的**假值文件**（`apps/backend/tests/providers/runtime/fake-provider.json`，只含哨兵字符串），**不是**负责人按第 8 项决定选定的私有提供方文件路径——真实路径按该决定不入 Git。
 
 ### 未完成与遗留
 
