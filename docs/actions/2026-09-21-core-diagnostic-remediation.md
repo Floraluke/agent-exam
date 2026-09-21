@@ -145,4 +145,7 @@ infrastructure/
   `tsconfig.json`；删除构建产物后的类型检查和单规格复测均通过。
 - `npm audit --omit=dev --audit-level=low` 与全依赖
   `npm audit --audit-level=low` 均报告 `0 vulnerabilities`。
+- 文档齐平核对时发现身份约束迁移函数没有 owner CLI 入口；已在既有
+  `delivery.catalog` 增加 `upgrade-api-constraints`，旧库可显式、幂等且
+  失败关闭地升级。CLI 定向测试 `5 passed, 1 skipped`，Ruff/Mypy 通过。
 - Python 全量测试、覆盖率、Python 依赖审计和权威文档齐平仍待后续节点完成。

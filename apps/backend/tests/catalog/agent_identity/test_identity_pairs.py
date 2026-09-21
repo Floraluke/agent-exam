@@ -5,6 +5,7 @@ from uuid import uuid4
 
 import pytest
 
+from eval_platform.delivery import catalog as catalog_delivery
 from eval_platform.domain.agent import AgentConfiguration
 
 
@@ -66,3 +67,19 @@ def test_database_rejects_crossed_controlled_identity(postgres_sandbox) -> None:
     record = RegisteredAgent(crossed, "Crossed identity", datetime.now(UTC))
     with pytest.raises(CatalogUnavailable):
         PostgresAgentRepository(postgres_sandbox.dsn).register(record)
+
+
+@pytest.mark.parametrize(
+    ("changed", "expected"),
+    [(True, "已升级"), (False, "无需重复升级")],
+)
+def test_identity_constraint_upgrade_command_reports_result(
+    monkeypatch, capsys, changed: bool, expected: str
+) -> None:
+    monkeypatch.setattr(catalog_delivery, "database_url", lambda: "test-dsn")
+    monkeypatch.setattr(
+        catalog_delivery, "upgrade_api_constraints", lambda dsn: changed
+    )
+
+    assert catalog_delivery.main(["upgrade-api-constraints"]) == 0
+    assert expected in capsys.readouterr().out
