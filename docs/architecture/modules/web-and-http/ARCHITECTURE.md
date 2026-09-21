@@ -1,6 +1,6 @@
 # Web 与 HTTP Module
 
-> 当前状态：M1 身份、目录、Job、批准、取消/恢复、报告、证据和排行榜的 Next.js/FastAPI 路径已实现；跨批次比较后端 GET 已注册，任务 03 的 Web 对比页尚未实现。Tailscale 双机负向/VPN/离线验收仍未全部完成。
+> 当前状态：M1 身份、目录、Job、批准、取消/恢复、报告、证据和排行榜的 Next.js/FastAPI 路径已实现；跨批次比较的后端与 Web 对比页均已实现并合入 `main`（任务 03 收口，含手机端横向滚动）；任务 04 的 B 切片（向导在六题与 `continuous` 规模下的动线、网页读取面暴露扫描）与任务 05 的 B 切片（仅必要错误呈现）也已完成。Tailscale 双机负向/VPN/离线验收仍未全部完成。
 > 权威范围：浏览器、Next.js 和 FastAPI 怎样交接，以及当前页面/路由实现位置。
 >
 > 配套文件：[接口索引](interface.md)（调用面硬规则与端点族清单）、[进展与未决项](progress.md)、[任务 03 总行动](actions/03-report-catalog.md)。架构事实只在本文维护，那几份不复制。
@@ -50,8 +50,9 @@ apps/web/
     shell.tsx                         # URL 可恢复导航、角色边界和移动端菜单
     dashboard.tsx                     # 当前可见页与 owner 待审批/执行/异常状态分组
   src/features/jobs/
-    listing/                          # 服务端筛选、游标页栈、详情/列表 URL 组合
+    listing/                          # 服务端筛选、游标页栈、详情/列表 URL 组合、对比勾选与「对比所选」
     wizard/                           # 三步选择、提交幂等和选项重读
+    reporting/comparison.tsx          # 跨批次对比矩阵：列头/行/单元格/汇总与钻取
     *.tsx                             # 批准、详情、取消、恢复、报告和证据 UI
   src/features/leaderboard/           # 基础排行榜 UI
   src/lib/api-client.ts               # 同源 fetch、错误和 actor 校验
@@ -90,4 +91,4 @@ Web 依赖 HTTP Interface，不依赖后端源码目录或数据库 schema。所
 
 各 M1 任务的 HTTP/浏览器历史证据见对应行动文档；私有入口当前进展见[远程验收行动](../../../actions/2026-09-14-m1-private-remote-acceptance.md)。扩展任务 02 当时已通过 TypeScript、Next 生产构建、32 条全量浏览器回归、390/360 无页面溢出、双轴评审，以及当时文档 31 项与实时 OpenAPI 31 项零差异检查；这个历史数字不随之后新增端点重写。当前注册端点为 32 项。
 
-待完成包括扩展任务 03 的 Web 对比报告信息结构、客户端解析与逐控件接线，以及完整 Tailscale 双机负向/VPN/离线验收；后端 `GET /api/v1/reports/comparisons` 已存在，但没有页面或按钮。任务 02 没有新增接口、数据库表、Worker/模型或部署行为。当前远程接入规则见[远程接入](../../../operations/REMOTE_TEAM_ACCESS.md)，部署事实见[所有者单机运行](../owner-host-runtime/ARCHITECTURE.md)。
+扩展任务 03（对比报告的契约、后端与 Web 页面）已完成并合入 `main`，任务的三个子行动全部收口；任务 04 的 B 切片（三步向导在六题与 `continuous(1–20)` 规模下的浏览器动线、网页读取面暴露扫描）与任务 05 的 B 切片（仅必要错误呈现的通道审计与 §10.2 字段内容约束）也已完成并合入。**待完成**：完整 Tailscale 双机负向/VPN/离线验收；任务 05 中依赖假提供方链落地的两项呈现验证（受控文案的忠实呈现、未知错误码的失败关闭）；对比矩阵在 20 列量级下的横向滚动手感。任务 02–05 的 B 切片均未新增接口、数据库表、Worker/模型或部署行为（`GET /api/v1/reports/comparisons` 由 `7553ce0` 交付，不在 B 的改动内）。当前远程接入规则见[远程接入](../../../operations/REMOTE_TEAM_ACCESS.md)，部署事实见[所有者单机运行](../owner-host-runtime/ARCHITECTURE.md)。
