@@ -364,3 +364,29 @@ provider 失败映射仍与代码对齐。
 返回 `status=negative-control-ok`，并明确检测到故意开放的公网、metadata 与
 假上游路径；结束后按 `agentexam.task=05` 标签复核，容器、网络、卷残留均为
 0。该证据只证明本次纯 Docker T1 探针健康，不替代固定 Harbor 的 T2 验收。
+
+### 9.4 修复后复核
+
+| 编号 | 状态 | 实际处置 |
+|---|---|---|
+| CR-14 | 已修复并验证 | 当前状态表改用 `01feba4` 后端/根统一门禁与无参数 Mypy 实测；`fb8aadf` 段落明确标为历史时点，不再冒充当前结论 |
+| CR-15 | 已修复并验证 | 当前进展文档只保留一份“任务 05 的受控词汇对齐”记录；逐字重复副本已删除 |
+| CR-16 | 已修复并验证 | 删除无引用的 `parseArtifactPage` / `ArtifactPage`；HTTP 端点继续保留，追踪表改为 Web 当前未接线并指明报告页使用 `runReport().artifact_links` |
+| CR-17 | 已修复并验证 | 当前进展新增 2026-09-22 环境事实更正；历史准备行动保持原文，未反向改写 |
+
+修复后验证结果：Web ESLint 与 TypeScript 通过；禁用 Next 遥测配置写入后，
+隔离目录生产构建通过，4 个静态页面生成完成；使用系统 Chrome 的 45 项
+Playwright 回归全部通过。构建隔离目录已在核对绝对路径后精确删除，Next 自动
+改写的 `next-env.d.ts` / `tsconfig.json` 已恢复，恢复后类型检查再次通过。
+
+后端未完成批次报告定向用例为 `4 passed`。第一次只跑该文件时四条断言已通过，
+但全局 80% 覆盖率门槛因单文件仅覆盖 44.12% 而使命令失败；改用 `--no-cov`
+确认定向行为后，又运行默认全量覆盖率门禁：`510 passed, 102 skipped`，分支
+覆盖率 86.38%。仓库根统一入口为 `521 passed, 112 skipped`；Ruff lint、321
+文件格式检查、无参数 Mypy 177 个源文件均通过。Markdown 相对链接、Git 空白
+错误、无引用符号及重复标题扫描均通过。
+
+本节没有修改已结束的 `docs/actions/` 或已完成的 `docs/research/`。用户已有的
+`.scratch/ui-catalog-providers.zip` 与 `apps/web/%USERPROFILE%/` 仍未跟踪、未修改、
+未暂存。托管 CI 与外部固定 Harbor/真实提供方范围仍沿用第 8.1 节边界，不因本次
+远端增量复审自动扩大授权。

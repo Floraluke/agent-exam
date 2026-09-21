@@ -73,7 +73,7 @@
 | `GET /api/v1/reports/jobs/{job_id}` | `job-client.jobReport` | Job 详情读取批次进度 | 与 Job 可见范围相同 |
 | `GET /api/v1/reports/runs/{run_id}` | `job-client.runReport` | 批次/详情读取单题运行报告 | 与来源 Job 可见范围相同 |
 | `GET /api/v1/reports/comparisons` | `reporting/comparison-client.comparison` | 对比报告按所选可见 Job 读取题目×配置矩阵；页面另复用 Job 详情和 Run 报告，不在浏览器改写结论 | owner 可读全部；collaborator 仅本人创建的 Job |
-| `GET /api/v1/runs/{run_id}/artifacts` | `job-client.runArtifacts` | 安全证据读取制品元数据和保留状态 | 与来源 Job 可见范围相同 |
+| `GET /api/v1/runs/{run_id}/artifacts` | —（Web 当前未接线） | 后端保留独立的制品元数据/保留状态索引；当前报告页改用 `job-client.runReport` 响应中的 `artifact_links` | 与来源 Job 可见范围相同 |
 | `GET /api/v1/runs/{run_id}/trajectory` | `job-client.runTrajectory` | 安全证据分页读取脱敏轨迹 | 与来源 Job 可见范围相同 |
 | `GET /api/v1/artifacts/{artifact_id}/content` | 报告页同源下载链接 | 下载公开补丁/测试摘要/公开轨迹正文 | 与来源 Job 可见范围相同；仅公开白名单类型 |
 | `GET /api/v1/leaderboard` | `leaderboard/client.leaderboard` | 排行榜按完整冻结条件查询/翻页 | 任一已登录用户；仅正式结果 |
