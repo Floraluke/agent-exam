@@ -2,7 +2,7 @@
 
 ## 状态与情况说明
 
-- 状态：已完成。`fengyy-fixweb` 与最新 `origin/main` 均已整合、验证、提交并普通推送；主工作区停在 `main`，临时浏览 worktree 已安全移除。
+- 状态：已完成。`fengyy-fixweb` 与收尾期间出现的两轮 `origin/main` 并发更新均已整合、验证并普通推送；主工作区停在 `main`，临时浏览 worktree已安全移除。
 - 来源请求：本地提交现有代码，把 `fengyy-fixweb` 合并入 `main`，并让主仓库最终停在 `main`。
 - 起始分支事实：主工作区已在 `main`，起始 HEAD 为 `fd369cc`，相对 `origin/main` 落后 66 个提交；`fengyy-fixweb` 为 `d9a7759`，含最新 `origin/main` 与任务 05 负责人文档提交。
 - 当前本地工作：主工作区包含已完成但未提交的任务 03 对比报告 UI、正式运行态交接、共享 PostgreSQL 连接文档、任务 05 首轮事实填充及相关权威文档同步。对应行动记录均已存在并记录测试结果。
@@ -64,4 +64,4 @@ HANDOFF.md # 合并后的唯一恢复入口
 - Backend 最终验证：在最新远端主线整合后，报告矩阵定向回归为 **16 passed / 2 skipped / 2 warnings**；`ruff check` 通过；`ruff format --check` 为 300 个文件符合；`mypy` 为 169 个源文件无问题；默认回归在受控临时目录中为 **424 passed / 96 skipped / 2 warnings / 0 failed**。前两次 149 个错误均来自沙箱拒绝 pytest 临时目录，获准环境复跑后归零；96 项外部存储、Docker、Fork/Harbor 等门禁如实保留为 skipped。
 - 文档与 Git：41 个本轮暂存 Markdown 共检查 444 个仓库相对链接，缺失 0；`git diff --check` 通过；仓库范围无冲突标记。源文件仍满足动态语言单文件 200 行上限，合并后的 `comparison.tsx`、`matrix.tsx`、`shell.tsx` 分别为 155、51、134 行。
 - 安全与排除：未运行任务 05 拓扑探针，未创建/删除其 Docker 资源，未读取 Key 或调用供应商。`.scratch/ui-catalog-providers.zip` 与 `apps/web/%USERPROFILE%/` 继续只保留在本地、不提交也不删除。
-- Git 收尾：整合最新 `origin/main` 的第二个合并提交为 `d7e875f`（`merge: integrate latest origin main`），已普通推送 `main`，推送范围为 `051ea51..d7e875f`；随后以 `git ls-remote` 核对本地和远端均为 `d7e875f1a60e73dc4245c4c6aa71383e088e4c93`。临时 `runtime/worktrees/fengyy-fixweb` 在确认干净、绝对路径位于项目 `runtime/worktrees` 下后已移除；`fengyy-fixweb` 分支和 `d9a7759` 提交仍保留。主工作区当前为 `main`，仅余两项明确排除且未跟踪的本地产物。
+- Git 收尾：整合第一轮最新 `origin/main` 的合并提交为 `d7e875f`（`merge: integrate latest origin main`），已普通推送 `main`，推送范围为 `051ea51..d7e875f`；当时以 `git ls-remote` 核对本地和远端均为 `d7e875f1a60e73dc4245c4c6aa71383e088e4c93`。行动记录收尾提交 `09425a4` 推送时，远端又并发前进到 `d49d6d1`；普通推送被正确拒绝，未强推。新增内容经审计仅为 Web/HTTP 进度文档中的 tailnet 根因和任务 08 延期事实，已无冲突合并并通过文档/Git 检查后再次普通推送。临时 `runtime/worktrees/fengyy-fixweb` 在确认干净、绝对路径位于项目 `runtime/worktrees` 下后已移除；`fengyy-fixweb` 分支和 `d9a7759` 提交仍保留。主工作区当前为 `main`，仅余两项明确排除且未跟踪的本地产物。
