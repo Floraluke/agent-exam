@@ -59,7 +59,7 @@ docs/interfaces/HTTP_API.md      # §10.4 现行正文在 main 上（B 的分支
 - B 侧**未新增任何实现代码**；子行动 c 未开始。
 - **已执行（2026-09-20，基于当时的 `beed93f`）**：后端环境恢复（`uv 0.12.17` + uv 管理的 Python 3.13.15）；`test_comparison_http.py` → **3 passed**、`tests/jobs/reporting` → 14 passed / 2 skipped、全量 → 2 failed / 404 passed / 84 skipped。当时该分支无第 4 个用例，故为 3。
 - **未在新 `main` 上重跑**：环境已就绪；建议按 **4 passed** 预期重跑并核对那 2 个 Harbor 失败。基线可移植性说明见[进展与未决项](../progress.md)。
-- **未执行**：B 侧未运行 `ruff` / `mypy`；未复核实时 OpenAPI 计数。
+- **未执行**：B 侧未运行 `ruff` / `mypy`。
 
 ## 6. 未验证项与待确认项
 
@@ -69,4 +69,4 @@ docs/interfaces/HTTP_API.md      # §10.4 现行正文在 main 上（B 的分支
 | 在**新 main** 上重跑测试 | 环境已就绪，未执行；预期 4 passed + 2 个 Harbor 失败 |
 | 与 D 的重复工作 | ✅ 已关闭 | D 于 2026-09-21 拍板接受 `main` 为最终形态：`cdcb4cf`/`c5e036d` 不再合入，以 `7553ce0` 为准；"不收敛"决定作废；`xinyue-modules` 转历史存档。细节见[进展与未决项](../progress.md) |
 | 任务 03 的正式 issue | `.scratch` 当前无 `03-*` 任务单；是否发布待 B 确认 |
-| 实时 OpenAPI 计数 | 环境已具备条件，未复核 |
+| 实时 OpenAPI 计数 | ✅ 已复核：32 个端点与 §2.1 的 32 条逐条集合比对差异 0（2026-09-21，见[进展与未决项](../progress.md)） |
