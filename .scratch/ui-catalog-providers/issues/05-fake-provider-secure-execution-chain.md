@@ -134,3 +134,19 @@ E 侧已有准备产物：[阶段 1 代理测试设计](../../../docs/LLY/01-pla
 - 两条结构性门禁已进测试：**词汇表防漂移**（扫描包内所有大写码字面量，出现未决定的新码即失败）与**文案哨兵扫描**（发布文案不得含上游主机名/URL、路径、profile 名、令牌片段、容器与网络拓扑词，长度也受限）。门禁区分力已实测（注入 `TRANSPORT_NEW_UNREVIEWED_CODE` 即失败并指名）。
 - **请 B 在 `HTTP_API.md` 第 10.2 节把四个受控码列入枚举**（当前为候选）：`PROVIDER_CREDENTIAL_UNAVAILABLE`、`PROVIDER_ACCESS_DENIED`、`PROVIDER_REQUEST_REJECTED`、`PROVIDER_BUDGET_EXHAUSTED`，以及通用兜底 `PROVIDER_ACCESS_FAILED`。若 B 更倾向别的命名或粒度（例如额度与期限拆成两个码），E 按契约改映射表与用例即可。
 - 边界：映射表当前**尚无调用方**——接线在 `service.py`（其网络形态待 T2 结论），因此本片只保证"映射存在且受门禁保护"，不声称任何失败链路已端到端可用。
+
+2026-09-21 本机部分实施完毕（S6a–S6e，`service.py` 与接线）
+
+按 [`docs/LLY/01-plan/STAGE1_PROXY_SERVICE_PLAN.md`](../../../docs/LLY/01-plan/STAGE1_PROXY_SERVICE_PLAN.md) 实施五片，实测与证据见[本机实施行动](../../../docs/actions/2026-09-21-task05-local-implementation.md)：
+
+- **S6a 入口、鉴权、策略、凭据**：`decide()` 按六步失败关闭顺序执行（形状 → 鉴权 → 策略 → 凭据 → 预留 → 出站描述），任一步失败都给固定内部码 + 受控文案，且**不动账本、不出站**。
+- **S6b 额度与结算**：`stream.py` 只解释终止事件（有界缓冲，畸形帧一律当"没有 usage"）；`runner.py` **无论流怎么结束都只结算一次**——没有终止事件、被切断、超时、客户端中途离开，一律**按整笔预留全额计费并关闭该 Run**。
+- **S6c 出站与流透传**：`egress.py` 是全项目唯一开 socket 的地方（一次连接、一次尝试、不跟随重定向、上游状态映射为固定码）；`http.py` 用受控文案应答、字节原样透传，**客户端消失也会结算**。
+- **S6d 收束**：`closure.py` 撤销令牌 + 关闭账本，首个原因不被改写；"新代理 + 同一账本"继承已花费额度，**重启不是重新发额度**。
+- **S6e 秘密外表面**：五条错误路径的对外文案与响应头、进程 stdout/stderr、环境与 argv、运行目录落盘文件，**全部零哨兵命中**；经代理发出的凭据是代理自己的假值，做题侧令牌从未到达上游。
+
+证据方式（不用日志文本推断）：假上游自己的请求记录证明"经代理发出"（1 次请求、模型名与凭据来自绑定）与"被拒时只有一次尝试"；客户端收到的字节与上游逐字节一致。**区分力实测七处**（改实现让它失败、还原后通过）。最终实测：**默认回归 587 passed / 105 skipped / 2 failed**（失败项仍是缺 `framework/harbor` 的 ISSUE-04）、`pytest tests/providers` **165 passed / 1 skipped**、静态检查全绿。
+
+**仍未完成，且都等 T2**：S9（worker 按 Run 选绑定）、S10（`net/` 与网络接线）、S11（集成层：容器拓扑、直连拒绝、宿主隔离、假 Key 探查、精确清理）——这些必须在固定 Harbor 上回答，属负责人机器。S2 的 TOML 字段名与事件词表也要在那台机器上用固定 CLI 对账。
+
+**请负责人/用户定夺一件安全取舍**：`build_outbound` 会转发除认证头以外的客户端头。`Host` / `Accept-Encoding` / `Content-Length` / `Transfer-Encoding` / `Connection` 现由传输层接管（否则会出现两个 Host、或压缩流破坏终止事件解析），但 `X-Forwarded-Host` 一类仍会到达注册上游（**目的地本身不受影响**，已断言）。是否收紧为白名单（只留 `Content-Type` 等）需明确。
