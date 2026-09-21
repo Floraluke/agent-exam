@@ -77,18 +77,24 @@ apps/web/tests/jobs/comparison.spec.ts           # 新增：本表 2.1 节的浏
 
 - `npm run typecheck`（`tsc --noEmit`）→ **退出码 0**，零类型错误。
 - `npm run build`（`next build`）→ **退出码 0**，`Compiled successfully in 29.2s`，静态页生成 4/4。
-- `npm run test:e2e -- comparison.spec.ts` → **2 passed**（15.9s）：
+- `npm run test:e2e -- comparison.spec.ts` → **3 passed**：
   - `owner compares two batches and reads the matrix without inventing results`：两列矩阵；列头是配置显示名且可点进批次详情；两批各一格有结果、一格缺失；缺失格显示「无运行」且**不提供钻取按钮**（`getByRole("button")` 计数为 0）；汇总行含 `decided/total` 比值；页面不出现 `coverage` 文本；单元格钻取进入既有单次运行报告并可返回矩阵。
   - `comparison selection stays opt-in and resets on reload`：0 项时「对比所选」禁用，勾选 1 项后可用；刷新后归零且 `job_ids` 不写进 URL。
+  - `390 and 360 contain the matrix without page overflow`：手机菜单进入列表并勾选；断言矩阵容器 `overflow-x: auto`（页面本身是 `body { overflow-x: hidden }`，容器不接管宽表会被**裁掉**而非可滚动）且页面在 390/360 下均无横向溢出；两档各留一张截图到 `runtime/tests/03-comparison-mobile-{390,360}.png`（`runtime/` 被忽略）。
 - `npm run test:e2e`（**全量 18 个 spec**）→ **退出码 0，全绿**；既有身份、目录、Job、报告、证据、制品保留、排行榜与工作台动线**无回归**。
+
+**本轮由验证抓出并修复的缺陷（如实记录）**：首版矩阵只加了 `className="comparison-matrix"`，**没有对应的 CSS 规则**。由于 `body { overflow-x: hidden }`，宽表在手机上会被静默裁掉。补 `.comparison-matrix { overflow-x: auto }` + 五档着色后，由上面的手机用例断言容器的 `overflow-x` 与页面无溢出。这条也是"契约表写了移动端要求、但实现漏掉"的实例——契约行本身没有保证实现。
+
+**未覆盖（如实记录）**：
 
 环境前置（本机一次性，均不改仓库）：`npm ci --ignore-scripts`；按[依赖总表](../../../../dependencies/DEPENDENCIES.md)第 119 行生成自签证书到 `runtime/tests/`（`runtime/` 已被 `.gitignore:55` 命中；`-subj /CN=...` 在 Git Bash 下需 `MSYS_NO_PATHCONV=1`，否则参数被路径转换破坏）；用 `AGENTEXAM_USE_SYSTEM_CHROME=1` 复用系统 Chrome，避免下载 Playwright 浏览器。
 
 **未覆盖（如实记录）**：
 
-- 手机 390/360 下矩阵横向滚动的**截图证据未采集**——契约表的「移动端」一行只由 `.comparison-matrix` 的 `tabIndex`/横向滚动容器实现，`workbench/mobile.spec.ts` 覆盖的是既有页面、不含新矩阵页。
 - 后端的两条 400（空选择、超过 20）**未在浏览器用例里断言**：前端在 0 项时禁用按钮、在 20 项时禁用勾选框，所以正常操作打不到这两条错误；服务端边界由后端契约测试覆盖。
+- 手机用例断言的是"容器接管横向滚动且页面不溢出"，**没有强制制造宽表溢出**（本次只用 2 列，390px 下并不溢出）。列数很多时的横向滚动手感需在真实对比（如 20 列）时再看。
 - `data-outcome` 是为可测性加的 DOM 语义属性，属实现细节，**未写进 `HTTP_API.md`**。
+- 矩阵页的手机截图在 `runtime/tests/`（gitignored），**没有进仓库**；需要长期证据时另行安排。
 
 ## 7. 明确不做（v1）
 

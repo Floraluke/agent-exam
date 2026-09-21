@@ -78,8 +78,7 @@ test("owner compares two batches and reads the matrix without inventing results"
   await expect(page.getByText("还没有选择要对比的批次")).toBeVisible();
 });
 
-test("comparison selection stays opt-in and resets on reload", async ({ page }) => {
-  await loginOwner(page);
+test("comparison selection stays opt-in and resets on reload", async ({ page }) => {  await loginOwner(page);
   await registerCatalog(page);
   await submit(page, "example__repo-1");
 
@@ -94,4 +93,49 @@ test("comparison selection stays opt-in and resets on reload", async ({ page }) 
   await expect(page.getByRole("button", { name: /对比所选（0\// })).toBeDisabled();
   await expect(page.getByLabel("选择对比").first()).not.toBeChecked();
   expect(new URL(page.url()).searchParams.get("job_ids")).toBeNull();
+});
+
+test("390 and 360 contain the matrix without page overflow", async ({ page }) => {
+  // 准备阶段用默认桌面宽度：既有助手按侧栏常驻编写，手机端侧栏是收起的。
+  await loginOwner(page);
+  await registerCatalog(page, true);
+  await submit(page, "example__repo-1");
+  await submit(page, "example__repo-2");
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  // 手机端经菜单进入评测列表；点导航后菜单自动收起。
+  const nav = navigation(page);
+  await page.getByRole("button", { name: "打开主导航" }).click();
+  await expect(nav).toBeVisible();
+  await nav.getByRole("button", { name: "评测", exact: true }).click();
+  await expect(nav).not.toBeVisible();
+  await page.getByLabel("选择对比").nth(0).check();
+  await page.getByLabel("选择对比").nth(1).check();
+  await page.getByRole("button", { name: /对比所选/ }).click();
+  await page.getByRole("button", { name: "应用对比" }).click();
+
+  const table = page.getByRole("region", { name: "跨批次对比报告" })
+    .getByRole("table");
+  await expect(table).toBeVisible();
+  // 宽表必须由矩阵容器承载横向滚动：body 是 overflow-x: hidden，
+  // 容器不接管的话宽表会被裁掉而不是可滚动。
+  await expect.poll(() => page.evaluate(() => {
+    const box = document.querySelector(".comparison-matrix");
+    return box !== null && getComputedStyle(box).overflowX === "auto";
+  })).toBe(true);
+  await expect.poll(() => page.evaluate(() =>
+    document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+  )).toBe(true);
+  await page.screenshot({
+    path: "../../runtime/tests/03-comparison-mobile-390.png", fullPage: true,
+  });
+
+  await page.setViewportSize({ width: 360, height: 800 });
+  await expect(table).toBeVisible();
+  await expect.poll(() => page.evaluate(() =>
+    document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+  )).toBe(true);
+  await page.screenshot({
+    path: "../../runtime/tests/03-comparison-mobile-360.png", fullPage: true,
+  });
 });

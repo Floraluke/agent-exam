@@ -97,7 +97,7 @@ export default function JobList({
   return <section aria-label="评测列表">
     <div className="section-heading">
       <div><span className="eyebrow">服务器可见范围</span><h2>评测列表</h2></div>
-      <div>
+      <div className="heading-actions">
         <button onClick={newJob}>新建评测</button>
         <button disabled={selected.length === 0} onClick={compare}>
           对比所选（{selected.length}/{COMPARISON_LIMIT}）

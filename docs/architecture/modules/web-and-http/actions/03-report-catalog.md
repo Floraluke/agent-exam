@@ -18,7 +18,7 @@
 |---|---|---|---|
 | a. `03-comparison-api-spec` | 把对比接口写进 `HTTP_API.md` §10.4 | ✅ 已落笔；**PR #3 已决定关闭**——`main` 上已有 §10.4（`7553ce0` 重写），合并会整段替换 | 契约行动在原分支上：`docs/actions/2026-09-20-task03-comparison-api-doc.md`（**不随本 PR 进 main**，分支 `task03/comparison-api-spec`） |
 | b. `03-comparison-api-impl` | 对比接口的 HTTP 实现 | ✅ **已在 `main` 上完成**（路由、DTO、严格参数校验、五档收敛、契约用例 4 个，`7553ce0`） | 见上表契约行动的"后续"节与[进展与未决项](../progress.md) |
-| c. `03-comparison-ui` | 对比页 UI（列头、单元格、覆盖率、钻取） | ⏳ **契约表已定稿**（入口/多选/限制差异三项已确认），代码未开始 | [逐控件契约表](03-comparison-ui.md)；写代码前按表逐行落实 |
+| c. `03-comparison-ui` | 对比页 UI（列头、单元格、覆盖率、钻取） | ✅ **已实现并验证**（分支 `feat/03-comparison-ui`，待评审合入） | [逐控件契约表](03-comparison-ui.md)（含第 6 节自验证结果：typecheck/build 0、3 条浏览器用例、全量 18 spec 无回归） |
 
 ## 3. 当前后端结构（`main` 实际；任务 03 只需消费，不需改动）
 
