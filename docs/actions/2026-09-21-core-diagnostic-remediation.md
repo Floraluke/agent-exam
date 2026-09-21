@@ -174,3 +174,20 @@ infra/
 
 - CR-05 只剩托管 CI：需要新建顶层 `.github/workflows/quality.yml`。现有目录无法承载 GitHub Actions，而项目规则要求新增顶层目录先取得用户确认。
 - 若用户同意，预计 1～3 小时完成最小矩阵、文档与验证后再做最终本地提交；若不同意，则把“完整本地门禁、无托管 CI”记为接受限制并封存本行动。
+
+### 第二次远端拉取与复审节点（进行中）
+
+- 在本地质量节点 `01feba4` 后发现 `origin/main` 前进，已拉取并解决 Web 模块
+  `ARCHITECTURE.md`、`progress.md` 的内容冲突；两侧事实均保留，合并节点为
+  `288bb35`。合并后 Web lint/TypeScript、Shell 语法和 Markdown 相对链接检查
+  通过。
+- 按 `code-review` 的固定点流程，以 `01feba4...288bb35` 分别执行 Standards
+  与 Spec 复审。Standards 轴报告 3 项，Spec 轴报告 2 项；保持两轴独立，去重后
+  映射为 CR-14～CR-17。诊断已先写入
+  `docs/reviews/2026-09-21-core-code-diagnostic-report.md`，此时尚未修改对应产品
+  代码或当前权威文档。
+- 任务 05 拓扑探针已在 Docker 27.5.1 实跑：正常组 `status=verified`，反向
+  对照组 `status=negative-control-ok`；标签复核无容器、网络或卷残留。该结果
+  只覆盖纯 Docker T1，不扩大为固定 Harbor T2 通过。
+- 下一步按顺序修复 CR-14～CR-17，运行 Web 静态检查、目标测试、文档一致性和
+  必要全量门禁，再独立本地提交；历史行动/研究档案继续只读。

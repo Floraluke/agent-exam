@@ -299,3 +299,68 @@ CR-05 的托管 CI 是当前唯一需要用户选择的代码库变更。若用�
 本报告现在同时保留“发现时诊断”和“修复后复核”。后续若修改 Agent 身份集合、catalog schema、Job snapshot、Worker/Harbor 装配、provider access、比较页、依赖锁或当前权威文档，应重新审查受影响的 CR 条目。
 
 未来扩展 Agent 的目标不会与本次修复天然冲突：本轮已把身份对、秘密、出站、预算和失败关闭边界收紧，正好可作为扩展规格输入。但两个目标不能同时修改上述同一组契约；应以本轮最终本地提交为固定起点，再建立独立行动和迁移规格。真实供应商调用、账号、额度、充值与远端运行仍需当轮授权。
+
+## 9. 2026-09-22 第二次远端增量复审
+
+第二次拉取以 `01feba4c75d3c488b527ef7c45f0d2298198858a` 为固定起点，
+复审合并结果 `288bb35703d5e38cf3f261003edf77e466f4b46e`；固定比较命令为
+`git diff 01feba4...288bb35`。本节只评价该增量，不反向改写已结束的
+`docs/actions/` 或已完成的 `docs/research/`。
+
+### 9.1 Standards 轴
+
+- **P2｜当前状态表回退到旧门禁事实：**
+  `docs/architecture/modules/web-and-http/progress.md:220-224` 仍把
+  `fb8aadf` 时点的两项 Harbor 环境失败和“无参数 Mypy 不可用”列作当前结论；
+  固定起点已经让无参数 Mypy 对 177 个源文件通过，后端与仓库根统一门禁也已
+  通过。修复方向是保留带提交号的历史运行段落，但把当前状态表更新为最新实测
+  或指向本报告的最终实测节。预计 0.5～1 小时。
+- **P3｜当前进展文档存在逐字重复：**
+  `docs/architecture/modules/web-and-http/progress.md:35-44` 与 59～68 行是
+  完全相同的“任务 05 的受控词汇对齐”节，违反单一事实源并破坏倒序时间线。
+  修复方向是只保留一份当前记录，不触碰历史行动文档。预计 0.25 小时。
+- **P3｜死代码清理没有传递闭合：**删除 `job-client.runArtifacts` 后，
+  `apps/web/src/lib/report-shapes.ts:4,120-129` 的 `parseArtifactPage` 与
+  `apps/web/src/lib/contracts.ts:191` 的 `ArtifactPage` 已无引用。修复方向是删除
+  这两个无引用导出及导入，同时保留后端 artifact 索引端点和 Run Report 的
+  `artifact_links`。预计 0.5～1 小时。
+
+本轴其余范围通过：拓扑探针的动态 Redis uid/gid、端口绑定判定和健康门禁与
+README 一致；Shell/TypeScript 文件规模符合项目指标；HTTP 受控身份与五类
+provider 失败映射仍与代码对齐。
+
+### 9.2 Spec 轴
+
+- **P2｜HTTP 端点追踪表指向已删除的 Web 调用：**
+  `docs/interfaces/HTTP_API.md:76` 仍把 `job-client.runArtifacts` 写成
+  `/runs/{run_id}/artifacts` 的当前调用方，但本次增量已删除该函数；报告页实际
+  通过 `runReport()` 返回的 `artifact_links` 渲染证据。修复方向是保留后端
+  端点契约，把 Web 接线状态改为“当前未接线”，并说明报告页的真实数据来源。
+  预计 0.25～0.5 小时。
+- **P3｜06/07 准备件沿用失效的环境理由：**
+  `docs/actions/2026-09-22-b-task06-07-results-presentation-test-design.md:28`
+  以“本机无 Docker”解释真实 API 层只能在负责人机器运行；任务 05 当前规格和
+  本轮实测均证明本机已有 Docker，真正未满足的是固定 Harbor、私有环境等条件。
+  该文件是已完成行动档案，本轮不得反改；修复方向是在当前权威进展文档追加
+  带日期的事实更正，并在未来 06/07 正式任务单沿用正确理由。预计 0.25～0.5
+  小时。
+
+本轴其余范围通过：拓扑探针变更符合任务 05 的 T1 边界；06/07 文档明确标为
+准备件，没有把未来实现写成已经完成；`job-client` 删除未造成已接线页面的行为
+回退。
+
+### 9.3 修复映射与本轮运行证据
+
+两轴结论保持独立，不合并严重度；为执行阶段去重后形成以下四项：
+
+| 编号 | 模块定位 | 问题定位 | 修复方向 | 预计工时 |
+|---|---|---|---|---:|
+| CR-14 | Web/HTTP 当前进展 | `progress.md:220-224` 的当前表沿用旧门禁结论 | 更新当前状态表，保留带提交号的历史事实 | 0.5～1 小时 |
+| CR-15 | Web/HTTP 当前进展 | `progress.md:35-44,59-68` 重复 | 删除当前文档中的重复副本 | 0.25 小时 |
+| CR-16 | Web API Client / HTTP 接口 | `parseArtifactPage`、`ArtifactPage` 无引用，接口追踪仍指向已删除函数 | 删除传递性死代码并同步当前接口追踪 | 0.5～1 小时 |
+| CR-17 | Web/HTTP 当前环境事实 | 历史准备件沿用“本机无 Docker”的失效理由 | 不改历史档案；在当前权威进展文档追加更正 | 0.25～0.5 小时 |
+
+诊断阶段已实跑任务 05 拓扑探针：正常组返回 `status=verified`；反向对照组
+返回 `status=negative-control-ok`，并明确检测到故意开放的公网、metadata 与
+假上游路径；结束后按 `agentexam.task=05` 标签复核，容器、网络、卷残留均为
+0。该证据只证明本次纯 Docker T1 探针健康，不替代固定 Harbor 的 T2 验收。
