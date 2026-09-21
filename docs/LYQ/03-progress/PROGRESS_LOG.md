@@ -5,6 +5,15 @@
 
 ## 2026-09-21
 
+### 同步上游新 main 并完成权威文档同步（任务 04 清单最后一条）
+
+- 拉到 D 的落地：`0b66a29`（含 `ad09aaf` 格式修复）等；与我改的文件零交集，`git rebase upstream/main` 干净重放 27 个提交。**复验：`ruff check` 全绿、`ruff format --check` 300 个文件全通过（核对 D 说的 295 全绿，我这份因新增文件计数为 300）、`mypy` 通过、全量 474 passed / 46 skipped / 0 failed。** 已 `push --force-with-lease` 刷新 PR。
+- 权威文档同步（按清单，`HTTP_API.md` 经用户确认不改、归 B 维护）：
+  - 模块架构 `catalog-and-configuration/ARCHITECTURE.md`：把"当前限制：只有一道题"改为六题现状，写明白名单位置 `adapters/tasks/catalog.py`、五题门禁结论与证据指针。
+  - 依赖总表 `DEPENDENCIES.md`：新增五道题的镜像 digest 清单与门禁结果（含 15131 的 `/testbed` 与 base commit 一致性）、说明镜像用完即删可按 digest 重拉；§9 两条锁定项更新（受控目录已扩到 6 题；扩题兼容性已验证）。
+  - 模块契约与数据模型：**核对后无需改动**（Interface 与 schema 均未变）。
+- 04 草案里"同步权威文档"一条已打勾并写明依据；失效链接检查 0。
+
 ### 五道新题入库（任务 04 题库半边交付）
 
 - 门禁通过后按计划把五道题写进受控白名单：新增 `adapters/tasks/catalog.py`（`FIXED_TASK_IMAGES` 六条：旧题 + 五道新题，各带 digest）；`swe_gym.py` 改为从该模块显式 re-export（**198 行，未超 200 行指标**，`preflight.py` 一行未改）；`delivery/catalog_presets.py` 的 `TASK_PRESETS` 由 1 条扩为 **6 条**。
