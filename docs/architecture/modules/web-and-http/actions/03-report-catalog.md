@@ -67,6 +67,6 @@ docs/interfaces/HTTP_API.md      # §10.4 现行正文在 main 上（B 的分支
 |---|---|
 | 对比页 UI 的契约行 | 按[实现地图 2.1 节门槛](../../../../../.scratch/ui-catalog-providers/implementation-map.md)，写代码前须先补逐控件契约行 |
 | 在**新 main** 上重跑测试 | 环境已就绪，未执行；预期 4 passed + 2 个 Harbor 失败 |
-| 与 D 的重复工作 | `xinyue-modules`（D）与 main 上的 `7553ce0`（fengyy）是并行实现，需对齐，见[进展与未决项](../progress.md) |
+| 与 D 的重复工作 | ✅ 已关闭 | D 于 2026-09-21 拍板接受 `main` 为最终形态：`cdcb4cf`/`c5e036d` 不再合入，以 `7553ce0` 为准；"不收敛"决定作废；`xinyue-modules` 转历史存档。细节见[进展与未决项](../progress.md) |
 | 任务 03 的正式 issue | `.scratch` 当前无 `03-*` 任务单；是否发布待 B 确认 |
 | 实时 OpenAPI 计数 | 环境已具备条件，未复核 |

@@ -26,7 +26,7 @@
 - **`routes/jobs/` 的 `schemas/` 拆分取消**：指标已由 main 的 `reporting/` 子目录达到，原方案不再必要（D 曾同意，已被现实超越）。
 - **"§10.4 待补两条 400"作废**：已由 `7553ce0` 实现并写入契约。
 
-**与 D 的工作重复**：D 的 `cdcb4cf`、`c5e036d`（分支 `xinyue-modules`）**都不在 `main` 上**；落到 main 的是 fengyy 独立实现的同一批加固（且更完整）。D 记录的"`ComparisonOutcome` 与 `MatrixCell` 不收敛"决定**已被 main 的实现推翻**。两者需 B 与 D 当面/群里对齐，避免继续在 `xinyue-modules` 上重复推进。
+**与 D 的工作重复（✅ 已由 D 拍板关闭，2026-09-21）**：D 的 `cdcb4cf`、`c5e036d`（分支 `xinyue-modules`）都不在 `main` 上，落到 main 的是 fengyy 独立实现的同一批加固（且更完整）。**D 已明确拍板**：接受 `main` 为最终形态——`cdcb4cf` / `c5e036d` 不再合入 main，以 fengyy 的 `7553ce0` 加固为准（UUID 规范化、跨仓库同名隔离都更完整）；"`ComparisonOutcome` 与 `MatrixCell` 不收敛"的决定**作废**，以 main 的收敛实现为准（`matrix.py` 提供 `ComparisonOutcome`）；`xinyue-modules` 转为历史存档，D 后续基于最新 main 继续。
 
 ## 2026-09-20：后端环境已恢复，契约测试已实跑
 
@@ -87,6 +87,6 @@ B 手动尝试从本机接入 owner A 的共享评测环境，**未接通**：
 | 本机在**新 main** 上重跑 | ⬜ 未做 | 环境已就绪；`main` 已含 `7553ce0`，可按 4 passed 预期重跑并核对那 2 个 Harbor 失败 |
 | 实时 OpenAPI 计数 | ⬜ 未复核 | 环境已具备条件，未实际启动应用读取 |
 | `ruff` / `mypy` | ⬜ 未在 B 侧运行 | 工具可用；fengyy 的记录称其干净，B 未复现 |
-| 与 D 的工作重复 | ❓ 待协调 | `xinyue-modules` 与 main 上的 `7553ce0` 是并行实现，需 B 与 D 对齐 |
+| 与 D 的工作重复 | ✅ 已关闭 | D 于 2026-09-21 拍板：接受 `main` 为最终形态，`cdcb4cf`/`c5e036d` 不再合入，以 `7553ce0` 为准；"不收敛"决定作废；`xinyue-modules` 转历史存档。**注意**：D 称其提案文档的收尾说明是提交 `3930f24`，但该提交在任何可访问的远端都不可见（upstream 分支仍为 `7a8a7a5`，`noachlola` 这个 GitHub 用户不存在），可能未推送——文档事实待其推送后复核 |
 | 任务 03 的 Web 对比页 | ⬜ 未实现 | **契约与后端已在 main 上稳定**，UI 是任务 03 真正剩下的活；开工前须先补逐控件契约行（门槛见[实现地图](../../../../.scratch/ui-catalog-providers/implementation-map.md) 2.1 节） |
 | 任务 03 正式 issue | ❓ 待确认 | `.scratch` 下无 `03-*` 任务单，是否发布待 B 决定 |
