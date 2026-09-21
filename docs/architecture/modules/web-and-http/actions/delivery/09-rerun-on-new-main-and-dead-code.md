@@ -34,7 +34,7 @@
 ### 2.3 给 A 的说明与给 D 的报告
 
 - 脱离版目录补 `README.md`：这是什么、怎么打开、与"跑起来的前端"的差别、已知边界、反馈什么最有价值。
-- 起草[给 D 的契约缺口说明](../../../../../runtime/drafts/to-D-report-500-contract-gap.md)（**在 gitignored 的 `runtime/` 下，不入库**）：未完成批次的批次报告返回 500 的证据、已核实的代码路径、三个候选方案与 B 的倾向。
+- 起草给 D 的契约缺口说明（`runtime/drafts/to-D-report-500-contract-gap.md`，在 gitignored 的 `runtime/` 下，不入库）（**在 gitignored 的 `runtime/` 下，不入库**）：未完成批次的批次报告返回 500 的证据、已核实的代码路径、三个候选方案与 B 的倾向。
 
 ## 3. 实际改动的文件树
 
@@ -42,7 +42,7 @@
 |---|---|
 | `apps/web/src/lib/job-client.ts` | 删除死代码 `runArtifacts` 与其无用导入（本文档所在 PR 中唯一的代码改动） |
 | `docs/architecture/modules/web-and-http/progress.md` | 新增本轮小节；更新"新 main 重跑""ruff/mypy"两条待办状态；新增"批次报告 500"待 D 决定项 |
-| `docs/architecture/modules/web-and-http/actions/09-rerun-on-new-main-and-dead-code.md` | 本文件（新增） |
+| `docs/architecture/modules/web-and-http/actions/delivery/09-rerun-on-new-main-and-dead-code.md` | 本文件（新增） |
 
 （前一轮的 06/08 与 progress 重写已在同一 PR 之前完成，见[行动 08](08-real-web-detached-build.md)。）
 
