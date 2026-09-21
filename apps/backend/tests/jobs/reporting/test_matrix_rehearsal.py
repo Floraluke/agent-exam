@@ -104,9 +104,7 @@ def _submit(jobs, owner, task_ids, agent, key):
 def test_two_batch_matrix_rehearsal_on_real_postgres(postgres_sandbox):
     with postgres_api(postgres_sandbox) as (_client, _jobs, _repository, owner):
         jobs, repository = _job_seams(postgres_sandbox)
-        tasks = [
-            jobs.tasks.register(owner, name) for name in _preset_names()
-        ]
+        tasks = [jobs.tasks.register(owner, name) for name in _preset_names()]
         agent_a = jobs.agents.register(owner, "verified-codex")
         agent_b = jobs.agents.register(owner, "verified-codex-2")
         job_a = _submit(
