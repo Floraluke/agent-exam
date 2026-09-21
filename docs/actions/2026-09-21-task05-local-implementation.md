@@ -197,9 +197,26 @@ runtime/prototype/t05-topology-20260921-02/   # T1 证成时的开发副本（�
 
 注：其中出现的宿主路径是本探针自带的**假值文件**（`apps/backend/tests/providers/runtime/fake-provider.json`，只含哨兵字符串），**不是**负责人按第 8 项决定选定的私有提供方文件路径——真实路径按该决定不入 Git。
 
+**S8 首个片段：`agent_type` 筛选接线（已完成并验证）**
+
+- 依据：[HTTP_API 第 315 行](../../docs/interfaces/HTTP_API.md) 要求"合法筛选无匹配返回空列表"，而路由收下该参数后从不传给注册表；`agent_type` 是**执行器类型**（`codex`/`aider`/`claude_code`/`custom`，见 [DATA_MODEL 第 271 行](../../docs/architecture/DATA_MODEL.md)），与 06/07 的 DeepSeek/Kimi 无关（那是 `model_provider`）。**该片段不需要任何产品决定**，三种 S8 放行范围下都要做。
+- 改动文件：`delivery/http/routes/catalog.py`（把参数传下去）、`application/agent_registry.py`、`application/ports/repositories.py`、`adapters/persistence/catalog/agents.py`（SQL 条件）、`tests/catalog/memory.py`（替身同步）。
+- 验证方式：定向 `pytest tests/catalog`；新增断言 ① 注册表把 `agent_type` 原样传给仓库；② 真实 PG 上按未被登记的合法类型查询返回空列表、按 `codex` 查询返回已登记行；③ HTTP 层 `?agent_type=codex` 行为不变（仍返回全部），非法类型仍 422。最后跑默认回归，失败项必须与基线一致。
+
+**S8 首个片段：自验证情况**
+
+- 改动：`delivery/http/routes/catalog.py`（把参数传下去）、`application/agent_registry.py`、`application/ports/repositories.py`、`adapters/persistence/catalog/agents.py`（SQL 增加 `agent_type=%s` 条件）、`tests/catalog/memory.py`（替身同步）；新增 2 个用例：`tests/catalog/test_http.py::test_agent_type_filter_is_applied_not_ignored`、`tests/catalog/test_postgres.py::test_agent_list_filters_by_type_on_the_real_database`。
+- **用例有区分力（实测）**：临时把路由退回旧行为（传 `None`）后，新用例 **FAILED**；还原后通过。因此它不是恒真的空断言。
+- 定向：`pytest tests/catalog`（开启 `AGENTEXAM_RUN_IDENTITY_POSTGRES=1`）→ **44 passed / 22 skipped**（跳过项为 MinIO 等未配置依赖，属设计如此）。
+- 全量开 PG：**536 passed / 52 skipped / 2 failed**；默认（不开 PG）：**485 passed / 103 skipped / 2 failed**。相对基线 `484/102/2` 多出的正好是新增用例（1 通过 + 1 按开关跳过）。**失败项始终是同一批**：缺 `framework/harbor` 的 ISSUE-04。
+- 静态：`ruff check` 通过、`ruff format --check` 313 文件、`mypy` 174 源文件无问题。
+- 环境：本机 PostgreSQL 当时未运行（便携版不注册服务），已按 [本地环境文档](../LLY/02-environment/LOCAL_SETUP.md) 的既有命令启动，现为 `accepting connections`；本次未改动上述文档的运行状态段（仍有效）。
+- 行为变化：`?agent_type=codex` 对现有调用方不变（仍返回 codex 条目），未知类型仍 422；新增的行为是**合法但无匹配的类型返回空页**，与 HTTP 契约第 315 行一致。
+- **顺带发现一处同类隐患（未改）**：`delivery/http/catalog_schemas.py` 的 `AgentDetail.from_record` 把 `agent_type="codex"`、`model_provider="openai_chatgpt"` **写死**而不是从记录读取；今天因两者都是 `Literal` 而一致，但登记第二个提供方时会与记录不符。应与 S8 主体的"响应枚举扩宽"一并处理。
+
 ### 未完成与遗留
 
-- **S2、`service.py`、S8–S9 尚未实施**；已完成前置验证、S3–S7 与 T1。**代理中所有能以纯逻辑表达的安全不变量均已落地并有测试**：私有文件可信、请求出站前拒绝、额度不超支、未知不记零、令牌不跨 Run、出站目标不由请求决定、重试与重定向结构上不可配。
+- **S2、`service.py`、S8 主体与 S9 尚未实施**；已完成前置验证、S3–S7、T1 与 S8 的筛选接线片段。**代理中所有能以纯逻辑表达的安全不变量均已落地并有测试**：私有文件可信、请求出站前拒绝、额度不超支、未知不记零、令牌不跨 Run、出站目标不由请求决定、重试与重定向结构上不可配。
 - **T1 已不再是 `service.py` 的未知项**：拓扑在本机（纯 Docker 层）成立，且七条断言的每一条都有实际输出。**但 `service.py` 仍不应据 T1 直接定稿**，理由有二：① T1 结论只在纯 Docker/Compose 层成立，固定 Harbor 能否替换侧车网络附加仍未回答（T2，负责人机器）；② T1 的转发实现是中继替身，不含 HTTP 语义。可行做法是先实现与拓扑无关的部分（鉴权、令牌生命周期、错误码映射、流收束），把网络形态留到 T2 之后接线。
 - **S2 暂缓**：Codex TOML 字段名研究第 1 节有据，但仓库内无 `config.toml` 样例（探针样例在被 Git 忽略的 `runtime/`，只在负责人机器）。定稿前须用固定 CLI 在契约层复核一次字段名，不凭文档当已确认。
 - **本轮未改动任何产品代码**，故静态检查与默认回归沿用同一 HEAD（`4c7c4d6`）的实测结果：`ruff check` 通过、`ruff format --check` 313 文件、`mypy` 174 源文件无问题、默认回归 **484 passed / 102 skipped / 2 failed**（失败项仍为缺 `framework/harbor` 的 ISSUE-04），`pytest tests/providers` **67 passed / 1 skipped**。

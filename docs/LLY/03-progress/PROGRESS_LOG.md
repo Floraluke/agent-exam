@@ -66,6 +66,10 @@
 - **未修改任务单已批准的验收项**：第 2 项仍写"（组长机器）"。已在任务单 Comments 记录变更事实与 T1/T2 提案，明确"未获负责人批准前不执行拆分、不擅自修改已批准验收项"。
 - **三项授权仍全部未取得**：① 任务 05 实施开工授权（S1–S9 代码）；② T1 在本机的执行授权（启动 Docker Desktop、创建/删除专属网络与容器）；③ T2 在负责人机器的窗口与执行授权。**因此本次只产出方案文档，未写一行产品代码。**
 
+- **S8 首个片段（`agent_type` 筛选接线）已完成并验证**：按 [HTTP_API 第 315 行](../../interfaces/HTTP_API.md)"合法筛选无匹配返回空列表"的要求，把路由收下的 `agent_type` 一路传到持久层（路由 → 注册表 → 仓库端口 → SQL 条件），替身同步。新增 2 个用例（HTTP 层 + 真实 PG 层），并**实测其区分力**：把路由退回旧行为时用例失败、还原后通过。开启 PG 的 `pytest tests/catalog` 为 **44 passed / 22 skipped**；全量开 PG **536 passed / 52 skipped / 2 failed**，默认为 **485 passed / 103 skipped / 2 failed**——失败项与基线完全相同（缺 `framework/harbor` 的 ISSUE-04），增量正好是新用例。静态检查全绿。
+- 顺带发现一处同类隐患（**未改**，留给 S8 主体）：`catalog_schemas.py` 的 `AgentDetail.from_record` 把 `agent_type`/`model_provider` 写死而非从记录读取；今天因两者是 `Literal` 而一致，登记第二个提供方时会不符。
+- 本机 PostgreSQL 曾未运行（便携版不注册服务），已按本地环境文档命令手动启动；实时状态仍只以[本地环境记录](../02-environment/LOCAL_SETUP.md)为准。
+
 ### 当前停点
 
 - 阶段 0 环境仍可用（PostgreSQL `127.0.0.1:55432`、`agentexam_dev` 11 表）；实时状态只在[本地环境记录](../02-environment/LOCAL_SETUP.md)维护。

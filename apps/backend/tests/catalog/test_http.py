@@ -139,3 +139,52 @@ def test_agent_list_paginates_and_filters_by_state():
             item["agent_configuration_id"] for item in registered[1:]
         }
         assert [item["agent_configuration_id"] for item in stopped] == [disabled_id]
+
+
+def test_agent_type_filter_is_applied_not_ignored(identity_api):
+    """HTTP contract: a legal filter with no match returns an empty list.
+
+    Records of a second type cannot be registered through the API yet, so the
+    row is seeded straight into the repository. Without the filter being passed
+    down, the endpoint answers with every codex row instead of an empty page.
+    """
+    from datetime import UTC, datetime
+
+    from catalog.conftest import MemoryAgents
+    from eval_platform.domain.catalog import RegisteredAgent
+
+    agents = MemoryAgents()
+    other = RegisteredAgent(
+        AgentConfiguration(
+            "seeded-aider",
+            "aider",
+            "test-version",
+            "openai_chatgpt",
+            "aider-model",
+            "chatgpt_auth_json",
+            "private-test-reference",
+            {"reasoning_effort": "medium"},
+        ),
+        "Seeded other type",
+        datetime.now(UTC),
+    )
+    agents.records[other.configuration.configuration_id] = other
+
+    assert identity_api.login().status_code == 200
+    with catalog_api(agents=agents) as api:
+        assert api.login().status_code == 200
+        endpoint = "/api/v1/agent-configurations"
+        registered = api.client.post(
+            endpoint,
+            json={"preset_id": "verified-codex"},
+            headers=WRITE_HEADERS,
+        ).json()
+
+        filtered = api.client.get(endpoint + "?agent_type=codex").json()
+        assert all(item["agent_type"] == "codex" for item in filtered["items"])
+        assert [item["display_name"] for item in filtered["items"]] == [
+            registered["display_name"]
+        ]
+        assert "Seeded other type" not in {
+            item["display_name"] for item in filtered["items"]
+        }

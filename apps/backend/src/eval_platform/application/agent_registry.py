@@ -52,13 +52,14 @@ class AgentRegistry:
     def list(
         self,
         actor: AuthenticatedActor,
+        agent_type: str | None,
         enabled: bool | None,
         cursor: str | None,
         limit: int,
     ) -> tuple[list[RegisteredAgent], str | None]:
         if not 1 <= limit <= 100:
             raise CatalogInvalid
-        records = self.repository.list(enabled, cursor, limit + 1)
+        records = self.repository.list(agent_type, enabled, cursor, limit + 1)
         page = records[:limit]
         cursor = (
             page[-1].configuration.configuration_id if len(records) > limit else None
