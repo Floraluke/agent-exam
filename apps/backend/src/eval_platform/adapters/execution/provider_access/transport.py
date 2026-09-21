@@ -18,6 +18,9 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from types import MappingProxyType
 
+from eval_platform.adapters.execution.provider_access.failures import (
+    ProviderAccessError,
+)
 from eval_platform.adapters.execution.provider_access.request_policy import (
     PATH,
     strip_client_auth,
@@ -49,13 +52,13 @@ class OutboundRequest:
 
     def __post_init__(self) -> None:
         if self.max_attempts != 1:
-            raise ValueError("TRANSPORT_RETRY_NOT_PERMITTED")
+            raise ProviderAccessError("TRANSPORT_RETRY_NOT_PERMITTED")
         if self.follow_redirects:
-            raise ValueError("TRANSPORT_REDIRECT_NOT_PERMITTED")
+            raise ProviderAccessError("TRANSPORT_REDIRECT_NOT_PERMITTED")
         if not self.url.startswith("https://"):
-            raise ValueError("TRANSPORT_UPSTREAM_NOT_ENCRYPTED")
+            raise ProviderAccessError("TRANSPORT_UPSTREAM_NOT_ENCRYPTED")
         if not self.authorization.strip():
-            raise ValueError("TRANSPORT_CREDENTIAL_EMPTY")
+            raise ProviderAccessError("TRANSPORT_CREDENTIAL_EMPTY")
 
     def send_headers(self) -> Mapping[str, str]:
         """The only supported way to obtain the outbound header set.
@@ -90,9 +93,9 @@ def build_outbound(
 
     origin = REGISTERED_UPSTREAMS.get(provider)
     if origin is None:
-        raise ValueError("TRANSPORT_PROVIDER_UNREGISTERED")
+        raise ProviderAccessError("TRANSPORT_PROVIDER_UNREGISTERED")
     if not secret.strip():
-        raise ValueError("TRANSPORT_CREDENTIAL_EMPTY")
+        raise ProviderAccessError("TRANSPORT_CREDENTIAL_EMPTY")
     headers = dict(strip_client_auth(client_headers))
     headers["Content-Type"] = CONTENT_TYPE
     try:
@@ -100,7 +103,7 @@ def build_outbound(
             body, sort_keys=True, separators=(",", ":"), ensure_ascii=False
         ).encode("utf-8")
     except (TypeError, ValueError):
-        raise ValueError("TRANSPORT_PAYLOAD_NOT_SERIALIZABLE") from None
+        raise ProviderAccessError("TRANSPORT_PAYLOAD_NOT_SERIALIZABLE") from None
     return OutboundRequest(
         url=f"{origin}{PATH}",
         headers=MappingProxyType(headers),

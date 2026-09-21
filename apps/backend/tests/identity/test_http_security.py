@@ -1,3 +1,5 @@
+import logging
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -117,24 +119,34 @@ def test_insecure_or_path_bearing_public_origin_cannot_start_http(origin):
         HttpConfig(public_origin=origin, allow_insecure_loopback=True)
 
 
-def test_unexpected_dependency_failure_has_a_safe_structured_error():
+def test_unexpected_dependency_failure_has_a_safe_structured_error(caplog):
     class BrokenDatabase(MemoryIdentityRepository):
         def find_account(self, username):
             raise RuntimeError("synthetic unexpected secret")
 
     service = IdentityService(BrokenDatabase(), Argon2Passwords())
     app = create_app(service, HttpConfig(public_origin="https://testserver"))
-    with TestClient(
-        app, base_url="https://testserver", raise_server_exceptions=False
-    ) as client:
-        response = client.post(
-            "/api/v1/auth/login",
-            json={"username": "owner", "password": PASSWORD},
-            headers=WRITE_HEADERS,
-        )
+    with caplog.at_level(logging.ERROR, logger="eval_platform.http"):
+        with TestClient(
+            app, base_url="https://testserver", raise_server_exceptions=False
+        ) as client:
+            response = client.post(
+                "/api/v1/auth/login",
+                json={"username": "owner", "password": PASSWORD},
+                headers=WRITE_HEADERS,
+            )
     assert response.status_code == 500
     assert response.json()["error"]["code"] == "INTERNAL_ERROR"
-    assert "synthetic unexpected secret" not in response.text
+    request_id = response.json()["error"]["request_id"]
+    assert "synthetic unexpected secret" not in response.text + caplog.text
+    record = next(
+        record
+        for record in caplog.records
+        if getattr(record, "request_id", None) == request_id
+    )
+    assert record.method == "POST"
+    assert record.path == "/api/v1/auth/login"
+    assert record.exception_type == "RuntimeError"
 
 
 @pytest.mark.parametrize(

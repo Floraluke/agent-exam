@@ -22,6 +22,7 @@ from __future__ import annotations
 _CREDENTIAL_UNAVAILABLE = (
     "PRIVATE_ACCESS_UNVERIFIABLE",
     "PRIVATE_FILE_IN_SYNC_LOCATION",
+    "PRIVATE_FILE_CHANGED",
     "PRIVATE_FILE_MALFORMED",
     "PRIVATE_FILE_NOT_REGULAR",
     "PRIVATE_FILE_OWNER_MISMATCH",
@@ -50,6 +51,7 @@ _ACCESS_DENIED = (
 )
 _REQUEST_REJECTED = (
     "REQUEST_BODY_NOT_OBJECT",
+    "REQUEST_HEADER_NOT_ALLOWED",
     "REQUEST_INPUT_EMPTY",
     "REQUEST_INPUT_INVALID",
     "REQUEST_MAX_OUTPUT_TOKENS_EXCEEDED",
@@ -103,6 +105,16 @@ MAPPED_CODES = {
 }
 GENERIC_FAILURE = ("PROVIDER_ACCESS_FAILED", "模型访问未完成。")
 ALL_INTERNAL_CODES = frozenset(MAPPED_CODES) | CONFIGURATION_ONLY
+
+
+class ProviderAccessError(ValueError):
+    """A validated internal code; unknown strings cannot silently become generic."""
+
+    def __init__(self, code: str) -> None:
+        if code not in ALL_INTERNAL_CODES:
+            raise ValueError("PROVIDER_INTERNAL_CODE_UNKNOWN")
+        self.code = code
+        super().__init__(code)
 
 
 def controlled_failure(internal_code: str) -> tuple[str, str]:

@@ -14,6 +14,7 @@ from eval_platform.adapters.execution.provider_access.secrets import (
     load_profile,
     owner_only_verifier,
 )
+from eval_platform.domain.agent import INTERNAL_TEST_PROVIDER, INTERNAL_TEST_UPSTREAM
 
 FAKE_KEY = "sk-fake-0000-not-a-real-credential"
 POSIX = hasattr(os, "geteuid")
@@ -25,9 +26,9 @@ def allow(path: Path) -> None:
 
 def document(**overrides: object) -> bytes:
     entry = {
-        "provider": "deepseek",
+        "provider": INTERNAL_TEST_PROVIDER,
         "model": "deepseek-flash",
-        "upstream_base_url": "https://api.deepseek.com",
+        "upstream_base_url": INTERNAL_TEST_UPSTREAM,
         "secret": FAKE_KEY,
     }
     entry.update(overrides)
@@ -45,8 +46,11 @@ def write(tmp_path: Path, payload: bytes, name: str = "providers.json") -> Path:
 def test_loads_the_single_requested_profile(tmp_path):
     profile = load_profile(write(tmp_path, document()), "run-a", verify_access=allow)
     assert isinstance(profile, PrivateProfile)
-    assert (profile.provider, profile.model) == ("deepseek", "deepseek-flash")
-    assert profile.upstream_base_url == "https://api.deepseek.com"
+    assert (profile.provider, profile.model) == (
+        INTERNAL_TEST_PROVIDER,
+        "deepseek-flash",
+    )
+    assert profile.upstream_base_url == INTERNAL_TEST_UPSTREAM
 
 
 def test_secret_is_excluded_from_the_representation(tmp_path):
@@ -113,7 +117,7 @@ def test_structure_rejections(tmp_path, payload, code):
     [
         (
             "upstream_base_url",
-            "http://api.deepseek.com",
+            "http://fake-upstream.t05.invalid",
             "PRIVATE_UPSTREAM_NOT_REGISTERED",
         ),
         (
@@ -148,6 +152,21 @@ def test_verifier_rejection_propagates_without_loading(tmp_path):
 
     with pytest.raises(ValueError, match="PRIVATE_FILE_PERMISSIONS_TOO_WIDE"):
         load_profile(write(tmp_path, document()), "run-a", verify_access=deny)
+
+
+def test_file_replacement_during_access_verification_is_rejected(tmp_path):
+    target = write(tmp_path, document())
+    replacement = write(
+        tmp_path,
+        document(secret="sk-fake-replacement-not-a-real-credential"),
+        "replacement.json",
+    )
+
+    def swap(path: Path) -> None:
+        replacement.replace(path)
+
+    with pytest.raises(ValueError, match="PRIVATE_FILE_CHANGED"):
+        load_profile(target, "run-a", verify_access=swap)
 
 
 @pytest.mark.skipif(not POSIX, reason="POSIX owner/permission bits only")

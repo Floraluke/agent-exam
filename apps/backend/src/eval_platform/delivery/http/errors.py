@@ -35,12 +35,17 @@ from eval_platform.domain.membership import (
 )
 
 
-def error_response(status: int, code: str, message: str) -> JSONResponse:
+def error_response(
+    status: int, code: str, message: str, *, request_id: str | None = None
+) -> JSONResponse:
     return JSONResponse(
         status_code=status,
         content=ApiError(
             error=ErrorDetails(
-                code=code, message=message, details={}, request_id=f"req_{uuid4().hex}"
+                code=code,
+                message=message,
+                details={},
+                request_id=request_id or f"req_{uuid4().hex}",
             )
         ).model_dump(),
         headers={"Cache-Control": "no-store"},

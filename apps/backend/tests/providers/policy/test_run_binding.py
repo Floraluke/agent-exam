@@ -7,6 +7,7 @@ from eval_platform.adapters.execution.provider_access.binding import (
     TokenRegistry,
 )
 from eval_platform.adapters.execution.provider_access.budget import RunBudget
+from eval_platform.domain.agent import INTERNAL_TEST_PROVIDER
 
 BUDGET = RunBudget(
     input_tokens_limit=300_000, output_tokens_limit=32_000, deadline_seconds=900
@@ -27,7 +28,7 @@ def issue(
 ) -> RunBinding:
     arguments: dict[str, object] = {
         "run_id": run_id,
-        "provider": "deepseek",
+        "provider": INTERNAL_TEST_PROVIDER,
         "model": "deepseek-flash",
         "ttl_seconds": 900.0,
         "budget": BUDGET,
@@ -106,8 +107,9 @@ def test_only_registered_providers_receive_a_binding():
     for provider in ("openai", "anthropic", "unknown"):
         with pytest.raises(ValueError, match="PROVIDER_UNREGISTERED"):
             issue(registry(), provider=provider)
-    for provider in ("deepseek", "kimi"):
-        assert issue(registry(), provider=provider).provider == provider
+    assert issue(registry(), provider=INTERNAL_TEST_PROVIDER).provider == (
+        INTERNAL_TEST_PROVIDER
+    )
 
 
 def test_binding_identity_and_ttl_are_validated():

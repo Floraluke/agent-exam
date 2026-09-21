@@ -14,8 +14,6 @@ import pytest
 from identity.conftest import WRITE_HEADERS
 
 from catalog.conftest import catalog_api
-from catalog.memory import MemoryAgents
-from eval_platform.application.agent_registry import AgentRegistry
 from eval_platform.delivery.catalog_presets import (
     AGENT_PRESETS,
     INTERNAL_TEST_AGENT_PRESETS,
@@ -29,29 +27,8 @@ from eval_platform.domain.agent import (
     INTERNAL_TEST_PROVIDER,
     AgentConfiguration,
 )
-from eval_platform.domain.catalog import CatalogInvalid
-from eval_platform.domain.identity import AuthenticatedActor
 
 PRESET_ID = "internal-test-provider-proxy"
-OWNER = AuthenticatedActor("owner-id", "owner", "owner")
-
-
-def _preset(provider: str, authentication: str):
-    return {
-        "uncontrolled": (
-            "Uncontrolled",
-            AgentConfiguration(
-                "uncontrolled",
-                "codex",
-                "0.153.0",
-                provider,
-                "some-model",
-                authentication,
-                "private-reference",
-                {"reasoning_effort": "medium"},
-            ),
-        )
-    }
 
 
 def test_public_provider_enum_matches_the_controlled_sets():
@@ -112,9 +89,17 @@ def test_uncontrolled_identity_is_rejected_before_storage():
         ("openai_chatgpt", "provider_run_token"),
         ("internal_test_fake", "chatgpt_auth_json"),
     ):
-        presets = _preset(provider, authentication)
-        with pytest.raises(CatalogInvalid):
-            AgentRegistry(MemoryAgents(), presets).register(OWNER, "uncontrolled")
+        with pytest.raises(ValueError, match="AGENT_IDENTITY_NOT_CONTROLLED"):
+            AgentConfiguration(
+                "uncontrolled",
+                "codex",
+                "0.153.0",
+                provider,
+                "some-model",
+                authentication,
+                "private-reference",
+                {"reasoning_effort": "medium"},
+            )
 
 
 @pytest.mark.integration
@@ -179,7 +164,8 @@ def _set_identity_constraints(dsn: str, provider: str, authentication: str | Non
         connection.execute(
             "ALTER TABLE agent_configurations "
             "DROP CONSTRAINT IF EXISTS agent_configurations_model_provider_check, "
-            "DROP CONSTRAINT IF EXISTS agent_configurations_authentication_type_check"
+            "DROP CONSTRAINT IF EXISTS agent_configurations_authentication_type_check, "
+            "DROP CONSTRAINT IF EXISTS agent_configurations_identity_pair_check"
         )
         connection.execute(
             "ALTER TABLE agent_configurations ADD CONSTRAINT "

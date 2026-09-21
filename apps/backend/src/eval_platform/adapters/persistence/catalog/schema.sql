@@ -118,6 +118,11 @@ CREATE TABLE agent_configurations (
     authentication_type text NOT NULL
         CONSTRAINT agent_configurations_authentication_type_check
         CHECK (authentication_type IN ('chatgpt_auth_json', 'provider_run_token')),
+    CONSTRAINT agent_configurations_identity_pair_check CHECK (
+        (model_provider = 'openai_chatgpt' AND authentication_type = 'chatgpt_auth_json')
+        OR
+        (model_provider = 'internal_test_fake' AND authentication_type = 'provider_run_token')
+    ),
     credential_profile_id varchar(128) NOT NULL
         CHECK (credential_profile_id ~ '^[a-zA-Z0-9_-]+$'),
     public_options jsonb NOT NULL CHECK (

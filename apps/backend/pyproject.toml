@@ -23,8 +23,12 @@ agentexam-worker = "eval_platform.delivery.worker.runtime:main"
 
 [dependency-groups]
 dev = [
+  "anyio==4.14.2",
+  "httpx2==2.13.0",
   "mypy==1.18.2",
+  "pip-audit==2.10.1",
   "pytest==9.0.2",
+  "pytest-cov==7.1.0",
   "ruff==0.15.17",
   "httpx==0.28.1",
 ]
@@ -57,4 +61,14 @@ select = ["B", "E", "F", "I", "UP"]
 [tool.mypy]
 python_version = "3.13"
 strict = true
-packages = ["eval_platform"]
+mypy_path = ["src"]
+files = ["src/eval_platform"]
+
+[tool.coverage.run]
+branch = true
+source = ["eval_platform"]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+skip_covered = true

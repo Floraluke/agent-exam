@@ -20,6 +20,9 @@ from dataclasses import dataclass, field
 from secrets import token_urlsafe
 
 from eval_platform.adapters.execution.provider_access.budget import RunBudget
+from eval_platform.adapters.execution.provider_access.failures import (
+    ProviderAccessError,
+)
 from eval_platform.adapters.execution.provider_access.secrets import (
     REGISTERED_UPSTREAMS,
 )
@@ -66,17 +69,17 @@ class TokenRegistry:
         """Create the single binding for a run; a run cannot hold two tokens."""
 
         if not run_id.strip() or not model.strip():
-            raise ValueError("PROVIDER_BINDING_IDENTITY_EMPTY")
+            raise ProviderAccessError("PROVIDER_BINDING_IDENTITY_EMPTY")
         if provider not in REGISTERED_UPSTREAMS:
-            raise ValueError("PROVIDER_UNREGISTERED")
+            raise ProviderAccessError("PROVIDER_UNREGISTERED")
         if ttl_seconds <= 0:
-            raise ValueError("PROVIDER_BINDING_TTL_INVALID")
+            raise ProviderAccessError("PROVIDER_BINDING_TTL_INVALID")
         with self._lock:
             if run_id in self._by_run:
-                raise ValueError("PROVIDER_BINDING_ALREADY_ISSUED")
+                raise ProviderAccessError("PROVIDER_BINDING_ALREADY_ISSUED")
             token = self._token_factory()
             if not token or token in self._by_token:
-                raise ValueError("PROVIDER_TOKEN_NOT_UNIQUE")
+                raise ProviderAccessError("PROVIDER_TOKEN_NOT_UNIQUE")
             binding = RunBinding(
                 run_id=run_id,
                 provider=provider,
@@ -95,12 +98,12 @@ class TokenRegistry:
         with self._lock:
             binding = self._by_token.get(token)
             if binding is None:
-                raise ValueError("PROVIDER_TOKEN_UNKNOWN")
+                raise ProviderAccessError("PROVIDER_TOKEN_UNKNOWN")
             if binding.run_id != run_id:
-                raise ValueError("PROVIDER_TOKEN_CROSS_RUN")
+                raise ProviderAccessError("PROVIDER_TOKEN_CROSS_RUN")
             if self._clock() >= binding.expires_at:
                 self._forget(binding)
-                raise ValueError("PROVIDER_TOKEN_EXPIRED")
+                raise ProviderAccessError("PROVIDER_TOKEN_EXPIRED")
             return binding
 
     def revoke(self, token: str) -> bool:

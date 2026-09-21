@@ -10,17 +10,13 @@ from typing import Any
 import pyarrow.parquet as pq  # type: ignore[import-untyped]
 
 from eval_platform.adapters.execution.network import compose_profile
-from eval_platform.adapters.tasks.catalog import (
-    CANDIDATE_IMAGE as CANDIDATE_IMAGE,
-)
-from eval_platform.adapters.tasks.catalog import (
-    CANDIDATE_INSTANCE_ID as CANDIDATE_INSTANCE_ID,
-)
-from eval_platform.adapters.tasks.catalog import (
-    FIXED_TASK_IMAGES as FIXED_TASK_IMAGES,
-)
+from eval_platform.adapters.tasks import catalog as _catalog
 from eval_platform.application.ports.execution import RunLimits
 from eval_platform.domain.task import EvaluationTask, EvaluatorTaskData, TaskBundle
+
+CANDIDATE_IMAGE = _catalog.CANDIDATE_IMAGE
+CANDIDATE_INSTANCE_ID = _catalog.CANDIDATE_INSTANCE_ID
+FIXED_TASK_IMAGES = _catalog.FIXED_TASK_IMAGES
 
 DATASET_ID = "SWE-Gym/SWE-Gym-Lite"
 DATASET_REVISION = "61231f2c90b18985b42a1419738a240085a15107"

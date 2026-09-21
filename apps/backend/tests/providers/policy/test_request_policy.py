@@ -113,11 +113,17 @@ def test_client_authentication_is_stripped_case_insensitively():
             "Content-Type": "application/json",
             "Authorization": "Bearer sk-fake-client-value",
             "API-KEY": "sk-fake-client-value",
-            "X-Trace": "keep-me",
+            "Accept": "text/event-stream",
         }
     )
-    assert set(stripped) == {"Content-Type", "X-Trace"}
+    assert stripped == {"Accept": "text/event-stream"}
     assert "sk-fake-client-value" not in repr(stripped)
+
+
+def test_client_routing_headers_never_reach_the_fixed_upstream():
+    for name in ("Host", "X-Forwarded-Host", "Forwarded", "Proxy-Connection"):
+        with pytest.raises(ValueError, match="REQUEST_HEADER_NOT_ALLOWED"):
+            strip_client_auth({name: "attacker.invalid", "Accept": "text/event-stream"})
 
 
 def test_policy_rejects_an_unusable_configuration():

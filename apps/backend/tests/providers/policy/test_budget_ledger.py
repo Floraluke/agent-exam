@@ -80,12 +80,13 @@ def test_deadline_is_measured_from_the_ledger_start():
 def test_a_measured_settlement_charges_the_reported_usage():
     subject = ledger()
     reservation = subject.reserve(PAYLOAD, max_output_tokens=4096)
+    reported_input = reservation.input_tokens - 1
     settlement = subject.settle(
-        reservation, UsageSummary(n_input_tokens=1200, n_output_tokens=800)
+        reservation, UsageSummary(n_input_tokens=reported_input, n_output_tokens=800)
     )
     assert settlement.measured is True
-    assert (settlement.input_tokens, settlement.output_tokens) == (1200, 800)
-    assert subject.consumed_input_tokens == 1200
+    assert (settlement.input_tokens, settlement.output_tokens) == (reported_input, 800)
+    assert subject.consumed_input_tokens == reported_input
     assert subject.consumed_output_tokens == 800
     assert subject.remaining_output_tokens == 32_000 - 800
     assert subject.closed_reason is None
@@ -111,6 +112,22 @@ def test_an_unknown_usage_charges_the_whole_hold_and_stops_the_run(usage):
     assert subject.closed_reason == "usage-unknown"
     with pytest.raises(ValueError, match="BUDGET_RUN_CLOSED"):
         subject.reserve(PAYLOAD, max_output_tokens=1)
+
+
+def test_usage_above_its_reservation_is_treated_as_untrusted():
+    subject = ledger()
+    reservation = subject.reserve(PAYLOAD, max_output_tokens=4096)
+    settlement = subject.settle(
+        reservation,
+        UsageSummary(
+            n_input_tokens=reservation.input_tokens + 1,
+            n_output_tokens=reservation.max_output_tokens + 1,
+        ),
+    )
+    assert settlement.measured is False
+    assert settlement.input_tokens == reservation.input_tokens
+    assert settlement.output_tokens == reservation.max_output_tokens
+    assert subject.closed_reason == "usage-unknown"
 
 
 def test_a_reservation_settles_only_once():

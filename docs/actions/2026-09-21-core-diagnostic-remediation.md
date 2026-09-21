@@ -115,4 +115,20 @@ infrastructure/
 
 ## 自验证结果
 
-待执行。
+### 后端修复节点（进行中）
+
+- 先建立并观察到失败的回归：比较页陈旧请求回写、HTTP 500 请求关联
+  ID、错误出站头、provider/auth 非法组合、预算超预留用量、私密文件替换
+  竞态及安全响应头；修复后对应定向测试均转绿。
+- provider access 现在只允许 `internal_test_fake`，使用最小出站头允许集合、
+  类型化内部错误和竞态安全的私密文件读取；没有调用真实供应商。
+- `AgentConfiguration` 与 PostgreSQL 使用同一合法身份对不变量；临时隔离的
+  PostgreSQL 实例实测迁移和非法组合拒绝为 `2 passed`，实例随后删除。
+- Ruff lint、Ruff format、无参数 Mypy（177 个源文件）通过；复杂度
+  `C901 > 10` 从 9 个热点降为 0；生产 Python 文件均不超过 200 行。
+- 后端风险定向回归在沙箱外使用独立临时目录完成：
+  `207 passed, 23 skipped`。跳过项是未配置的 PostgreSQL/MinIO 档位以及
+  Windows 不支持的 POSIX 权限/符号链接能力；不描述为通过。
+- Windows 沙箱内运行同组测试时，Pytest 临时目录被 ACL 拒绝；该次仅作为
+  环境失败记录，不计入测试通过结果。
+- 全量测试、覆盖率、依赖审计、Web 全量验证和文档齐平仍待后续节点完成。
