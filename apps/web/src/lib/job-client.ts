@@ -1,6 +1,6 @@
 import { request } from "./api-client";
 import type {
-  ArtifactPage, JobDetail, JobOptions, JobReport, JobSummary, Page, RunReport,
+  JobDetail, JobOptions, JobReport, JobSummary, Page, RunReport,
   TrajectoryPage,
 } from "./contracts";
 import { parseJobReport } from "./batch-report-shapes";
@@ -10,7 +10,7 @@ import {
   parseJobPage,
   parseJobSummary,
 } from "./job-shapes";
-import { parseArtifactPage, parseRunReport, parseTrajectoryPage } from "./report-shapes";
+import { parseRunReport, parseTrajectoryPage } from "./report-shapes";
 import { parseComparisonMatrix } from "./reporting/comparison-shapes";
 import type { ComparisonMatrix } from "./reporting/comparison-shapes";
 
@@ -79,12 +79,6 @@ export async function jobReport(id: string): Promise<JobReport> {
 export async function comparisons(ids: string[]): Promise<ComparisonMatrix> {
   const query = new URLSearchParams({ job_ids: ids.join(",") });
   return parseComparisonMatrix(await request("reports/comparisons?" + query));
-}
-
-export async function runArtifacts(id: string): Promise<ArtifactPage> {
-  return parseArtifactPage(
-    await request(`runs/${encodeURIComponent(id)}/artifacts?limit=100`),
-  );
 }
 
 export async function runTrajectory(id: string, after = 0): Promise<TrajectoryPage> {
