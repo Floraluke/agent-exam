@@ -114,9 +114,21 @@ runtime/prototype/t05-topology-<日期>-<序号>/   # T1 探针与证据（被 G
 - **有限 provider 选择**：签发时要求 `provider` 属于 `secrets.REGISTERED_UPSTREAMS`（`deepseek`/`kimi`），未登记一律拒绝；复用同一常量而非另立一份注册表。
 - 令牌用 `secrets.token_urlsafe(32)` 生成（密码学随机），测试可注入工厂以便断言唯一性。
 
+**S7 `provider_access/transport.py`——已实现并验证**
+
+- 文件：`transport.py`（109 行，≤200）；`provider_access/` 现有 6 个源文件（上限 8）；测试 `tests/providers/policy/test_outbound_transport.py`。
+- 定向测试：`pytest tests/providers -q` → **67 passed, 1 skipped**（含 S3–S6 的 56 项）。
+- 静态检查：`ruff check`（全量）→ `All checks passed!`；`ruff format --check` → `313 files already formatted`；`mypy` 新增包 → `no issues found in 6 source files`。
+- 全量回归：`484 passed, 102 skipped, 2 failed`；相对上一片 `473/102/2` 通过数 **+11**（本片新增用例），失败项完全相同，无新增失败。
+- **目标地址不由请求决定**：只用 `REGISTERED_UPSTREAMS[provider]` 拼 `PATH`；测试用客户端伪造 `Host`、`X-Forwarded-Host`、`Location` 指向 `evil.example.com`，断言实际 URL 仍为注册上游且不含该主机名。
+- **"不重试、不跟随重定向"是结构上不可配错的**：`OutboundRequest.__post_init__` 对 `max_attempts != 1` 与 `follow_redirects=True` 直接抛错，因此不存在"忘了配"的路径；另拒绝非 `https://` 上游与空凭据。
+- **测试抓到一处真实泄漏（本片最重要的发现）**：原实现把 `Authorization: Bearer <secret>` 直接并进 `headers`，于是 **`repr(request)` 带出秘密**；而且即使给 `payload` 加 `repr=False`，**`repr(request.headers)` 同样会漏**——只要有人打一行日志就泄漏。已改为**认证值与客户端头分开存放**（`authorization` 字段，`repr=False`），并只经 `send_headers()` 合并；`safe_summary()` 只报方法、URL、**头名**与正文长度，不报任何值。测试同时断言 `repr(request)`、`str(request)`、`repr(request.headers)` 三者都不含假值。
+- **无正文日志可证**：`safe_summary()` 的断言包含"不含假值、不含 `Bearer`、不含正文内容"。
+- 出站正文按 `sort_keys` + 紧凑分隔符序列化，因此同一语义的正文字节确定可复现（测试断言键序不同的两种写法产出相同字节）。
+
 ### 未完成与遗留
 
-- **S2、S7–S9 与 T1 尚未实施**；已完成前置验证与 S3–S6。代理的**策略核心（私有文件、请求白名单、账本）与访问能力（Run 绑定）均已齐**；剩 `service.py`（代理入口与流）、`transport.py`（出站）、`provider_config.py`（做题侧配置）、拓扑与目录扩展。
+- **S2、`service.py`、S8–S9 与 T1 尚未实施**；已完成前置验证与 S3–S7。**代理中所有能以纯逻辑表达的安全不变量均已落地并有测试**：私有文件可信、请求出站前拒绝、额度不超支、未知不记零、令牌不跨 Run、出站目标不由请求决定、重试与重定向结构上不可配。剩余部分性质不同——`service.py` 与 `network.py` 是**接线**，其形态取决于 T1 拓扑结论，故按用户确认的顺序把 T1 提前到 `service.py` 之前。
 - **S2 暂缓**：Codex TOML 字段名研究第 1 节有据，但仓库内无 `config.toml` 样例（探针样例在被 Git 忽略的 `runtime/`，只在负责人机器）。定稿前须用固定 CLI 在契约层复核一次字段名，不凭文档当已确认。
 - **T1 未执行**：本机 Docker 能力已验证，但拓扑探针与 7 条断言仍未做。
 - 授权依据：用户会话内明确"同意"，并追加"其它需要开工授权的也同意"；本行动按其**只覆盖 E 本机实施与 T1 执行**理解执行——**不含真实模型/供应商调用**（项目规定须单独授权、历史 ChatGPT 许可不覆盖 DeepSeek/Kimi），**也不含负责人机器的 T2 操作**。负责人书面回执原写"未授予实施开工许可"，建议补一句书面确认后再同步任务单第 2 项验收的机器归属。
