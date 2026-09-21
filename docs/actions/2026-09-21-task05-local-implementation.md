@@ -3,10 +3,11 @@
 ## 状态与情况
 
 - 状态：进行中（本机部分）。
-- 来源请求：用户对[实施方案](../docs/LLY/01-plan/STAGE1_IMPLEMENTATION_PLAN.md)第 6 节三项授权请求回复"同意"，并说明本机 Docker 已启动、可用；要求"把本机可做的做完，再搬去负责人那边继续"。
+- 来源请求：用户对[实施方案](../docs/LLY/01-plan/STAGE1_IMPLEMENTATION_PLAN.md)第 6 节三项授权请求回复"同意"，并说明本机 Docker 已启动、可用；要求"把本机可做的做完，再搬去负责人那边继续"。随后用户对"修 T1 探针并重跑七条断言"回复"要"，构成本切片（探针修复与重跑）的直接授权。
 - 授权依据（如实记录）：本次授权由用户在会话中明确给出，覆盖 ① 任务 05 实施开工、② T1/T2 拆分、③ T1 在本机执行。**注意**：负责人 2026-09-21 的书面回执原写"未授予实施开工许可"，用户本次的同意是对该点的更新；建议在负责人补一句书面确认后，才把任务单第 2 项验收的机器归属同步为"T1 本机 / T2 负责人机器"。
-- 已完成的实测（本轮）：
+- 已完成的实测（本轮 + 上一轮）：
   - **前置核对第 1 项已验证通过**：`docker network create` 成功创建带 `agentexam.task=05` 标签的自定义网络，`docker network ls` 可见；随后按同一标签精确删除，网络/容器/卷残留复核均为 0。Docker Server 29.6.2、Driver overlayfs、CgroupVersion 2。原"虚拟网络风险"未出现，T1 在本机可行。
+  - **T1 已在本机证成**（探针 run 02，见下"自验证情况"）：七条断言全部测到并通过，含反向对照自检。
   - 权威 TOML 字段名有据：`model_providers` / `model_provider` / `base_url` / `env_key` / `wire_api` / `request_max_retries` / `stream_max_retries` 见研究第 1 节；仓库内**无** `config.toml` 样例（探针样例在被 Git 忽略的 `runtime/`，只在负责人机器）。
 - 已确认决定：本次按实施方案顺序实施 S2–S9 与 T1；每片遵循"一个失败用例 → 最小实现 → 通过 → 回归"；新增文件遵守单文件 ≤200 行与每层 ≤8 文件指标；不新增数据库表、不新增业务 Module 或公共 Interface。
 - 明确排除：不改既有公开 Interface 形状；不读真实 Key（一律假值）；不使用真实供应商；不改共享 Docker/WSL/全局网络；T2（固定 Harbor 集成层）不在本机做。
@@ -24,20 +25,28 @@
 ## 受影响文件树
 
 ```text
-apps/backend/src/eval_platform/adapters/execution/provider_access/
-├─ __init__.py          # 内部导出；不向应用暴露新业务端口
-├─ secrets.py           # 私有文件校验：普通文件、非链接路径、属主与最小权限、拒绝同步目录（S3）
-├─ provider_config.py   # 位于 codex/ 下：TOML 渲染 + 摘要 + 两个重试参数置 0（S2）
-├─ request_policy.py    # 路径/字段/模型/工具白名单与出站前拒绝（S4）
-├─ budget.py            # A 保守上界账本、原子预留、未知 usage 失败关闭（S5）
-├─ binding.py           # Run 绑定与有限 provider 选择（S6）
-├─ service.py           # 代理入口、鉴权、流生命周期（S6）
-└─ transport.py         # 固定上游、不跟随重定向、不重试、无正文日志（S7）
+apps/backend/src/eval_platform/adapters/execution/provider_access/   # 已建；6 个源文件（上限 8）
+├─ __init__.py          # 内部导出；不向应用暴露新业务端口（已完成）
+├─ secrets.py           # 私有文件校验：普通文件、非链接路径、属主与最小权限、拒绝同步目录（S3，已完成）
+├─ request_policy.py    # 路径/字段/模型/工具白名单与出站前拒绝（S4，已完成）
+├─ budget.py            # A 保守上界账本、原子预留、未知 usage 失败关闭（S5，已完成）
+├─ binding.py           # Run 绑定与有限 provider 选择（S6，已完成）
+├─ transport.py         # 固定上游、不跟随重定向、不重试、无正文日志（S7，已完成）
+├─ provider_config.py   # 待建（S2）：位于 codex/ 下：TOML 渲染 + 摘要 + 两个重试参数置 0
+├─ service.py           # 待建（S6）：代理入口、鉴权、流生命周期——接线形态取决于 T1/T2 结论
+└─ network.py           # 待建（S10）：私有拓扑组合与正反可达性预检
 apps/backend/tests/providers/
-├─ policy/              # 策略层测试（本机）
-├─ contract/            # 契约层测试（本机；容器需求待确认）
-└─ lifecycle/           # 生命周期层替身测试（本机）
-runtime/prototype/t05-topology-<日期>-<序号>/   # T1 探针与证据（被 Git 忽略，不进产品树）
+├─ policy/              # 已建 7 文件：test_private_secrets / test_request_policy / test_budget_ledger /
+│                       #   test_run_binding / test_outbound_transport（67 passed, 1 skipped）
+├─ contract/            # 待建：契约层（本机；固定 CLI 字段名复核在负责人机器）
+└─ lifecycle/           # 待建：生命周期层替身测试（本机）
+runtime/prototype/t05-topology-20260921-01/   # T1 探针 run 01：未证成（工具链故障），作为历史证据保留
+runtime/prototype/t05-topology-20260921-02/   # T1 探针 run 02：已证成（被 Git 忽略，不进产品树）
+├─ probe.sh                        # 固定断言清单 + 健康门禁 + 反向对照自检
+├─ transcript.txt                  # 正常模式原始记录（37 行）
+├─ transcript-negative-control.txt # 反向对照原始记录（故意泄漏，断言 2/3 应失败）
+├─ summary.json                    # 机器可读汇总（status=verified）
+└─ fake-secret/provider.json       # 假值提供方文件（哨兵值，非真实 Key）
 ```
 
 ## 自验证方式
@@ -126,19 +135,70 @@ runtime/prototype/t05-topology-<日期>-<序号>/   # T1 探针与证据（被 G
 - **无正文日志可证**：`safe_summary()` 的断言包含"不含假值、不含 `Bearer`、不含正文内容"。
 - 出站正文按 `sort_keys` + 紧凑分隔符序列化，因此同一语义的正文字节确定可复现（测试断言键序不同的两种写法产出相同字节）。
 
-**T1 本机拓扑预证——未证成（探针工具链失败，非拓扑结论）**
+**T1 本机拓扑预证——已证成（探针 run 02；27/27 判定通过，连续两次一致）**
 
-- 探针位置：`runtime/prototype/t05-topology-20260921-01/`（`probe.sh` + `summary.json`）；`/runtime/` 被 `.gitignore` 排除，**探针与证据不进产品树**（与 M0 各次探针同做法）。
-- **本次没有证成任何一条拓扑断言。** 三次运行的 `CLOSED` 结果**全部是探针工具链的假象**，不是拓扑事实。`summary.json` 的 `status` 记为 `not-verified`，七条断言逐条记为 `not measured`（第 5 条仅部分观察）。
-- **根因**：监听端容器**启动即退出**（`Exited (1)`），`NetworkSettings.IPAddress` 为空串，因此所有依赖地址的断言都失去意义。退出原因**尚未确定**，候选是 `--cap-drop ALL` 与 `--tmpfs /data` 覆盖镜像声明的 `VOLUME /data`。
-- **额外发现一条环境陷阱（已记录，价值超过本次结论）**：Windows Git Bash 会把传给容器的绝对路径做 MSYS 转换——`--tmpfs /data` 直接报 `invalid mount path: 'C'`，而 `docker exec ... bash -c '</dev/tcp/<host>/<port>'` 里的地址也被改写。**后果是探针返回假阴性的 `CLOSED`**，而假阴性最危险：它看起来像"隔离成立"，可能被误当成通过。缓解方式是脚本内 `export MSYS_NO_PATHCONV=1`；本项目在 Windows 上跑任何容器探针都必须这样处理。
-- **清理纪律已验证**：三次运行结束后，按 `agentexam.task=05` 标签复核容器/网络/卷**残留均为 0**，未执行全局 prune。另按要求改用了已缓存的 `docker.m.daocloud.io/library/redis:7-alpine`（首次误用未缓存标签触发了一次拉取，已如实记录）。
-- **未越界的部分**：Docker 自定义网络创建与删除能力此前已单独验证通过；本片未读取真实凭据、未调用模型、未改动共享 Docker/WSL/全局网络。
-- **结论与下一步**：T1 **不能**作为 `service.py` 与 `network.py` 的设计依据，`service.py` 的接线形态仍取决于拓扑结论。修复探针需要先确定监听端退出原因（改用不声明 `VOLUME` 的镜像，或先验证 `--cap-drop ALL` 是否为因），再重跑全套断言。
+- 探针位置：`runtime/prototype/t05-topology-20260921-02/`（`probe.sh`、`transcript.txt`、`transcript-negative-control.txt`、`summary.json`、`fake-secret/provider.json`）；`/runtime/` 被 `.gitignore` 排除，**探针与证据不进产品树**（与 M0 各次探针同做法）。
+- 结果：`status=verified`、退出码 0。七条断言全部测到并由脚本判定，连同身份记录与清理复核共 27 项判定，全部 PASS。
+- **run 01 失败的根因已定位并修复**：监听端容器启动即退出（`Exited (1)`）的原因是 `setpriv: setresuid failed: Operation not permitted`（退出码 127）——`--cap-drop ALL` 去掉了 `CAP_SETUID`/`CAP_SETGID`，而镜像入口脚本需要它们把权限降给 redis 用户。**修法是让监听端以镜像内的 redis 用户运行**（入口脚本因此跳过降权分支），`--cap-drop ALL` 与 `no-new-privileges` 全部保留。这也说明 run 01 的 CLOSED 确为工具链假象：容器根本没起来。
+- **本轮另修掉 4 处探针工具链缺陷，每一处都会产出假阴性或假证据**：
+  1. 监听端镜像（Alpine）**没有 bash**，所有 `docker exec … bash -c` 静默失败——从监听端发起的检查（如断言 4）会一律返回 CLOSED。改用镜像自带的 `redis-cli` 做应用层连通性检查。
+  2. 转发替身的脚本**漏了端口号**（`${ENTRY_PORT}` 写在容器侧才展开的位置，容器内无此变量），生成 `exec nc <上游主机> `（无端口），每次转发必然被重置。这是"转发失败"的唯一原因，与拓扑无关。
+  3. 一次性 `nc -e` 监听在重生窗口内会重置新连接；改为常驻监听 `nc -lk -e`。
+  4. **redis 会改写自己的进程名**（`setproctitle`），拿它 argv 里的标记做 PID 隔离断言恒为 0；改用中继脚本路径作标记，并保留"在代理侧应命中"的正对照（否则 0 无法与坏扫描区分）。
+  另有 2 处匹配错误：`grep` 模式以 `-` 开头被当成选项；本版 Docker 的发布端口输出 `{}` 而非 `null`。
+- **健康门禁已加入**：任一容器非 running、任一地址为空、任一监听端不应答时，探针以 `harness-failed` 中止并 dump 退出码与日志，**不输出任何断言**。run 01 的教训（坏工具链输出 CLOSED，假阴性最危险）因此被结构性阻止；本轮它实际生效过一次（发现"监听端无 bash"）。
+- **反向对照自检已加入并实测**：`NEGATIVE_CONTROL=1` 故意把做题侧接到出网网络，断言 2、3 如预期失败（`status=negative-control-ok`），证明探针**能检出泄漏**——负例断言不是空断言。
+- **第 5 条允许的最小挂载已按断言要求记录范围与理由**：仅代理容器有一个**只读**绑定挂载 `fake-secret/provider.json → /run/agentexam-private/provider.json`，理由是设计上代理需读取 owner 私有提供方文件；**做题侧挂载为空 `[]`**，无发布端口、无 Docker 套接字。
+- 清理：每次运行后按 `agentexam.task=05` 标签复核，容器/网络/卷残留**均为 0**，未执行全局 prune。
+- **边界（不得混淆）**：本次是 T1（纯 Docker/Compose 层）。它与 Harbor 无关，**T1 通过不等于任务 05 的拓扑验收通过**——最终仍须在固定 Harbor 上成立（T2）。转发实现是中继替身，HTTP 语义与"假 Key 请求形状"属 `service.py`，本探针不覆盖。
+
+原始记录（`transcript.txt`；制表符分隔，依次为断言组 / 项目 / 值）。注：其中出现的宿主路径是本探针自己的**假值文件**（位于被忽略的 `runtime/` 下，只含哨兵字符串），**不是**负责人按第 8 项决定选定的私有提供方文件路径——真实路径按该决定不入 Git：
+
+```text
+0	mode	normal (no deliberate leak)
+0	net agentexam-t05-topology_internal (internal)	workload, proxy
+0	net agentexam-t05-topology_egress (egress)	proxy 172.20.0.2, upstream 172.20.0.3
+0	net agentexam-t05-topology_other (internal)	other-trial 172.21.0.2
+1	workload -> proxy entry 172.19.0.3:6379	OPEN
+1	  ping reply byte	+PONG
+2	workload -> public 1.1.1.1:443	CLOSED
+2	workload -> public 223.5.5.5:53	CLOSED
+3	workload -> host gateway 172.19.0.1:80	CLOSED
+3	workload -> metadata 169.254.169.254:80	CLOSED
+3	workload -> other trial 172.21.0.2:6379	CLOSED
+3	workload -> fake upstream 172.20.0.3:6379	CLOSED
+4	proxy -> fake upstream 172.20.0.3:6379	PONG
+5	workload mounts	[]
+5	proxy mounts	[{"Type":"bind","Source":"D:/agent-exam/runtime/prototype/t05-topology-20260921-02/fake-secret/provider.json","Destination":"/run/agentexam-private/provider.json","Mode":"ro","RW":false,"Propagation":"rprivate"}]
+5	published ports (all four)	/agentexam-t05-topology-workload-1 {} /agentexam-t05-topology-proxy-1 {} /agentexam-t05-topology-fakeupstream-1 {} /agentexam-t05-topology-othertrial-1 {} 
+5	docker.sock mount sources (proxy)	0
+6	relay script in proxy	#!/bin/sh|exec nc agentexam-t05-topology-fakeupstream-1 6379|
+6	proxy listening on :8080	1
+6	relay inner connect (proxy -> upstream by name)	+PONG
+6	workload -> proxy:8080 raw connect	CONNECTED
+6	workload -> proxy:8080 -> upstream reply (1st)	+PONG
+6	workload -> proxy:8080 -> upstream reply (2nd)	+PONG
+6	upstream log: Accepted from proxy (before -> after)	3 -> 5
+6	upstream log line for the forwarded request	1:M 21 Sep 2026 13:39:22.390 - Accepted 172.20.0.2:37233
+6	upstream log: cmd=ping from proxy (before -> after)	2 -> 4
+7	proxy private file visible in workload	ABSENT
+7	workload mounts matching the private file	0
+7	proxy process list	PID   COMMAND|    1 nc -lk -p 8080 -e /tmp/agentexam-proxy-marker-relay.sh|    7 redis-server *:6379|   49 ps -o pid,args|
+7	processes with proxy marker seen from workload / from proxy (control)	0 / 1
+7	sentinel hits in workload env / argv	0/0
+8	image identity workload / listener	sha256:74d56e3931e0d5a1dd51f8c8a2466d21de84a271cd3b5a733b803aa91abf4421 sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499
+8	container identity	/agentexam-t05-topology-workload-1 4084eae8d37dfb2d57f063d9169a0242a8fcf5322fd4e093aa277d32fba7ab1b /agentexam-t05-topology-proxy-1 1740f14575f7155bf14c1c674576f9ed1ecf7876e1be440f5307e1dcbbadf9de /agentexam-t05-topology-fakeupstream-1 8480f1f3957fd6f512ec7456039bc12b527b639b406f552f508711aab6684224 /agentexam-t05-topology-othertrial-1 f1ccf14091487fb5f46e6b6dde6458d07832752797dbc996e70636044e6ddf91 
+8	network identity	agentexam-t05-topology_internal 5a6398e439b03560a8911f1de0e024a0886cdcd022169c23fc1cd78633e2d770 internal=true agentexam-t05-topology_egress c71eda3851d733e375b88b4807b5ec44c937f646e64ec0b53ebb038ed6b7a6a0 internal=false agentexam-t05-topology_other 4e51a967ab8732b00019a247ac0a029052b34bf646f656113c59f06f5be61c60 internal=true 
+9	remaining containers with label	
+9	remaining networks with label	
+9	remaining volumes with label	
+```
 
 ### 未完成与遗留
 
-- **S2、`service.py`、S8–S9 与 T1 尚未实施**；已完成前置验证与 S3–S7。**代理中所有能以纯逻辑表达的安全不变量均已落地并有测试**：私有文件可信、请求出站前拒绝、额度不超支、未知不记零、令牌不跨 Run、出站目标不由请求决定、重试与重定向结构上不可配。剩余部分性质不同——`service.py` 与 `network.py` 是**接线**，其形态取决于 T1 拓扑结论，故按用户确认的顺序把 T1 提前到 `service.py` 之前。
+- **S2、`service.py`、S8–S9 尚未实施**；已完成前置验证、S3–S7 与 T1。**代理中所有能以纯逻辑表达的安全不变量均已落地并有测试**：私有文件可信、请求出站前拒绝、额度不超支、未知不记零、令牌不跨 Run、出站目标不由请求决定、重试与重定向结构上不可配。
+- **T1 已不再是 `service.py` 的未知项**：拓扑在本机（纯 Docker 层）成立，且七条断言的每一条都有实际输出。**但 `service.py` 仍不应据 T1 直接定稿**，理由有二：① T1 结论只在纯 Docker/Compose 层成立，固定 Harbor 能否替换侧车网络附加仍未回答（T2，负责人机器）；② T1 的转发实现是中继替身，不含 HTTP 语义。可行做法是先实现与拓扑无关的部分（鉴权、令牌生命周期、错误码映射、流收束），把网络形态留到 T2 之后接线。
 - **S2 暂缓**：Codex TOML 字段名研究第 1 节有据，但仓库内无 `config.toml` 样例（探针样例在被 Git 忽略的 `runtime/`，只在负责人机器）。定稿前须用固定 CLI 在契约层复核一次字段名，不凭文档当已确认。
-- **T1 未执行**：本机 Docker 能力已验证，但拓扑探针与 7 条断言仍未做。
-- 授权依据：用户会话内明确"同意"，并追加"其它需要开工授权的也同意"；本行动按其**只覆盖 E 本机实施与 T1 执行**理解执行——**不含真实模型/供应商调用**（项目规定须单独授权、历史 ChatGPT 许可不覆盖 DeepSeek/Kimi），**也不含负责人机器的 T2 操作**。负责人书面回执原写"未授予实施开工许可"，建议补一句书面确认后再同步任务单第 2 项验收的机器归属。
+- **本轮未改动任何产品代码**，故静态检查与默认回归沿用同一 HEAD（`4c7c4d6`）的实测结果：`ruff check` 通过、`ruff format --check` 313 文件、`mypy` 174 源文件无问题、默认回归 **484 passed / 102 skipped / 2 failed**（失败项仍为缺 `framework/harbor` 的 ISSUE-04），`pytest tests/providers` **67 passed / 1 skipped**。
+- **T2 与集成层仍在负责人机器**：资源范围已确认，窗口为空；7 条断言在固定 Harbor 上的成立仍需单独窗口与授权。
+- 授权依据：用户会话内明确"同意"，并追加"其它需要开工授权的也同意"；随后对"修 T1 探针并重跑七条断言"回复"要"。本行动按其**只覆盖 E 本机实施与 T1 执行**理解执行——**不含真实模型/供应商调用**（项目规定须单独授权、历史 ChatGPT 许可不覆盖 DeepSeek/Kimi），**也不含负责人机器的 T2 操作**。负责人书面回执原写"未授予实施开工许可"，建议补一句书面确认后再同步任务单第 2 项验收的机器归属。
