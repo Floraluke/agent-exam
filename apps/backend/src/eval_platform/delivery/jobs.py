@@ -9,7 +9,10 @@ from datetime import UTC, datetime
 from eval_platform.adapters.artifacts.minio import MinioArtifactStore
 from eval_platform.adapters.identity.passwords import Argon2Passwords
 from eval_platform.adapters.persistence.identity import PostgresIdentityRepository
-from eval_platform.adapters.persistence.jobs import initialize_schema
+from eval_platform.adapters.persistence.jobs import (
+    initialize_schema,
+    upgrade_continuous_preset,
+)
 from eval_platform.adapters.persistence.jobs.repository import PostgresJobRepository
 from eval_platform.application.agent_registry import AgentRegistry
 from eval_platform.application.identity import IdentityService
@@ -50,6 +53,10 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="AgentExam 本机 Job 维护")
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("init-db", help="仅在空白专属数据库建立 Job 表")
+    commands.add_parser(
+        "upgrade-continuous-preset",
+        help="显式把既有 Job 库的批次预设约束升级为支持 continuous",
+    )
     render = commands.add_parser(
         "render-matrix",
         help="把多个已完成批次的报告渲染为题目×配置 Markdown 对比矩阵",
@@ -68,6 +75,14 @@ def main(argv: list[str] | None = None) -> int:
         if arguments.command == "init-db":
             initialize_schema(dsn)
             print("Job 表已建立；未创建批次、读取凭据或运行评测。")
+            return 0
+        if arguments.command == "upgrade-continuous-preset":
+            changed = upgrade_continuous_preset(dsn)
+            print(
+                "Job 批次预设约束已升级。"
+                if changed
+                else "Job 批次预设约束已包含 continuous，无需重复升级。"
+            )
             return 0
         if arguments.command == "render-matrix":
             repository = PostgresJobRepository(dsn)

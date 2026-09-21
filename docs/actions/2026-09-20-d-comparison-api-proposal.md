@@ -1,6 +1,6 @@
-# 跨批次对比报告接口提案（任务 03 · D 侧发起，待 B 确认）
+# 跨批次对比报告接口提案（任务 03 · D 侧发起，已同步共享契约）
 
-> 状态：**已按 B 授权由 D 定稿**（2026-09-20）。成员 B 授权由 D 定案本接口；本文即定稿版本，可私下发给 B 过目。**尚未写入共享文档** `docs/interfaces/HTTP_API.md`——该文档归 B 维护，待 B 确认后由 B 落笔新增 §10.4，本文届时只留指针、不复制维护。
+> 状态：**Completed**（2026-09-20）。成员 B 授权由 D 定案本接口；共享契约已经写入 [`HTTP_API.md` §10.4](../interfaces/HTTP_API.md#104-跨批次对比报告)。本文保留提案、实施和审查历史，不再作为响应字段的第二事实源。
 >
 > 依据：规格 story 24–27（"每题一行、配置一列"、"分清未通过、执行故障和未完成"）；执行计划第 5 节（"复用批次报告建'题×配置'矩阵……缺失 Run 或报告标为缺失，不当作未通过或零"）；现有接口契约 §10.1/10.2/10.3。
 
@@ -58,7 +58,7 @@
       "incomplete": 0,
       "missing": 0,
       "decided": 6,
-      "coverage": "6/6"
+      "total": 6
     }
   ]
 }
@@ -71,7 +71,7 @@
 | `columns[]` | 每个（Job × 配置）一列；列序 = `job_ids` 去重后的顺序；同一 Job 多配置时按 Run 顺序展开 | `MatrixColumn` |
 | `rows[]` | 全部 Job 的题目并集，按 `(repo, task_instance_id)` 排序 | `MatrixRow` |
 | `cells[]` | 该题在该列的结果，五档之一 | `MatrixCellValue` |
-| `totals[]` | 每列分类计数；`decided` = 四档有结论数，`coverage` = "有结论/总数" | `MatrixColumnTotals` |
+| `totals[]` | 每列分类计数；`decided` = 四档有结论数，`total` = 有结论数 + `missing` | `MatrixColumnTotals` |
 
 **单元格 `outcome` 五档判定**（新类型 `ComparisonOutcome`，只用于本接口，**不改动** §10.1 既有 `outcome` 四档）：
 
@@ -83,7 +83,7 @@
 | `incomplete` | 其余非终态（取消/未完成） |
 | `missing` | ① 该组合没有 Run；或 ② Run `COMPLETED` 但报告不可读 |
 
-**硬规则（计划第 5 节原文，已由测试覆盖）**：`missing` 的 `resolved` 必须为 `null`（不是 `false`）、`report_path` 为 `null`，**不当作未通过或零**；`missing` 的 `run_id` 为 `null` 表示"没有 Run"、非 `null` 表示"有 Run 但报告缺失"（供界面区分文案）。`coverage` 保持完整矩阵分母，不因缺失扣减。
+**硬规则（计划第 5 节原文，已由测试覆盖）**：`missing` 的 `resolved` 必须为 `null`（不是 `false`）、`report_path` 为 `null`，**不当作未通过或零**；`missing` 的 `run_id` 为 `null` 表示"没有 Run"、非 `null` 表示"有 Run 但报告缺失"（供界面区分文案）。`total` 保持完整矩阵分母，不因缺失扣减。
 
 ## 3. 权限与可见性（沿用 §10.2 既有规则，不新设计）
 
@@ -107,7 +107,7 @@
 |---|---|---|
 | 五档分类、缺失语义、去重/上限、授权（`JobReporting.compare` + `matrix.py`） | ✅ 已实现并测试 | D |
 | 本接口的路由、DTO、错误映射、OpenAPI | ✅ 已实现（2026-09-20，B 批准本方案后） | D 实施（文件在 B 的 HTTP 层，经 B 批准） |
-| 本文落入 `HTTP_API.md` §10.4 | ⬜ 待 B 落笔 | **B** |
+| 本文落入 `HTTP_API.md` §10.4 | ✅ 已落笔 | **B** |
 | 对比页 UI（列头、单元格、覆盖率、钻取） | ⬜ 待实现 | B（任务 03 主责） |
 | 每列指标汇总（用量/费用/耗时 `{value, coverage}`） | ⬜ 可后续增量；v1 不含，页面可经既有单 Run 报告惰性取得 | 待定 |
 
@@ -129,8 +129,8 @@
 按本提案实现的文件与验证（`apps/backend`）：
 
 ```text
-src/eval_platform/delivery/http/routes/jobs/
-  report_comparisons.py            # 新增：ComparisonResponse 等 DTO 与 /reports/comparisons 路由
+src/eval_platform/delivery/http/routes/jobs/reporting/
+  comparisons.py                   # ComparisonResponse 等 DTO 与 /reports/comparisons 路由
 src/eval_platform/delivery/http/
   errors.py                        # 修改：为 EMPTY_COMPARISON_SELECTION / COMPARISON_LIMIT_EXCEEDED / INVALID_REQUEST 增加明确文案（其余保持原样）
   app.py                           # 修改：注册 comparison_router（与 report_router 并列）
@@ -144,4 +144,4 @@ tests/jobs/reporting/
 - 全量回归（含数据库门禁）→ **2 failed / 452 passed / 36 skipped**（2 个失败均为缺 `framework/harbor` 的既有环境缺口，与本次无关；此前记录的 cancel/claim 竞态测试本次稳定通过）；
 - `ruff check`（改动文件）→ All checks passed；`mypy`（新路由文件）→ Success。
 
-共享文档 `docs/interfaces/HTTP_API.md` 未由 D 改动；§10.4 落笔仍待 B 完成。
+合并后审查又补充了三项收口：HTTP 严格拒绝未知/重复 query 并规范化 UUID；矩阵以 `(repo, task_instance_id)` 作为行身份，避免不同仓库同名题合并；outcome 和 `decided/total` 统一由 `matrix.py` 提供。共享契约 §10.4 已同步，任务 03 的 Web 页面仍未实现。

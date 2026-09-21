@@ -35,10 +35,8 @@ from eval_platform.delivery.http.routes.artifacts import artifact_router
 from eval_platform.delivery.http.routes.catalog import catalog_router
 from eval_platform.delivery.http.routes.identity import identity_router
 from eval_platform.delivery.http.routes.jobs import jobs_router
-from eval_platform.delivery.http.routes.jobs.report_comparisons import (
-    comparison_router,
-)
 from eval_platform.delivery.http.routes.jobs.report_routes import report_router
+from eval_platform.delivery.http.routes.jobs.reporting import comparison_router
 from eval_platform.delivery.http.routes.leaderboard import leaderboard_router
 from eval_platform.delivery.http.routes.membership import membership_router
 from eval_platform.delivery.http.security import LoginLimiter, trusted_write

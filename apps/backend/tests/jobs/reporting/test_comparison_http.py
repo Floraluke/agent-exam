@@ -96,9 +96,7 @@ def test_comparison_requires_session_and_hides_unknown_or_foreign_jobs(
     api = internal_reports_api
     assert _comparison(api, ["00000000-0000-0000-0000-000000000001"]).status_code == 401
     api.login()
-    assert (
-        _comparison(api, ["00000000-0000-0000-0000-000000000001"]).status_code == 404
-    )
+    assert _comparison(api, ["00000000-0000-0000-0000-000000000001"]).status_code == 404
 
     task, agent = api.register_catalogs()
     owner_job = submit(
@@ -127,3 +125,34 @@ def test_comparison_rejects_empty_bad_and_oversized_selections(internal_reports_
     oversized = _comparison(api, many)
     assert oversized.status_code == 400
     assert oversized.json()["error"]["code"] == "COMPARISON_LIMIT_EXCEEDED"
+
+    unknown = api.client.get(
+        "/api/v1/reports/comparisons",
+        params={"job_ids": many[0], "unexpected": "1"},
+    )
+    assert unknown.status_code == 400
+    assert unknown.json()["error"]["code"] == "INVALID_REQUEST"
+
+    duplicate = api.client.get(
+        "/api/v1/reports/comparisons",
+        params=[("job_ids", many[0]), ("job_ids", many[1])],
+    )
+    assert duplicate.status_code == 400
+    assert duplicate.json()["error"]["code"] == "INVALID_REQUEST"
+
+
+def test_comparison_normalizes_uuid_before_deduplicating(internal_reports_api):
+    api = internal_reports_api
+    api.login()
+    task, agent = api.register_catalogs()
+    created = submit(
+        api,
+        submission(task["task_id"], agent["agent_configuration_id"]),
+        "comparison-normalized-uuid-0001",
+    ).json()
+
+    job_id = created["job_id"]
+    response = _comparison(api, [job_id.lower(), job_id.upper()])
+
+    assert response.status_code == 200
+    assert [column["job_id"] for column in response.json()["columns"]] == [job_id]

@@ -14,7 +14,7 @@ from typing import Literal
 from eval_platform.domain.jobs.execution import JobReport
 from eval_platform.domain.jobs.models import EvaluationRun, run_order_key
 
-MatrixCell = Literal[
+ComparisonOutcome = Literal[
     "resolved",
     "unresolved",
     "infrastructure_error",
@@ -34,7 +34,7 @@ class MatrixColumn:
 
 @dataclass(frozen=True, slots=True)
 class MatrixCellValue:
-    outcome: MatrixCell
+    outcome: ComparisonOutcome
     run_id: str | None
     resolved: bool | None
     failure_code: str | None
@@ -56,6 +56,19 @@ class MatrixColumnTotals:
     incomplete: int
     missing: int
 
+    @property
+    def decided(self) -> int:
+        return (
+            self.resolved
+            + self.unresolved
+            + self.infrastructure_error
+            + self.incomplete
+        )
+
+    @property
+    def total(self) -> int:
+        return self.decided + self.missing
+
 
 @dataclass(frozen=True, slots=True)
 class ReportMatrix:
@@ -67,9 +80,9 @@ class ReportMatrix:
 def build_matrix(reports: Sequence[JobReport]) -> ReportMatrix:
     """Aggregate job reports into one task × configuration matrix."""
     columns: list[MatrixColumn] = []
-    runs_by_task: list[dict[str, EvaluationRun]] = []
+    runs_by_task: list[dict[tuple[str, str], EvaluationRun]] = []
     reported_runs: list[frozenset[str]] = []
-    tasks: dict[str, str] = {}
+    tasks: set[tuple[str, str]] = set()
 
     for report in reports:
         reported = frozenset(item.run.run_id for item in report.run_reports)
@@ -84,17 +97,19 @@ def build_matrix(reports: Sequence[JobReport]) -> ReportMatrix:
                     runs[0].agent.display_name,
                 )
             )
-            runs_by_task.append({run.task.instance_id: run for run in runs})
+            runs_by_task.append(
+                {(run.task.repo, run.task.instance_id): run for run in runs}
+            )
             reported_runs.append(reported)
             for run in runs:
-                tasks.setdefault(run.task.instance_id, run.task.repo)
+                tasks.add((run.task.repo, run.task.instance_id))
 
     rows: list[MatrixRow] = []
     counts: list[Counter[str]] = [Counter() for _ in columns]
-    for instance_id, repo in sorted(tasks.items(), key=lambda item: (item[1], item[0])):
+    for repo, instance_id in sorted(tasks):
         cells: list[MatrixCellValue] = []
         for index, index_by_task in enumerate(runs_by_task):
-            candidate = index_by_task.get(instance_id)
+            candidate = index_by_task.get((repo, instance_id))
             reported = reported_runs[index]
             available = candidate is not None and candidate.run_id in reported
             value = _cell(candidate, available)
@@ -123,7 +138,7 @@ def _cell(run: EvaluationRun | None, report_available: bool) -> MatrixCellValue:
     )
 
 
-def _outcome(run: EvaluationRun) -> MatrixCell:
+def _outcome(run: EvaluationRun) -> ComparisonOutcome:
     if run.status == "COMPLETED":
         return "resolved" if run.resolved_summary else "unresolved"
     if run.status == "FAILED":

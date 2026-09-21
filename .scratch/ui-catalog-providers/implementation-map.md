@@ -2,7 +2,7 @@ Status: needs-info
 
 # 实现地图与文档联动
 
-> 标签只表示 03–08 的候选仍待后续任务确认；任务 02 已实现并在本文回填实际契约与文件树。
+> 标签只表示 03–08 的产品阶段仍待后续任务确认；任务 02 已实现。2026-09-20 已先行落地 continuous 规模和跨批次比较后端，但 Web 对比页、五道新题及真实矩阵验收仍未完成。
 
 > 供[执行计划](plan.md)按阶段读取。任务 02 的逐控件契约和实际 Web 文件树已按 2026-09-18 工作区回填；03–08 标有“候选”的内容仍只供后续审阅。后续实现前继续回读源码、锁定当时 HEAD，不得按候选地图重造平行链。
 
@@ -20,7 +20,7 @@ Web 只改善呈现与交互，复用唯一请求客户端与现有 HTTP；Task 
 
 | 阶段 | 现有入口与职责 | 相关验证入口 |
 |---|---|---|
-| 01–03 | [会话壳](../../apps/web/src/features/identity/session.tsx)、[提交与动线](../../apps/web/src/features/jobs/submit.tsx)、[批次报告](../../apps/web/src/features/jobs/batch-report.tsx)、[单次报告](../../apps/web/src/features/jobs/report.tsx)、[Job 客户端](../../apps/web/src/lib/job-client.ts)：替换长页组织，复用鉴权请求 | [浏览器运行器](../../apps/web/tests/run-browser-tests.mjs)、[Web 包脚本](../../apps/web/package.json)；跟读 identity/catalog/jobs/job-batch/job-evidence、recovery/leaderboard/retention 用例 |
+| 01–03 | [会话壳](../../apps/web/src/features/identity/session.tsx)、[提交与动线](../../apps/web/src/features/jobs/submit.tsx)、[批次报告](../../apps/web/src/features/jobs/batch-report.tsx)、[单次报告](../../apps/web/src/features/jobs/report.tsx)、[Job 客户端](../../apps/web/src/lib/job-client.ts)：替换长页组织，复用鉴权请求；后端已有 `GET /api/v1/reports/comparisons`，Web 尚无客户端或页面 | [浏览器运行器](../../apps/web/tests/run-browser-tests.mjs)、[Web 包脚本](../../apps/web/package.json)、[比较 HTTP/矩阵测试](../../apps/backend/tests/jobs/reporting/) |
 | 04 题目 | [受控种子](../../apps/backend/src/eval_platform/delivery/catalog_presets.py)、[Task Source](../../apps/backend/src/eval_platform/adapters/tasks/swe_gym.py)、[目录用例](../../apps/backend/src/eval_platform/application/task_catalog.py)：固定 Parquet/镜像和公开/隐藏数据分离 | [目录 HTTP](../../apps/backend/tests/catalog/test_http.py)、[一致性](../../apps/backend/tests/catalog/test_consistency.py)、[Fork 集成](../../apps/backend/tests/integration/test_swe_bench_integration.py) |
 | 04 规模 | [策略组合](../../apps/backend/src/eval_platform/delivery/job_presets.py)、[领域策略](../../apps/backend/src/eval_platform/domain/jobs/policy.py)、[提交用例](../../apps/backend/src/eval_platform/application/job_submission.py)、[Repository](../../apps/backend/src/eval_platform/adapters/persistence/jobs/repository.py)：服务端边界与冻结事务 | [提交 HTTP](../../apps/backend/tests/jobs/test_http.py)、[并发](../../apps/backend/tests/jobs/test_concurrency.py)、[真实 PG](../../apps/backend/tests/jobs/test_postgres.py)、[恢复](../../apps/backend/tests/jobs/recovery/test_retry.py) |
 | 05–07 配置 | [配置身份](../../apps/backend/src/eval_platform/domain/agent.py)、[Registry](../../apps/backend/src/eval_platform/application/agent_registry.py)、[目录 SQL](../../apps/backend/src/eval_platform/adapters/persistence/catalog/schema.sql)、[配置 Repository](../../apps/backend/src/eval_platform/adapters/persistence/catalog/agents.py)：当前只接受旧 ChatGPT 的约束需扩展 | [目录安全](../../apps/backend/tests/catalog/test_security.py)、目录 HTTP/PG/一致性测试 |
@@ -43,6 +43,7 @@ Web 只改善呈现与交互，复用唯一请求客户端与现有 HTTP；Task 
 | 批准、拒绝、取消 | `decideJob/cancelJob`；写请求携带 `Idempotency-Key`，成功后重新读取服务端事实 | `POST /api/v1/jobs/{job_id}/approve|reject|cancel` → `routes/jobs/routes.py` → 生命周期用例/Repository |
 | 中断收束、新建重试 | `recoverJob/retryJob`；retry 使用新幂等键，返回新 Job 后按新标识导航 | `POST /api/v1/jobs/{job_id}/recover|retry` → `routes/jobs/lifecycle/routes.py` → Recovery/Retry 用例 |
 | 批次报告、单 Run、制品、轨迹 | `jobReport/runReport/runArtifacts/runTrajectory`；各自运行时解析，缺失不伪造 | `GET /api/v1/reports/jobs/{job_id}`、`GET /api/v1/reports/runs/{run_id}`、`GET /api/v1/runs/{run_id}/artifacts|trajectory` → report/artifact routes |
+| 跨批次比较 | **Web 尚未接入**，因此当前没有按钮或假结果；任务 03 实施时先补客户端解析和逐控件契约 | `GET /api/v1/reports/comparisons?job_ids=...` → `routes/jobs/reporting/comparisons.py` → `JobReporting.compare` / `matrix.py` |
 | 侧栏导航、移动抽屉、向导上一步/下一步 | React 路由或组件内状态；保留可分享 URL、前进后退与选择 | **无后端请求**；浏览器测试断言不产生网络写入 |
 
 控件隐藏不等于授权：协作者看不到 owner 动作，但服务器仍是最终权限边界。任何未在当前接口文档和源码中找到的行为先标“接口缺口”；若要新增公共 Interface、Module 或表，按项目规则说明现有能力为何不能承载并取得用户确认后再继续。
@@ -106,7 +107,7 @@ runtime/prototype/ui-workbench-<date>-<scope>/ # 候选；Git 忽略的静态假
 
 本地静态 HTML 是用户指定形式；可离线打开，需本机预览时仅回环，不启用 Serve。原型不提交成生产功能；确认的交互结论进入后续行动/原型决策记录，生产代码按既有 React 结构重写。
 
-### 02 Web 实际结构；03 报告重组仍是候选
+### 02 Web 实际结构；03 Web 报告重组仍是候选
 
 ```text
 apps/web/src/features/
@@ -128,7 +129,7 @@ apps/web/tests/workbench/                   # 已新增：桌面、手机、角�
 apps/web/tests/jobs/                        # 已有：审批、取消、恢复等回归入口
 ```
 
-当前 jobs 有 8 个直接文件，本轮只把列表和向导放入职责子目录，没有继续平铺；`workbench` 2 个文件，测试工作台目录 7 个文件。任务 03 的 `reporting/` 仍是候选，不得从本树推断已经实现。URL 读写目前散落在壳、列表组合、恢复和登出代码，是评审记录的 Shotgun Surgery 判断项；本轮不扩大成路由重构，后续动导航时再收敛。
+当前 Web `jobs` 有 8 个直接文件；`workbench` 2 个文件，测试工作台目录 7 个文件。Web 任务 03 的 `reporting/` 仍是候选，不得从后端端点推断页面已经实现。后端比较路由现位于 `apps/backend/src/eval_platform/delivery/http/routes/jobs/reporting/`，使后端 `routes/jobs/` 直属文件维持 8 个；应用聚合位于 `application/reporting/matrix.py`。URL 读写目前散落在壳、列表组合、恢复和登出代码，是评审记录的 Shotgun Surgery 判断项；后续动导航时再收敛。
 
 ### 04 目录与规模
 
@@ -137,9 +138,9 @@ apps/backend/src/eval_platform/
 ├─ adapters/tasks/swe_gym.py                 # 修改：用已资格验证的固定集合替代单题拒绝
 ├─ adapters/tasks/catalog.py                # 候选新增：instance -> 固定镜像身份清单
 ├─ delivery/catalog_presets.py              # 修改：新增已合格题的有限 preset
-├─ delivery/job_presets.py                  # 修改：新连续范围策略版本，旧版本可解释
+├─ delivery/job_presets.py                  # 已修改：continuous 1–20；旧预设区间不变
 ├─ domain/jobs/{policy,snapshots,factory}.py # 必要修改：验证、序列化、冻结哈希兼容
-└─ adapters/persistence/jobs/               # 必要修改已有读出校验；不新增第九个根文件
+└─ adapters/persistence/jobs/               # 已有显式旧库约束升级；HTTP 启动不自动迁移
 apps/backend/tests/catalog/qualification/   # 候选新增：五题参数化资格/隐藏信息/漂移测试
 apps/backend/tests/jobs/submission/          # 候选新增：新规模与旧快照兼容矩阵
 ```

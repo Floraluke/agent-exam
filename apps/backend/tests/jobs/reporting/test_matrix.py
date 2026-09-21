@@ -124,6 +124,10 @@ def test_matrix_classifies_cross_configuration_outcomes():
     ]
     assert matrix.totals[0] == MatrixColumnTotals(1, 0, 1, 1, 0)
     assert matrix.totals[1] == MatrixColumnTotals(0, 1, 0, 0, 2)
+    assert matrix.totals[0].decided == 3
+    assert matrix.totals[0].total == 3
+    assert matrix.totals[1].decided == 1
+    assert matrix.totals[1].total == 3
 
 
 def test_missing_cells_never_carry_false_or_zero():
@@ -149,3 +153,39 @@ def test_rows_are_ordered_and_empty_input_is_safe():
 
     empty = build_matrix([])
     assert empty.columns == () and empty.rows == () and empty.totals == ()
+
+
+def test_same_instance_id_in_different_repositories_stays_in_separate_rows():
+    job_a, _ = queued_batch(NOW, size=2)
+    run_a = _completed(job_a.runs[0], True)
+    job_a = replace(job_a, runs=(run_a,))
+    report_a = JobReport(
+        created_by=job_a.created_by,
+        job=job_a,
+        run_reports=(_run_report(job_a, run_a, True),),
+    )
+
+    task_b = replace(run_a.task, repo="another/repository")
+    run_b = replace(
+        run_a,
+        run_id=str(uuid4()),
+        job_id=str(uuid4()),
+        task=task_b,
+    )
+    job_b = replace(job_a, job_id=run_b.job_id, runs=(run_b,))
+    report_b = JobReport(
+        created_by=job_b.created_by,
+        job=job_b,
+        run_reports=(_run_report(job_b, run_b, True),),
+    )
+
+    matrix = build_matrix([report_a, report_b])
+
+    assert [(row.repo, row.task_instance_id) for row in matrix.rows] == [
+        ("another/repository", run_b.task.instance_id),
+        (run_a.task.repo, run_a.task.instance_id),
+    ]
+    assert [[cell.outcome for cell in row.cells] for row in matrix.rows] == [
+        ["missing", "resolved"],
+        ["resolved", "missing"],
+    ]

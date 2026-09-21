@@ -1,8 +1,8 @@
 # Web 与后端 HTTP API 契约
 
-> 文档状态：Job/Run 资源边界已确认；HTTP 契约 v0.3。任务 01–13 已验收；任务 13 的 `-04` 真实提交、批准、完成终态、持久化报告、页面读回和双轴终审均通过
+> 文档状态：Job/Run 资源边界已确认；HTTP 契约 v0.3。任务 01–13 已验收；已增加 continuous 受控选项与跨批次比较 GET，任务 03 的 Web 对比页尚未实现
 >
-> 最后更新：2026-09-18（增加当前已注册端点与 Web 调用位置清单；HTTP 行为未变更）
+> 最后更新：2026-09-20（同步 continuous 受控选项与跨批次比较契约）
 > 权威范围：本文件只维护 Next.js Web 与 FastAPI 交付层之间的 HTTP 契约。内部模块行为见 [`MODULE_CONTRACTS.md`](../architecture/MODULE_CONTRACTS.md)，存储字段见 [`DATA_MODEL.md`](../architecture/DATA_MODEL.md)。
 
 ## 规划增量与当前接口
@@ -39,7 +39,7 @@
 
 ### 2.1 当前前后端 API 清单（已注册、可由产品 UI 使用）
 
-本表以当前 FastAPI 路由装配和 `apps/web/src/lib` 调用代码为准，只列已经注册的 31 个 HTTP 端点。详细请求/响应形状仍由本文件后续对应章节维护，本表只维护“Web 从哪里调用、页面为什么调用、谁能调用”的追踪关系，避免复制 schema。
+本表以当前 FastAPI 路由装配和 `apps/web/src/lib` 调用代码为准，列出已经注册的 32 个 HTTP 端点，并明确尚未接入 Web 的端点。详细请求/响应形状仍由本文件后续对应章节维护，本表只维护“Web 从哪里调用、页面为什么调用、谁能调用”的追踪关系，避免复制 schema。
 
 硬规则：产品 UI 只有在本表存在对应端点时才可提供改变业务事实的按钮或交互；不得用前端假数据、假成功或占位动作模拟未完成能力。导航、菜单开关、URL 切换和向导前后步不改变业务事实，明确属于无 HTTP 请求的本地界面动作。
 
@@ -72,6 +72,7 @@
 | `POST /api/v1/jobs/{job_id}/retry` | `job-client.retryJob` | 从已显式收束的旧 Job 新建重试 Job | owner；要求幂等键；新 Job 重新待批准 |
 | `GET /api/v1/reports/jobs/{job_id}` | `job-client.jobReport` | Job 详情读取批次进度 | 与 Job 可见范围相同 |
 | `GET /api/v1/reports/runs/{run_id}` | `job-client.runReport` | 批次/详情读取单题运行报告 | 与来源 Job 可见范围相同 |
+| `GET /api/v1/reports/comparisons` | 尚未接入 Web | 后端已提供跨批次题目×配置矩阵；任务 03 页面与按钮未实现 | owner 可读全部；collaborator 仅本人创建的 Job |
 | `GET /api/v1/runs/{run_id}/artifacts` | `job-client.runArtifacts` | 安全证据读取制品元数据和保留状态 | 与来源 Job 可见范围相同 |
 | `GET /api/v1/runs/{run_id}/trajectory` | `job-client.runTrajectory` | 安全证据分页读取脱敏轨迹 | 与来源 Job 可见范围相同 |
 | `GET /api/v1/artifacts/{artifact_id}/content` | 报告页同源下载链接 | 下载公开补丁/测试摘要/公开轨迹正文 | 与来源 Job 可见范围相同；仅公开白名单类型 |
@@ -361,7 +362,7 @@ P2 自研 Agent 只支持 Python 固定进程 Interface；`agent-exam.yaml` 不�
 
 需要可信登录会话。成功 `200` 只返回服务端登记项：
 
-- `batch_presets`：`demo` 1–3 题、`quick` 5 题、`standard` 10–20 题；
+- `batch_presets`：`demo` 1–3 题、`quick` 5 题、`standard` 10–20 题、`continuous` 1–20 题；旧预设区间不变；
 - `evaluation_tracks`：当前只有 `closed_book`；
 - `maximum_agent_configurations=3`、`maximum_runs=60`；
 - 唯一 `limit_profiles[0].limit_profile_id=default-single-host-v1`：Agent 900 秒/1 CPU/4096 MiB/8192 MiB storage，Evaluator 300 秒/1 CPU/4096 MiB，PID 64，patch 256 KiB 警告/1 MiB 拒绝，单原始制品 50 MiB、单 Run 原始制品合计 200 MiB，并发 1、重试 0。
@@ -664,6 +665,19 @@ Quality Judge 的触发由后端判定，浏览器不能通过 query 强迫运�
 每对候选按“任务匹配与最小修改、可读性与可维护性、稳健性、副作用风险”四项 rubric 比较，并以 A/B 和 B/A 反序各运行一次；两次都指向同一候选才产生胜者，否则该对并列。三个及以上候选采用循环赛，胜 1 分、平 0.5 分、负 0 分。证据清洗失败、模型超时或输出无效时不产生并列次序。
 
 MVP 排行榜只接受 `evaluation_track=closed_book`。数据模型保留 `open_book_experimental`，但创建和查询均返回未启用；未来启用时只允许平台统一 Web 工具并与闭卷严格分榜，不使用各 Agent 各自的原生搜索工具。
+
+### 10.4 跨批次对比报告
+
+`GET /api/v1/reports/comparisons?job_ids=<uuid>,<uuid>,...`
+
+该端点已经注册，用于把已有 Job 报告只读聚合成题目×配置矩阵；任务 03 的 Web 对比页面和按钮尚未实现，产品 UI 不得在接线前伪造交互或结果。
+
+- query 必须且只能出现一次 `job_ids`；未知参数、重复参数、空选择或非法 UUID 返回 `400`。逗号分隔项会去首尾空白、规范化为小写 UUID，并按首次出现顺序去重；去重后最多 20 个 Job。
+- owner 可比较全部 official Job；collaborator 只能比较自己创建的 Job。任一 Job 不存在、无权访问或为 `internal_test` 时，整个请求返回 `404 JOB_NOT_FOUND`，不泄漏具体哪一项存在。
+- 成功 `200` 返回 `{columns, rows, totals}`。`columns[]` 包含 `job_id/agent_configuration_id/agent_display_name`；`rows[]` 按 `(repo, task_instance_id)` 稳定排序，并包含同序 `cells[]`；不同仓库的同名实例不得合并。
+- `cells[].outcome` 只允许 `resolved/unresolved/infrastructure_error/incomplete/missing`。`missing` 表示该列没有对应 Run，或 Run 已完成但报告不可用；其 `resolved` 和 `report_path` 必须为 `null`，不能冒充未通过或零。没有 Run 时 `run_id=null`，有 Run 但报告缺失时保留该 `run_id`。
+- `totals[]` 与列一一对应，包含五档计数以及整数 `decided`、`total`；`decided=resolved+unresolved+infrastructure_error+incomplete`，`total=decided+missing`。v1 不返回字符串覆盖率，也不包含计费或 Judge 分。
+- 无会话返回 `401`；数据库或报告读取不可用返回 `503 DEPENDENCY_UNAVAILABLE`。响应沿用 `Cache-Control: no-store` 与统一错误形状。
 
 ## 11. Human Review API
 

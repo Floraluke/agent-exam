@@ -39,17 +39,10 @@ def render_matrix_markdown(matrix: ReportMatrix) -> str:
         ]
     )
     for column, total in zip(matrix.columns, matrix.totals, strict=True):
-        decided = (
-            total.resolved
-            + total.unresolved
-            + total.infrastructure_error
-            + total.incomplete
-        )
-        count = decided + total.missing
-        coverage = f"{decided}/{count}" if count else "0/0"
+        coverage = f"{total.decided}/{total.total}" if total.total else "0/0"
         lines.append(
             f"| {column.agent_display_name} | {total.resolved} | {total.unresolved} "
             f"| {total.infrastructure_error} | {total.incomplete} | {total.missing} "
-            f"| {decided} | {coverage} |"
+            f"| {total.decided} | {coverage} |"
         )
     return "\n".join(lines)

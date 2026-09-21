@@ -2,7 +2,7 @@
 
 ## 状态与情况说明
 
-状态：In progress（2026-09-20 创建）。
+状态：Completed（2026-09-20 创建并完成；同日完成共享库核验与升级入口收口）。
 
 来源请求：成员 D 于 2026-09-20 要求开始 08 与其它任务里属于 D 的部分。本项对应计划 04 中 D 的交付"Job 快照 / 60 Runs / 兼容"，以及计划 08 的"12 Run 矩阵 + 可复查对比报告"。
 
@@ -13,7 +13,7 @@
 
 已确认决定：**新增**连续规模预设 `continuous`(1–20)，**不修改**既有预设区间（向后兼容）；总上限仍由既有 `maximum_runs=60` 与 `maximum_agent_configurations=3` 约束。
 
-需要协调（本行动不擅自扩大范围）：`batch_preset` 是 HTTP 受控选项（`GET /api/v1/job-options` 会返回），新增取值属于**公共选项的增量变化**。按"契约先于联调"，应由 B 在 `docs/interfaces/HTTP_API.md` 的受控选项小节补记并通知 B/E；本行动只改 D 的模块文件与测试，**不改共享契约文档**。
+当时需要协调：`batch_preset` 是 HTTP 受控选项（`GET /api/v1/job-options` 会返回），新增取值属于**公共选项的增量变化**。该待办已于同日由 B 在 `docs/interfaces/HTTP_API.md` 同步完成；本段保留最初责任边界。
 
 明确排除项：不改既有预设区间；不改数据库 schema、路由与 DTO 结构；不调用真实模型；不下载镜像。
 
@@ -74,17 +74,19 @@ git status --short
 - 首轮失败有两个根因：① 测试夹具的题目预设名是 `verified-task` 与 `verified-task-2..21`（**没有** `verified-task-1`），已修正；② **数据库层 CHECK 约束把允许的预设写死**（`adapters/persistence/jobs/schema.sql:12` 的 `evaluation_jobs_batch_preset_check`），新增策略预设必须同步改 schema——这正是计划所说的"改变 SQL 约束"，因此：
   - 已更新 `schema.sql`（新建库与测试沙箱自动获得新约束）；
   - 本机开发库 `agentexam_dev` 已执行 ALTER 升级；
-  - **共享库（owner 的长期 PostgreSQL）必须执行同样的 ALTER 才能使用新预设**；
-  - 计划要求"04–07 改变 SQL 约束时必须交付针对基线的升级路径"，本行动提供该输入，**但不由 D 直接修改共享库**。
-- 公共选项的增量变化：`batch_preset` 新增取值需要 B 在 `docs/interfaces/HTTP_API.md` 的受控选项说明（当前第 322 行）补记并通知 B/E。
+  - 当时确认共享库需要相同约束变化；2026-09-20 后续只读核验已确认它已由他人完成升级；
+  - 计划要求"04–07 改变 SQL 约束时必须交付针对基线的升级路径"；后续审查已补 `agentexam-jobs upgrade-continuous-preset`，不再依赖手抄裸 ALTER。
+- 公共选项的增量变化已经写入 `docs/interfaces/HTTP_API.md` 第 7.0 节。
 
-### 共享库升级输入（交给 owner / A）
+### 历史共享库升级输入（已执行，不要重复操作）
 
 ```sql
 ALTER TABLE evaluation_jobs DROP CONSTRAINT evaluation_jobs_batch_preset_check;
 ALTER TABLE evaluation_jobs ADD CONSTRAINT evaluation_jobs_batch_preset_check
     CHECK (batch_preset IN ('demo', 'quick', 'standard', 'continuous'));
 ```
+
+2026-09-20 后续核验：共享长期库约束定义已包含 `demo/quick/standard/continuous`，`convalidated=true`，活动 Job 为 0。本轮没有重复执行 ALTER。代码现提供显式、幂等、失败关闭的 `agentexam-jobs upgrade-continuous-preset`：只接受已知旧三值约束并原子升级；已是四值时无操作；未知定义拒绝覆盖。隔离真实 PostgreSQL 验证了三种路径，并在验证后删除专属临时数据库与角色。
 
 ### 演练用例实际覆盖（真实 PostgreSQL）
 
