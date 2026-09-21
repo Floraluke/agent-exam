@@ -1,6 +1,6 @@
 # M1 任务 14：私有双机协作验收
 
-> 状态：In Progress；2026-09-18 用户为五人课设新增 tailnet PostgreSQL `15432` 共享管理员入口，覆盖此前“只开放 HTTPS Web”的旧边界。owner 主机 TCP 自测通过，组员 Navicat、未获准设备、VPN 双态和离线恢复仍待完成。任务 13 已在 `f3870f6` 关闭，任务顺序门槛已解除。
+> 状态：In Progress；当前 tailnet PostgreSQL 共享管理员入口已核对为 `55432`。2026-09-20 用户进一步决定增加同一可信物理局域网 PostgreSQL `55432`，但本轮只改文档，该入口尚未实施或验证。组员 Navicat、未获准或非允许来源、VPN 双态和离线恢复仍待完成。任务 13 已在 `f3870f6` 关闭，任务顺序门槛已解除。
 
 ## 情况说明
 
@@ -12,26 +12,29 @@
 
 2026-09-18 用户明确把 PostgreSQL 作为课设例外开放给获准组员：五人共用 `agentexam_admin`，通过 `sss.tail03c757.ts.net:15432 → 127.0.0.1:55432` 访问，不另建只读账号。该入口已在 owner 主机配置为后台 Serve，主机 `Test-NetConnection` 成功；真实密码仍只由 owner 私下交付。MinIO、原始 FastAPI、Docker、Worker 和模型秘密不开放。组员 Navicat 登录、未获准设备拒绝、VPN 双态及离线恢复继续属于本任务未完成项。人员交接见[团队分工文档](../architecture/modules/TEAM_WORK_ALLOCATION.md)。
 
+2026-09-20 只读核对确认当前实际 Tailscale Serve 已改为 `sss.tail03c757.ts.net:55432 → 127.0.0.1:55432`，旧 `15432` 不可达而 `55432` 可达。用户因部分组员不能下载 Tailscale，确认增加同一可信物理局域网数据库入口；本轮授权仅限文档同步，不包括 Compose、防火墙、容器或机器设置修改，因此新入口尚未实施。
+
 ## 已确认边界、未知与建议
 
-- 已确认：采用 Tailscale Serve 私有 HTTPS 和 PostgreSQL TCP `15432`，不启用 Funnel、exit node、subnet router 或校园网端口映射；Web 代理同源 API，PG 只从 tailnet 转发到本机回环 `55432`，MinIO/Docker/Worker 不开放。
+- 已确认：采用 Tailscale Serve 私有 HTTPS 和 PostgreSQL TCP `55432`；另增加只面向同一可信物理局域网的 PostgreSQL TCP `55432`，不启用 Funnel、exit node、subnet router、路由器端口映射或公网发布。Web 代理同源 API，MinIO/Docker/Worker 不开放。
 - 已确认：应用中的 `owner` / `collaborator` 继续来自 AgentExam 会话；tailnet 用户或设备身份不授予 owner 权限。
 - 已确认：不需要再次调用真实模型。双机流程可用受控合成执行结果验证提交、决定、刷新、报告和安全证据；任务 13 已单独证明真实执行链。
 - 已确认：允许安装官方 Windows Tailscale；用户在场完成人工登录和获准/未获准两类外部设备操作；Codex 负责本机核验、回环平台、最小 Serve/策略指导、HTTP/浏览器/端口检查、证据汇总和精确回退。
-- 已确认：允许私有 HTTPS Web 与 PostgreSQL `tcp:15432`；禁止 Funnel、exit node、subnet router。Web 与 PG Serve 按课设使用状态保留，owner 可分别关闭；VPN 开启、关闭和评测机离线/恢复均在本任务授权内。
+- 已确认：允许私有 HTTPS Web 与 Tailscale PostgreSQL `tcp:55432`；物理局域网 PostgreSQL `tcp:55432` 是确认方向，但其 Compose、防火墙和机器实施不在本轮文档授权内。禁止 Funnel、exit node、subnet router、路由器转发和公网发布。
 - 当前待现场冻结：tailnet 管理者、评测机和两类外部设备的测试代号及参与状态。真实账号、设备名、tailnet 域名和 IP 只在本次临时会话中使用，不写入 Git、行动或对话输出。
-- 当前待验证：官方安装渠道在本机可用性、登录/HTTPS 证书同意、既有 tailnet 是否有更宽规则、两类设备能否完成 VPN 双态实测，以及 Tailscale 与 FlClash 的实际共存路径。
+- 当前待验证：组员 Navicat 的 Tailscale `55432` 正向、未获准 tailnet 设备负向、物理局域网实施后的正向与非允许来源负向、VPN 双态，以及 Tailscale 与 FlClash 的实际共存路径。
 
 ## 实施措施
 
 1. **授权与设备冻结**：已取得安装、登录、Serve/grant、VPN 双态、双机、离线恢复和关闭 Serve 的范围授权；现场只冻结 `HOST`、`ALLOWED`、`DENIED` 三个非秘密代号，不持久化真实身份。
 2. **人工向导**：按 `wizard` 的阶段、暂停确认和断点续做规则生成一次性人工向导。由于本机只有不可用的 WSL `bash.exe` 且没有 Git Bash，不额外安装 shell 或修改 WSL；采用同等边界的临时 PowerShell 向导，并记录该平台偏差。向导不保存密码、登录 URL、域名、IP 或策略正文。
-3. **本机回环门禁**：启动受控 PostgreSQL/MinIO、FastAPI 和 Next.js；确认 Web/API/PG 的 Docker 宿主入口只监听回环，MinIO 与 Docker 无 tailnet/公网监听，创建只进入 `AWAITING_OWNER_APPROVAL`。
-4. **私有入口配置**：通过 Tailscale Serve 提供私有 HTTPS Web 和 PostgreSQL `15432 → 127.0.0.1:55432`；tailnet grants 只允许获准主体访问 `tcp:443`/`tcp:15432`，并确认没有 Funnel/更宽旧规则抵消限制。
-5. **双机正反例**：分别在 FlClash/VPN 关闭和开启时，从获准设备验证 Web 登录/提交/结果及 PostgreSQL 管理员连接；从未获准设备验证 HTTPS 与 `15432` 均拒绝；同时验证协作者应用越权失败及原始 FastAPI/MinIO/Docker 端口不可达。
-6. **离线与恢复**：停止 Web 或评测机入口，验证远端明确不可用；在同一临时持久化数据上恢复后确认历史 Job、结果和证据仍可查，不触发旧 Job 自动续跑。
-7. **回退与收尾**：按用户确认的课设终态保留 Web/PG Serve，或用各自端口命令单独关闭；停止测试专属临时服务并精确清理，不更改 FlClash、Docker、WSL、代理或防火墙的长期设置。
-8. **回归与评审**：记录每项实际结果；运行任务 14 定向验证和全量回归，以任务 13 关闭提交 `f3870f6` 为固定基准做 Standards/Spec 双轴评审，修复后同步任务单、运维文档和 HANDOFF。
+3. **本机存储门禁**：启动受控 PostgreSQL/MinIO、FastAPI 和 Next.js；确认 MinIO、原始 FastAPI 和 Docker 不向 tailnet、物理局域网或公网监听，创建只进入 `AWAITING_OWNER_APPROVAL`。
+4. **Tailscale 入口配置**：通过 Tailscale Serve 提供私有 HTTPS Web 和 PostgreSQL `55432 → 127.0.0.1:55432`；tailnet grants 只允许获准主体访问 `tcp:443`/`tcp:55432`，并确认没有 Funnel/更宽旧规则抵消限制。
+5. **物理局域网入口实施（待另行授权执行）**：仅把 PostgreSQL `55432` 发布到 owner 的物理局域网；Windows 防火墙限制为专用网络／本地子网或更窄来源，不开放其他服务，不做路由器转发。
+6. **双机正反例**：分别验证 tailnet HTTPS/PostgreSQL 正反设备、VPN 开关，以及同一物理局域网 PostgreSQL 正向、非允许来源负向和公网不可达；同时验证协作者应用越权失败及原始 FastAPI/MinIO/Docker 端口不可达。
+7. **离线与恢复**：停止 Web 或评测机入口，验证对应入口明确不可用；在同一临时持久化数据上恢复后确认历史 Job、结果和证据仍可查，不触发旧 Job 自动续跑。
+8. **回退与收尾**：按用户确认的课设终态保留 Tailscale 与局域网数据库入口，或按各自配置精确关闭；停止测试专属临时服务，不改变范围外的 FlClash、Docker、WSL 或代理设置。
+9. **回归与评审**：记录每项实际结果；运行任务 14 定向验证和全量回归，以任务 13 关闭提交 `f3870f6` 为固定基准做 Standards/Spec 双轴评审，修复后同步任务单、运维文档和 HANDOFF。
 
 ## 需要修改的文件树
 
@@ -42,6 +45,8 @@ docs/actions/
 └─ 2026-09-14-m1-private-remote-acceptance.md # 本行动、设备代号、措施与证据
 docs/operations/
 └─ REMOTE_TEAM_ACCESS.md                 # 当前 Tailscale/Serve/VPN 实测状态与回退
+infra/
+└─ compose.yaml                           # 后续局域网实施时调整且仅调整 PostgreSQL 宿主绑定
 HANDOFF.md                               # 当前阻塞、授权边界和恢复入口
 runtime/acceptance/m1-task14-20260915-01/
 ├─ operator-wizard.ps1                         # Git 忽略的分阶段人工登录/双机操作向导
@@ -68,12 +73,13 @@ runtime/acceptance/m1-task14-20260915-01/
       └─ cleanup.py                            # 专属进程/容器/网络/四端口尽力清理和终态核对
 ```
 
-本任务不新增产品 Module、Interface、数据库表或顶层源码目录。Tailscale Serve 是 Web 与 PostgreSQL 回环入口的网络 Adapter；AgentExam HTTP 会话仍只约束 Web 应用权限，共享 PostgreSQL 超级管理员会绕过应用角色，这是用户为课设接受的例外。
+本任务不新增产品 Module、Interface、数据库表或顶层源码目录。Tailscale Serve 与未来的受限局域网发布是 PostgreSQL 的两种网络入口；AgentExam HTTP 会话仍只约束 Web 应用权限，共享 PostgreSQL 超级管理员会绕过应用角色，这是用户为课设接受的例外。
 
 ## 修改后自验证方式与成功标准
 
-- **本机状态**：`tailscale version/status/serve status` 可读，评测机在线但不作为 exit/subnet 节点；Serve 只有 HTTPS→回环 Web 与 TCP `15432`→回环 PostgreSQL 两类获准入口，Funnel 关闭。
-- **策略正反例**：tailnet policy 保存并通过测试；获准设备可访问 443/15432，未获准设备两端口均拒绝，同一主体不能直达原始 FastAPI、MinIO、Docker 或 Worker。
+- **Tailscale 状态**：`tailscale version/status/serve status` 可读，评测机在线但不作为 exit/subnet 节点；Serve 只有 HTTPS→回环 Web 与 TCP `55432`→回环 PostgreSQL 两类获准入口，Funnel 关闭。
+- **Tailscale 正反例**：tailnet policy 保存并通过测试；获准设备可访问 443/55432，未获准设备两端口均拒绝，同一主体不能直达原始 FastAPI、MinIO、Docker 或 Worker。
+- **物理局域网正反例**：实施后，同一可信物理局域网的组员可访问 PostgreSQL `55432`；非允许来源和公网不可达，Windows 防火墙规则只覆盖专用网络／本地子网或更窄范围。
 - **应用权限**：真实协作者会话能提交/查看本人内容，批准、成员/配置管理、制品清理和他人资源均拒绝；owner 在评测机决定后状态刷新。
 - **VPN 双态**：FlClash/VPN 开启和关闭都记录 Tailscale `direct` 或 `relay`、可用性与延迟；任一状态失败均如实记录，不改写为通过。
 - **离线恢复**：入口停止时远端失败，恢复同一数据后历史状态可查，旧 Job 不自动执行。
@@ -110,4 +116,4 @@ runtime/acceptance/m1-task14-20260915-01/
 - 提升后的首次预检在账号就绪后以 `CatalogUnavailable` 失败并 `cleanup=verified`。分阶段复现把失败定位到固定 Task 登记；离线 Task source 可读，最终确认验收器多一层 `platform/` 却沿用 Task13 根路径算法，把项目根误算为 `runtime/`。只把 `parents[3]` 修为 `parents[4]` 后，schema、bucket、账号、Task、Agent、API、Web 全部就绪。
 - 完整 HTTP 预检第一轮登录返回 403，根因是验收器漏带真实 Web 客户端必须发送的 `X-AgentExam-Request: 1`；补齐既有安全头后 owner/collaborator 登录通过。下一轮 Job/Run 收束为 `FAILED/EVIDENCE_UNAVAILABLE`，根因是合成 Evaluator 自创测试分组，产品公开证据只允许 `FAIL_TO_PASS`/`PASS_TO_PASS`；改用既有合法分组，不放宽白名单。
 - 修复后的真实回环 Web→FastAPI→临时 PG/MinIO 预检通过：Job 先为 `AWAITING_OWNER_APPROVAL`，协作者批准和成员管理均被拒，owner 批准后只有 internal-test 合成 worker 领取，Job/Run 均 `COMPLETED` 且报告可读；最终 `model_called=false`、`auth_read=false`、`serve=off`、`cleanup=verified`。独立 Docker 标签复核容器/网络/卷为 `0/0/0`。
-- 当前仍未完成最小 grants、Serve、获准/未获准设备、VPN 双态和离线恢复实测；这些项目保持未通过，不由登录成功或本机预检替代。
+- 2026-09-20 当前团队用 Tailscale Serve 已只读核对为 PostgreSQL `55432 → 127.0.0.1:55432`，但组员 Navicat、未获准 tailnet 设备、VPN 双态和离线恢复仍未完成；新确认的物理局域网入口尚未实施，局域网正向、非允许来源负向和公网不可达也均未验证。这些项目保持未通过，不由 owner 自测、历史 Web 成功或文档同步替代。

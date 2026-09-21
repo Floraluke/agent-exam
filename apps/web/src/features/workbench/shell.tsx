@@ -6,7 +6,7 @@ import AgentsPanel from "../catalog/agents";
 import TasksPanel from "../catalog/tasks";
 import MembersPanel from "../identity/members";
 import JobWorkspace from "../jobs/listing/workspace";
-import ComparisonView from "../jobs/reporting/comparison";
+import ComparisonWorkspace from "../jobs/reporting/comparison";
 import JobsPanel from "../jobs/submit";
 import LeaderboardView from "../leaderboard/view";
 import Dashboard from "./dashboard";
@@ -92,14 +92,14 @@ export default function WorkbenchShell({
           onClick={() => navigate("jobs")}>评测</button>
         <button aria-current={activeView === "new" ? "page" : undefined}
           onClick={() => navigate("new")}>新建评测</button>
+        <button aria-current={activeView === "reports" ? "page" : undefined}
+          onClick={() => navigate("reports")}>对比报告</button>
         <button aria-current={activeView === "tasks" ? "page" : undefined}
           onClick={() => navigate("tasks")}>任务目录</button>
         <button aria-current={activeView === "agents" ? "page" : undefined}
           onClick={() => navigate("agents")}>配置目录</button>
         <button aria-current={activeView === "leaderboard" ? "page" : undefined}
           onClick={() => navigate("leaderboard")}>排行榜</button>
-        <button aria-current={activeView === "reports" ? "page" : undefined}
-          onClick={() => navigate("reports")}>对比报告</button>
         {owner && <button aria-current={activeView === "members" ? "page" : undefined}
           onClick={() => navigate("members")}>成员管理</button>}
       </nav>
@@ -122,8 +122,8 @@ export default function WorkbenchShell({
       {activeView === "jobs" && <JobWorkspace key={routeVersion} actor={actor}
         newJob={() => navigate("new")} selected={comparisonIds}
         toggle={toggleComparison} compare={() => navigate("reports")} />}
-      {activeView === "reports" && <ComparisonView ids={comparisonIds}
-        remove={toggleComparison} clearAll={() => setComparisonIds([])}
+      {activeView === "reports" && <ComparisonWorkspace ids={comparisonIds}
+        toggle={toggleComparison} clearAll={() => setComparisonIds([])}
         openJob={(id) => navigate("jobs", id)} />}
       {activeView === "tasks" && <TasksPanel owner={owner} />}
       {activeView === "agents" && <AgentsPanel owner={owner} />}

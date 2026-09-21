@@ -1,6 +1,6 @@
 # 证据与报告 Module
 
-> 当前状态：安全证据发布、单 Run/批次/跨批次比较报告、轨迹、原始制品保留清理和基础排行榜已实现；长期 PostgreSQL/AIStor 已部署，任务 03 的 Web 对比页尚未实现。
+> 当前状态：安全证据发布、单 Run/批次/跨批次比较报告、轨迹、原始制品保留清理和基础排行榜已实现；长期 PostgreSQL/AIStor 已部署，扩展任务 03 的 Web 对比页已接入既有只读合同。
 > 权威范围：证据正文与索引怎样产生、校验、读取、保留和呈现。
 
 ## 1. 职责与非职责
@@ -77,8 +77,9 @@ apps/web/src/
   features/jobs/report.tsx                # 单 Run 报告
   features/jobs/batch-report.tsx          # Job 批次报告
   features/jobs/evidence.tsx              # 制品与轨迹查看
+  features/jobs/reporting/                # 跨批次矩阵、配置差异、用量与钻取
   features/leaderboard/view.tsx           # 基础排行榜
-  lib/reporting/                          # 制品响应校验
+  lib/reporting/                          # 制品/比较响应校验与有限并发读取
   lib/leaderboard/                        # 排行榜客户端与形状校验
 ```
 
@@ -93,9 +94,11 @@ apps/web/src/
   → 报告读取时再次核对 run_id、类型、摘要和权限
 ```
 
-PostgreSQL 与 MinIO 没有跨产品原子事务。当前应用通过“先完成对象写入并验证，再提交索引；读取再校验”的顺序防止发布不完整结果。长期备份仍必须形成一致的备份集，不能只复制其中一边。
+PostgreSQL 与 MinIO 没有跨产品原子事务。当前应用通过“先完成对象写入并验证，再提交索引；读取再校验”的顺序防止发布不完整结果。课设已明确不做备份恢复；这意味着没有灾难恢复保证。若未来重新纳入备份，必须形成 PG 与对象存储的一致集合，不能只复制其中一边。
 
 跨批次比较不新建第二份结果：它读取既有授权后的 `JobReport`，用 `(repo, task_instance_id)` 保证不同仓库同名题不合并。每列 `decided + missing = total`；`missing` 的 `resolved/report_path` 为 `null`，以保留“未知”而不是伪造失败。
+
+Web 不把矩阵扩展成新的报告来源：冻结配置来自 Job 详情，用量/资源来自 Run 报告；Run 报告按用户触发、最多 3 个并发读取。某组成单元格或字段没有来源时显示部分/未知，数字 0 仍算已知；单元格详情继续复用现有公开证据、轨迹和下载权限。
 
 ## 5. 模式、依赖和深度
 
@@ -107,4 +110,4 @@ ArtifactStore 是对象存储 seam；MinIO 是正式 Adapter，本地 reader 只
 
 历史验证见[安全证据行动](../../../actions/2026-09-12-m1-safe-evidence.md)、[单 Run 报告](../../../actions/2026-09-12-m1-single-run-report.md)、[制品保留](../../../actions/2026-09-13-m1-artifact-retention.md)和[基础排行榜](../../../actions/2026-09-13-m1-base-leaderboard.md)。2026-09-20 的合并后修复定向验证了比较 HTTP、矩阵、跨仓库同名题隔离和缺失汇总；最终门禁结果见[本轮行动](../../../actions/2026-09-20-post-merge-review-fixes.md)。2026-09-21 统一了五档中文文案（后端报告对齐界面用词），见[术语统一行动](../../../actions/2026-09-21-d-five-outcome-wording-alignment.md)。
 
-长期 PostgreSQL/AIStor 的版本、D 盘数据目录、容量和生命周期入口由[所有者单机运行](../owner-host-runtime/ARCHITECTURE.md)维护；备份恢复已由用户明确移出课设范围。这里剩余的是任务 03 Web 对比呈现和后续运营监测，不把后端端点落地冒充页面已经完成。
+长期 PostgreSQL/AIStor 的版本、D 盘数据目录、容量和生命周期入口由[所有者单机运行](../owner-host-runtime/ARCHITECTURE.md)维护；备份恢复已由用户明确移出课设范围。扩展任务 03 页面证据见[03 行动](../../../actions/2026-09-21-ui-comparison-report.md)；后续运营监测和 04–08 仍是独立范围。

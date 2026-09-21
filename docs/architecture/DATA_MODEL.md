@@ -2,12 +2,12 @@
 
 > 文档状态：Job/Run 架构已确认；字段契约 v0.3。长期 PostgreSQL 已部署；`evaluation_jobs.batch_preset` 已支持 `continuous`
 >
-> 最后更新：2026-09-20（同步 continuous 约束、显式旧库升级入口与长期库验证）
+> 最后更新：2026-09-21（同步扩展任务 03 Web 对比接线；schema 不变）
 > 权威范围：本文件维护 PostgreSQL 实体、运行状态持久化、队列领取规则和 MinIO 对象布局。领域词义见 [`CONTEXT.md`](../../CONTEXT.md)，模块输入输出见 [`MODULE_CONTRACTS.md`](./MODULE_CONTRACTS.md)。
 
 ## 扩展规划与现有 schema 的分界
 
-用户已确认[UI/题库/API扩展规格](../../.scratch/ui-catalog-providers/spec.md)。其中 continuous 预设与比较报告后端已先行落地；任务 03 Web 页面、五道新题和其他 04–08 范围仍未因此完成。后文任务03/04字段与约束描述当前代码；“P2才有DeepSeek/Kimi”的旧排期不覆盖本次新增的 Codex API 路径。
+用户已确认[UI/题库/API扩展规格](../../.scratch/ui-catalog-providers/spec.md)。continuous 预设、比较报告后端及扩展任务 03 Web 页面已落地；本次 Web 接线只读既有 Job/Run/制品数据，没有新增表、列或约束。五道新题和其他 04–08 范围仍未因此完成。后文 M1 任务03/04字段与约束描述当前代码；“P2才有DeepSeek/Kimi”的旧排期不覆盖本次新增的 Codex API 路径。
 
 规划深化现有表，不新增表：新合格题继续进入 `tasks`；两家 Codex 配置继续进入 `agent_configurations`；Job/Run 快照继续承载冻结的任务/配置/策略。continuous 只扩展既有 `batch_preset` CHECK，不新增列或表；其他提供方变化仍须成套扩展、在全新/旧版隔离 PG 分别验证后显式升级。HTTP 启动不自动迁移用户库。
 

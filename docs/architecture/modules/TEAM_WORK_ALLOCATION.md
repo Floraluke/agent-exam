@@ -23,10 +23,10 @@
 ### 1.1 共享数据库方式
 
 - 全组只使用 owner 电脑上的一套 PostgreSQL，不要求其他四人部署数据库。
-- 五个人共用 `agentexam_admin` 管理员账号，通过 `sss.tail03c757.ts.net:15432` 直连，可以查看和修改全部表。
-- owner 只负责保持电脑、Docker Desktop、PostgreSQL 容器和 Tailscale 在线，不负责为每个人维护单独数据库。
+- 五个人共用 `agentexam_admin` 管理员账号；当前可通过 `sss.tail03c757.ts.net:55432` 直连。物理局域网 `owner当前IPv4:55432` 已确定为无法安装 Tailscale 组员的第二条路径，但尚未实施或验证。
+- owner 负责保持电脑、Docker Desktop 和 PostgreSQL 容器在线；使用 Tailscale 时还需保持 Tailscale 在线，使用物理局域网时需保持同一可信网络及受限防火墙规则。不负责为每个人维护单独数据库。
 - Module 分工表示代码主责，不代表数据库角色或表权限；不建立只读账号、分角色账号或独立开发库。
-- 组员实际连接只需登录 Tailscale，并在 Navicat 中填写 Host、Port、Initial Database、Username、Password；详见[极简连接教程](../../operations/TEAM_POSTGRESQL_CONNECTION.md)。
+- 组员在 Navicat 中填写 Host、Port、Initial Database、Username、Password；Host 根据 Tailscale 或同一物理局域网路径选择。详见[极简连接教程](../../operations/TEAM_POSTGRESQL_CONNECTION.md)。
 
 ### 1.2 姓名填写区
 
@@ -773,12 +773,12 @@ Next.js 只把同源 `/api/v1/*` 转给本机回环 FastAPI，并按既有响应
 **上游提供：**
 
 - 各业务 Module 提供可装配的 Adapter、schema 和运行要求；
-- owner 提供本机、Docker Desktop、Tailscale、共享数据库管理员密码、受控数据/秘密和实际启停窗口。
+- owner 提供本机、Docker Desktop、可用的 Tailscale 或物理局域网入口、共享数据库管理员密码、受控数据/秘密和实际启停窗口。
 
 **本 Module 负责：**
 
 - PostgreSQL/MinIO 持久化、显式初始化、手动启停、Worker 组合与主机容量；
-- Web HTTPS 与共享 PostgreSQL `15432` 的 tailnet 入口；五人共用管理员账号直连，MinIO/原始 FastAPI/Docker/秘密不开放；
+- Web HTTPS 与共享 PostgreSQL `55432` 的 tailnet 入口，并在后续实施物理局域网 PostgreSQL `55432`；五人共用管理员账号直连，MinIO/原始 FastAPI/Docker/秘密不开放；
 - 真实运行授权门禁、环境状态、部署日志和服务恢复。
 
 **向下游输出：**
@@ -827,7 +827,7 @@ Next.js 只把同源 `/api/v1/*` 转给本机回环 FastAPI，并按既有响应
   "postgresql": {
     "host": "sss.tail03c757.ts.net",
     "tailscale_ipv4": "100.101.148.2",
-    "port": 15432,
+    "port": 55432,
     "target": "tcp://127.0.0.1:55432",
     "tcp_test_succeeded": true
   },
@@ -840,6 +840,8 @@ Next.js 只把同源 `/api/v1/*` 转给本机回环 FastAPI，并按既有响应
   ]
 }
 ```
+
+上面的 JSON 只记录当前已经运行的 tailnet 入口。物理局域网 PostgreSQL `55432` 已由用户确认，但在 Compose、防火墙和双机正反测试完成前，其交接状态仍是 `decided_not_implemented`；owner 的动态局域网 IPv4 不写入仓库。
 
 当前 PowerShell 入口不可用时，实际失败不是 JSON；进程以命令未找到结束。交接/CI 若要记录成 JSON，应使用下列“进程捕获表示”，不能声称这是 `Get-AgentExamStatus.ps1` 的响应 body：
 
@@ -862,7 +864,7 @@ Next.js 只把同源 `/api/v1/*` 转给本机回环 FastAPI，并按既有响应
 
 | 任务 | 当前状态 | 任务 DRI | 参与 Module 与各自交付 | 必须从上游取得 | 交付给下游/停点 |
 |---|---|---|---|---|---|
-| **M1-14 私有双机协作验收** | 已发布、进行中 | **A** | A：Tailscale/主机/身份；B：HTTPS Web 与浏览器；D：Job/报告证据。PostgreSQL `15432` 共享管理员是新获准入口；MinIO/原始 FastAPI/Docker仍拒绝 | 现有正式存储、Web、角色账号、ALLOWED/DENIED 设备参与 | 正反设备、VPN 双态、离线恢复、组员 Navicat、回归/评审；完成前不宣布 M1 全部完成 |
+| **M1-14 私有双机协作验收** | 已发布、进行中 | **A** | A：Tailscale/物理局域网/主机/身份；B：HTTPS Web 与浏览器；D：Job/报告证据。PostgreSQL `55432` 允许 tailnet 与受限物理局域网两条路径；MinIO/原始 FastAPI/Docker仍拒绝 | 现有正式存储、Web、角色账号、tailnet ALLOWED/DENIED 设备及局域网正反来源参与 | 两条数据库路径正反例、VPN 双态、离线恢复、组员 Navicat、回归/评审；完成前不宣布 M1 全部完成 |
 | **01 可点击 HTML 原型** | 已完成；用户选择纯 A 侧栏工作台 | **B** | B：三套布局、角色/状态/手机原型；A/C/D：审核权限、目录和状态文案，不改产品代码 | 现有页面/API事实和用户交互偏好 | A 版页面/交互基线；B/C 仅历史比较；已停在任务 01 |
 | **02 两角色首页、列表、提交/审批** | 已完成；32 条浏览器回归、构建、31 项 API 对账和双轴评审通过 | **B** | B：A 版工作台/向导/浏览器与逐控件契约表；A：会话/角色；C：选项；D：提交、审批、取消/恢复契约 | 01 选定 A；现有身份、目录和 Job Interface；每个交互先映射契约或标无后端请求 | 两角色真实 UI 闭环及兼容 HTTP；未改批次规模，已在任务 02 停止 |
 | **03 对比报告、详情、目录管理** | 已规划、未发布 issue | **B** | B：矩阵/详情/导航；D：报告、证据和缺失语义；C：目录；A：成员/保留权限 | 02 导航/会话壳和选定报告原型 | 可钻取对比报告、单次证据、目录/成员动线；用户确认后停 |
