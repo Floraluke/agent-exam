@@ -14,7 +14,7 @@ A 要求"把整个前端做成脱离服务器的 HTML 原型"的创建、接线�
 
 **来源**：A（项目负责人）指示——"pull 项目后 web 是你要修改的，让你的 AI 把里面的前端代码弄成一个脱离的 HTML，根据 HTTP API 接口文档修改，如果没有拉取最新代码先拉取"。B 追问范围，A 答复"**所有前端**"。
 
-**范围**：把 `apps/web` 的全部页面面（8 个视图）做成**双击即可打开、不连接任何服务**的合成数据原型，交互与字段按 [`HTTP_API.md`](../../../../interfaces/HTTP_API.md) 对齐，供 A 看动线并提修改意见。
+**范围**：把 `apps/web` 的全部页面面（8 个视图）做成**双击即可打开、不连接任何服务**的合成数据原型，交互与字段按 [`HTTP_API.md`](../../../../../interfaces/HTTP_API.md) 对齐，供 A 看动线并提修改意见。
 
 **已确认的事实**：
 
@@ -82,7 +82,7 @@ A 要求"把整个前端做成脱离服务器的 HTML 原型"的创建、接线�
 
 | 路径 | 改动 |
 |---|---|
-| `docs/architecture/modules/web-and-http/actions/06-full-web-standalone-prototype.md` | 本文件（新增） |
+| `docs/architecture/modules/web-and-http/actions/delivery/06-full-web-standalone-prototype.md` | 本文件（新增） |
 | `docs/architecture/modules/web-and-http/progress.md` | 新增"所有前端的脱离版原型"小节与指针 |
 
 ## 4. 自验证方式
@@ -131,6 +131,6 @@ jobs 详情 job-1（6 个 Run 单元格）→ 单次报告 run-1（5 个字段�
 
 ## 6. 交付与后续
 
-交付物是 `runtime/prototype/ui-full-web-20260921/standalone-发给A.html`（单文件、88.4 KB），直接发给 A 双击打开即可。A 的反馈属于**产品行为与界面动线**的取舍，按协作规则应回到 [`HTTP_API.md`](../../../../interfaces/HTTP_API.md) 与 `apps/web` 真实实现上落地，不在原型里定稿。
+交付物是 `runtime/prototype/ui-full-web-20260921/standalone-发给A.html`（单文件、88.4 KB），直接发给 A 双击打开即可。A 的反馈属于**产品行为与界面动线**的取舍，按协作规则应回到 [`HTTP_API.md`](../../../../../interfaces/HTTP_API.md) 与 `apps/web` 真实实现上落地，不在原型里定稿。
 
 **待 A 反馈后可能出现的新增项**（现在不做）：登录/加入入口页、三级以上窄屏（360px）复测、真实后端的字段对照。

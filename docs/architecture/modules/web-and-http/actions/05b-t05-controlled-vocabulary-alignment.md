@@ -44,7 +44,7 @@
 | `docs/interfaces/HTTP_API.md` | 契约唯一事实源。§4.2 新增"`agent_type`/`model_provider` 是受控集合、如实呈现、超出集合失败关闭、`authentication_type` 不返回、公开 `internal_test_fake` 是有意的"；§6 补受控预设 `internal-test-provider-proxy` 与 `internal_test_fake` 的出现条件；§10.2 新增五码映射表、归入的内部错误族、四条规则与**实现状态注记**；§15 新增变更记录 |
 | `docs/architecture/modules/web-and-http/progress.md` | 新增"任务 05 的受控词汇对齐"节（含与 E 转述的两处差异）；新增 B 侧待办（浏览器夹具控制端点） |
 | `docs/architecture/modules/web-and-http/ARCHITECTURE.md` | 状态行补上本次契约对齐；"待完成"里明确失败关闭验证需先加夹具控制端点 |
-| `docs/architecture/modules/web-and-http/actions/07-t05-controlled-vocabulary-alignment.md` | 本文件（新增） |
+| `docs/architecture/modules/web-and-http/actions/05b-t05-controlled-vocabulary-alignment.md` | 本文件（新增） |
 
 ## 4. 自验证方式
 
