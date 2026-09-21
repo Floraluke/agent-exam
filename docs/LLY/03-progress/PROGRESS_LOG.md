@@ -3,6 +3,27 @@
 > 只记录事实与实际结果：做了什么、实际输出是什么、遇到什么。计划见 [`01-plan/PLAN.md`](../01-plan/PLAN.md)。
 > 格式：按日期倒序追加，最新在最上面。
 
+## 2026-09-21
+
+### 已完成
+
+- 归档扩展计划 6 份文件（来源 `D:\ui-catalog-providers\ui-catalog-providers\`）：4 份更新到权威位置 `.scratch/ui-catalog-providers/`，2 份任务单落位新建的 `issues/` 子目录。归档前仓库版本是旧版（仍写“01 未开工、未发布任务单”）；相对旧版的实际变化为 `spec.md` 2 行、`plan.md` 25 行、`implementation-map.md` 95 行，`verification.md` 内容本就相同。
+- 归档方式：`docs/LLY/` 只增加指向权威位置的链接、不复制计划正文 —— 依据本目录 README 的单一事实源规则。
+- 更新后的计划确认：**P、任务 01、任务 02 均已完成**（任务 02 是“A 版假数据原型连接现有后端的第一片正式 Web”，含 32 条浏览器回归、类型检查、生产构建、31 项 API 对账与双轴评审）；03–08 仍未发布为独立 issue。
+- 拉取远端：`origin/main` 由 `6dfa2be` 前进到 `beed93f`，并新增分支 `origin/xinyue-modules`。远端提交中包含与本次归档**内容完全相同**的 6 份文件，逐份比对差异均为 0 行。
+- 因此丢弃本地冗余改动（3 份修改文档 + 2 份新增任务单副本），改由合并 `origin/main` 取得；`lly/dev` 由 `469ba1d` 前进到合并提交 `2a55a9e`，无冲突。
+- **2026-09-19 记录的两处缺口已由本次推送补齐**：① `docs/actions/2026-09-18-ui-workbench-prototype.md` 与 `2026-09-18-ui-workbench-implementation.md` 已进入仓库；② 任务 02 的产品代码（`apps/web/src/features/workbench/`、`jobs/wizard/`、`jobs/listing/`、`apps/web/tests/workbench/`）已进入仓库。合并后 6 份计划文件的全部仓库内相对链接可解析。
+- 本次推送另带入 D、B 的 03/04/08 准备工作：对比查询接口与矩阵渲染、连续规模 preset、任务 03 报告语义设计、任务 08 runbook。这些任务仍**未发布为独立 issue**；`TEAM_WORK_ALLOCATION.md` 第 7 条已相应改为“01–02 已发布并完成；03–08 仍是未发布的规划编号”。
+- 合并后后端验证：`ruff check` 通过；`mypy` 167 源文件无问题（合并前 164）；默认回归 **404 passed / 84 skipped / 2 failed（55.89 秒）**，相对合并前基线 386/82/2 通过数 +18、跳过数 +2，**失败项完全相同**（仍是缺少 `framework/harbor` 的 ISSUE-04），无新增失败。
+- 过程与完整证据见[归档与同步行动](../../actions/2026-09-21-file-plan-docs-and-sync.md)。
+
+### 当前停点
+
+- 阶段 0 环境仍可用（PostgreSQL `127.0.0.1:55432`、`agentexam_dev` 11 表）；实时状态只在[本地环境记录](../02-environment/LOCAL_SETUP.md)维护。
+- 扩展顺序的下一项是 03（任务 DRI 为 B，E 不参与）；03–08 均未发布独立 issue。E 主责的 05 未获开工授权；按分工文档，E 可提前阅读自己 Module 并准备测试设计，但不得提前修改后续任务代码、调用真实模型或下载大体量镜像。
+- 前端依赖仍未安装：合并带入的任务 02 Web 代码在本机**未经验证**（未跑类型检查、生产构建与浏览器回归）。
+- 本地相对 `origin/lly/dev` 领先 25 个提交，尚未推送。
+
 ## 2026-09-19
 
 ### 已完成

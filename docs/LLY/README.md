@@ -17,7 +17,8 @@
 | 本机部署与运维事实 | [`docs/operations/`](../operations/) |
 | 已实施行动的过程与证据 | [`docs/actions/`](../actions/) |
 | 团队分工与任务归属 | [`TEAM_WORK_ALLOCATION.md`](../architecture/modules/TEAM_WORK_ALLOCATION.md) |
-| 扩展任务 01–08 的正式计划 | [`.scratch/ui-catalog-providers/plan.md`](../../.scratch/ui-catalog-providers/plan.md) |
+| 扩展任务的规格、计划、实现地图与验收规范 | [`.scratch/ui-catalog-providers/`](../../.scratch/ui-catalog-providers/)：[规格](../../.scratch/ui-catalog-providers/spec.md)、[计划](../../.scratch/ui-catalog-providers/plan.md)、[实现地图](../../.scratch/ui-catalog-providers/implementation-map.md)、[验证规范](../../.scratch/ui-catalog-providers/verification.md) |
+| 扩展任务单（01、02 已发布） | [`.scratch/ui-catalog-providers/issues/`](../../.scratch/ui-catalog-providers/issues/)：[01 可点击 HTML 原型](../../.scratch/ui-catalog-providers/issues/01-clickable-html-prototype.md)、[02 A 版角色工作台与提交审批闭环](../../.scratch/ui-catalog-providers/issues/02-role-workbench-submission-approval.md) |
 
 **规则：** 某项事实一旦成为项目级结论（别人也要用它），必须提升到上表对应的权威文档，并在本目录只留链接。不要在本目录复制字段表、路由表或数据库表结构，否则会出现两份会各自过期的事实。
 
@@ -33,6 +34,7 @@
 ## 当前状态
 
 - 计划书：[`01-plan/PLAN.md`](01-plan/PLAN.md)
+- 扩展任务进展：P、任务 01、任务 02 已完成；03–08 未发布。E 模块主责 05、06、07，配合 04 与 08，详见[计划书第 1、3 节](01-plan/PLAN.md)
 - 本地环境：阶段 0 已完成；数据库实时运行状态只在 [`02-environment/LOCAL_SETUP.md`](02-environment/LOCAL_SETUP.md) 维护
 - 未决问题：见 [`04-issues/KNOWN_ISSUES.md`](04-issues/KNOWN_ISSUES.md)
-- 对应行动记录：[初始环境搭建](../actions/2026-09-18-lly-local-dev-environment.md)、[阶段 0 两库隔离与验收](../actions/2026-09-19-stage0-local-development-plan.md)
+- 对应行动记录：[初始环境搭建](../actions/2026-09-18-lly-local-dev-environment.md)、[阶段 0 两库隔离与验收](../actions/2026-09-19-stage0-local-development-plan.md)、[归档计划文档与同步 origin/main](../actions/2026-09-21-file-plan-docs-and-sync.md)
