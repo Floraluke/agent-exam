@@ -3,6 +3,17 @@
 > 只记录事实与实际结果：做了什么、实际输出是什么、遇到什么。计划见 [`01-plan/PLAN.md`](../01-plan/PLAN.md)。
 > 格式：按日期倒序追加，最新在最上面。
 
+## 2026-09-21
+
+### 04 第一步：固定快照到位、五题身份冻结
+
+- 组长授权下载 SWE-Gym 数据集后已下载并校验：HuggingFace `SWE-Gym/SWE-Gym-Lite` revision `61231f2c…` 的 `default/train/0000.parquet` → `runtime/cache/swe-gym-lite/<revision>/train-0000.parquet`（与 `preflight.py`、契约/集成测试的约定路径一致；`/runtime/` 已在 `.gitignore`）。本地校验 **931,193 字节**、sha256 **`f3a7cd93…`**，与代码里 `DatasetIdentity` 的固定身份**逐位一致**，远程 `X-Linked-Size`/`X-Linked-ETag` 亦一致。数据集为上游原样拉取、未修改，不入 Git。
+- 快照共 **230 题**（其中 mypy **40 题**）；**五道候选全部在快照中**（逐条确认，非按题号推断）。
+- 用产品代码 `SWEGymTaskSource` 读取并冻结五题身份（instance / repo / base_commit / 题面字节 / gold 与 test 的字节与文件类型 / FAIL_TO_PASS 与 PASS_TO_PASS 计数 / `raw_record_sha256` 前缀），完整表见[任务 04 行动文档](../../actions/2026-09-19-task-04-catalog-candidates-and-scale.md)。五条记录都通过 `_map_record` 的字段完整性校验。
+- 只读查询 Docker Hub 元数据（**未拉镜像**）：**五个镜像都真实存在**，每库一个 `latest` 标签 + digest，压缩后合计约 **4.96 GiB**，解压预计 10–15 GB；本机可用 `D:` ≈19 GB、`C:` ≈16 GB——够但不宽裕。
+- `15876` 的额外预检通过：gold patch 改 1 个 `.py`（1303 字节）、test patch 覆盖 8 个 `.test`、FAIL_TO_PASS **6 项**，**不是纯文档修改**；真实判定仍需容器门禁。
+- **明确未做**：没有 `docker pull`、没有运行容器、没有把任何新题写进白名单（门禁未跑，白名单仍只有 `python__mypy-15413`）。
+
 ## 2026-09-20（晚间补记：本机开发环境与事实更正）
 
 ### 已完成

@@ -84,6 +84,59 @@ HANDOFF.md                          # 当前停点与下一步（收尾时更新
 
 不修改：`.scratch/ui-catalog-providers/plan.md` 等规划正文（归规划行动维护）、`apps/web/` 产品代码（归 B）、代理与执行链实现（归 E）。
 
+
+## 04 第一步产出：固定快照与候选身份冻结（2026-09-21 完成）
+
+> 组长 2026-09-21 授权下载 SWE-Gym 数据集（该数据集为上游原样拉取、未修改，故不入 Git）。本节记录按计划第 6 节第 1 步完成的"读快照、冻结身份、列本地缺失镜像与磁盘需求"。
+> **本轮未拉取任何题目镜像**（镜像下载授权与磁盘配额仍在申请）；**未把任何新题写进受控白名单**（门禁未跑）。
+
+### 1. 数据集到位并本地校验
+
+| 项 | 值 |
+|---|---|
+| 来源 | HuggingFace `SWE-Gym/SWE-Gym-Lite`，revision `61231f2c90b18985b42a1419738a240085a15107`，文件 `default/train/0000.parquet` |
+| 落地路径 | `runtime/cache/swe-gym-lite/61231f2c90b18985b42a1419738a240085a15107/train-0000.parquet`（与 `preflight.py`、契约与集成测试引用的一致；`/runtime/` 已在 `.gitignore`，不入仓库） |
+| 校验 | 大小 **931,193 字节**、sha256 **`f3a7cd93…aaa4eb1`**——与 `adapters/tasks/swe_gym.py` 中 `DatasetIdentity` 的固定身份逐位一致；远程 `X-Linked-Size`/`X-Linked-ETag` 也与之一致 |
+| 快照内容 | 共 **230 道题**，其中 mypy 题 **40 道** |
+
+### 2. 五道候选都在快照中（逐条确认，非推断）
+
+`python__mypy-15184`、`15208`、`15131`、`15139`、`15876` 均存在于该快照。
+
+### 3. 冻结身份（用产品代码 `SWEGymTaskSource` 读取，只记摘要不记正文）
+
+| instance | repo | base_commit | 题面字节 | gold 字节 / 文件 | test 字节 / 文件 | F2P | P2P | raw_record_sha256(前 16) |
+|---|---|---|---|---|---|---|---|---|
+| `python__mypy-15413`（旧题，对照） | python/mypy | `e7b917ec…` | 1225 | 506 / 1 个 `.py` | 517 / 1 个 `.test` | 1 | 0 | `e69f9b60d6731384` |
+| `python__mypy-15131` | python/mypy | `00f3913b…` | 510 | 843 / 1 个 `.py` | 6394 / 3 个 `.test` | 2 | 1 | `9d8ed278dc21786a` |
+| `python__mypy-15139` | python/mypy | `16b936c1…` | 769 | 513 / 1 个 `.py` | 643 / 1 个 `.test` | 1 | 0 | `a2ad5e1bbb633f89` |
+| `python__mypy-15184` | python/mypy | `13f35ad0…` | 912 | 836 / 1 个 `.py` | 1023 / 1 个 `.test` | 2 | 1 | `cd7f6c10977ead6d` |
+| `python__mypy-15208` | python/mypy | `7832e1f4…` | 680 | 1865 / 1 个 `.py` | 531 / 1 个 `.test` | 1 | 1 | `5a16f7eeea2cd101` |
+| `python__mypy-15876` | python/mypy | `b49be105…` | 998 | 1303 / 1 个 `.py` | 11257 / 8 个 `.test` | 6 | 10 | `81ce02923c5ceb41` |
+
+说明：完整摘要（sha256）与完整 base commit 在门禁执行时随证据一起记录；本表只列前缀以免文档与真实身份混淆。**用产品代码读取成功本身也是一项检查**——五条记录都通过 `_map_record` 的字段完整性校验，没有缺字段。
+
+### 4. 本地镜像缓存/缺失、下载来源与磁盘需求（只查元数据，未拉取）
+
+- **本地缓存：0 个**（Docker Desktop 未运行，本机也没有这些镜像）。
+- **五个镜像在 Docker Hub 上均真实存在**（每库仅一个 `latest` 标签，digest 如下）：
+
+| 镜像 | digest | 压缩后字节 |
+|---|---|---|
+| `xingyaoww/sweb.eval.x86_64.python_s_mypy-15184` | `sha256:affb925329f2dfb2173482c64a1b65648b250777b66b0d7417ee5340fce74835` | 1,057,697,427 |
+| `xingyaoww/sweb.eval.x86_64.python_s_mypy-15208` | `sha256:4fd4bf6ae2d9e6f8b2fe6565018c15b35b9ed7bc1207a9b604b8c82061235c8f` | 1,058,095,278 |
+| `xingyaoww/sweb.eval.x86_64.python_s_mypy-15131` | `sha256:7fcf8e1c849ffd2a3436c056f9b3b8f1ec0103ed7f429e5001d5f77f64f735c5` | 1,057,680,703 |
+| `xingyaoww/sweb.eval.x86_64.python_s_mypy-15139` | `sha256:a41d688fba76599fcc2bfbfbfe580e864c0c4c6a8ee6ce7edec9b83b34bd0037` | 1,058,080,224 |
+| `xingyaoww/sweb.eval.x86_64.python_s_mypy-15876` | `sha256:cc465fe939951b1f3ab43bf834b41a9017efc404cc9c9d5ad8b0ff95b90678f1` | 1,089,720,552 |
+
+- **磁盘需求**：压缩层合计 **5,321,273,184 字节 ≈ 4.96 GiB**；解压落盘按常见 2–3 倍估 **10–15 GB**（估算，需实测定值）。本机可用空间：`D:` 约 19 GB、`C:` 约 16 GB——**够但不宽裕**，建议把 Docker 数据根放在 `D:` 并在门禁后精确清理，这也正是需要组长给磁盘配额的量化依据。
+- **未执行**：没有 `docker pull`，没有运行任何容器。
+
+### 5. `15876` 的额外预检（计划点名要求）
+
+计划要求"`15876` 额外确认存在真实 FAIL_TO_PASS，不用仅文档修改凑数量"。预检结果：gold patch 改的是 **1 个 `.py` 文件**（1303 字节），test patch 覆盖 **8 个 `.test` 文件**，FAIL_TO_PASS **6 项** —— **不是纯文档修改**。真实判定仍需按门禁在容器里跑参考/空/错误三种补丁。
+
+
 ## 任务 04 测试设计（准备阶段成果，未执行）
 
 按[分层验收规范](../../.scratch/ui-catalog-providers/verification.md)第 2 节需求覆盖表（Q5、Q7 归 04）与第 4 节负例整理。用例先落在此处，实施时再落到具体测试文件；本轮未编写也未运行任何测试。
