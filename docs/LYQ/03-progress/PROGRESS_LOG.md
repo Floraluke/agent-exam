@@ -5,6 +5,14 @@
 
 ## 2026-09-21
 
+### 安装 Harbor 依赖环境 —— 本机全量测试首次全绿
+
+- 用户决定在本机装 Harbor 的依赖环境（组长也提过"把 harbor 下了"）。按[依赖总表](../../dependencies/DEPENDENCIES.md)的固定命令执行：`uv sync --locked --extra huggingface --no-dev`。
+- **实测 3 分 20 秒装完**（`.venv` 创建 15:22:38、最后一批包写入 15:25:57）：Python 3.13.15、218 个包 / 325 MB、113 个预编译 `.pyd`、`harbor.exe` 可用；`import harbor` 解析到 `framework/harbor/src/harbor/__init__.py`（正是契约测试断言的位置），版本 `0.22.0`；`--locked` 未改动上游锁文件、`git status` 干净。
+- **文档里"Windows 首次编译约 275 分钟"的警告没有复现**：这次全部命中预编译 wheel（`tiktoken`/`tokenizers` 等都没走源码构建）。推测差异来自 Python 版本/平台组合与 wheel 可用性，历史记录仍然有效，只是不是普遍规律。
+- 复验：`tests/contract/test_execution_network.py` **28 passed**（此前 27 passed / 1 failed）；全量 `pytest -q` → **474 passed / 31 skipped / 0 failed** —— **本机首次零失败**（4 个原本因缺 Harbor 解释器而跳过的用例也转为通过）。
+- 仍未覆盖的 31 个跳过项：需 MinIO 的集成用例、需 Docker/镜像的 Harbor 探针与 Fork 集成、真实 Codex 试用探针、网络探针。
+
 ### 恢复三个固定框架源码（组长让"把 harbor 也下了"）
 
 - 按[依赖总表 §7](../../dependencies/DEPENDENCIES.md)的文档命令，把三个框架恢复到指定提交（`--detach`，不跟随可移动分支）：`framework/swe-gym` @ `b681068c…`、`framework/swe-bench-fork` @ `242429c1…`、`framework/harbor` @ `6af8d6e3…`。

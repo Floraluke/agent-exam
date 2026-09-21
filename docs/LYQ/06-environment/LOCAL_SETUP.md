@@ -19,7 +19,8 @@
 | 开发库 | `agentexam_dev` | 角色仅 `LOGIN`，无超级用户/建库/建角色权限 |
 | 安装包留档 | `D:\agentexam-env\…binaries.zip` | 320,461,864 字节，可删 |
 | 固定数据集 | `runtime/cache/swe-gym-lite/61231f2c…/train-0000.parquet` | SWE-Gym Lite 快照，931,193 字节 / sha256 `f3a7cd93…` 已核验；`/runtime/` 已 gitignore |
-| 三个固定框架源码 | `framework/{swe-gym,swe-bench-fork,harbor}` | 2026-09-21 按[依赖总表 §7](../../dependencies/DEPENDENCIES.md)恢复到固定提交（`--detach`），HEAD 与 origin 已核对、工作树干净。**只恢复源码，未安装依赖** |
+| 三个固定框架源码 | `framework/{swe-gym,swe-bench-fork,harbor}` | 2026-09-21 按[依赖总表 §7](../../dependencies/DEPENDENCIES.md)恢复到固定提交（`--detach`），HEAD 与 origin 已核对、工作树干净 |
+| Harbor 依赖环境 | `framework/harbor/.venv` | 2026-09-21 建立：Python 3.13.15、Harbor `0.22.0`、218 个包 / 325 MB、`harbor.exe` 可用，`import harbor` 指向上游固定源码。**实测 3 分 20 秒**（15:22:38→15:25:57，全命中预编译 wheel、装了 113 个 `.pyd`，未触发源码构建）——文档里 275 分钟的记录在 Python 3.13 + Windows 上**没有复现**；`--locked` 未改动上游锁文件 |
 
 ## 2. 为什么这么选
 
@@ -70,16 +71,16 @@ AGENTEXAM_TEST_DATABASE_URL="postgresql://agentexam_identity_test@127.0.0.1:5543
 |---|---|
 | `tests/catalog` | **37 passed, 7 skipped**（7 个为需 MinIO 的集成用例，按设计跳过） |
 | `tests/catalog/qualification` | **5 passed**（固定候选身份机制） |
-| 全量 `pytest -q` | **469 passed, 35 skipped, 1 failed**（`framework/` 恢复源码后失败数由 2 降到 1） |
-| 1 个失败 | `tests/contract/test_execution_network.py::test_bootstrap_imports_fixed_harbor_not_the_adjacent_adapter_package`，需要 `framework/harbor/.venv/Scripts/python.exe`（Harbor 的**依赖环境**）。同文件的另一项在源码恢复后已通过 |
+| 全量 `pytest -q` | **474 passed, 31 skipped, 0 failed**（安装 Harbor 依赖环境后，最后 1 个失败与 4 个原本跳过的用例转为通过） |
+| 失败项 | **无**（此前两项 `framework/harbor` 环境失败已随源码恢复 + 依赖环境安装全部消除） |
 | `ruff check .` | **All checks passed!** |
 | `ruff format --check .` | 2026-09-21 重放到上游 `fd369cc` 后复核：**仍有 2 个文件不合格**（`tests/jobs/cancellation/test_cancel_races.py`、`tests/jobs/reporting/test_matrix_rehearsal.py`），均为他人文件；原先 5 个中的 3 个已随上游 `7553ce0` 修好 |
-| `mypy src/eval_platform` | **Success: no issues found in 166 source files** |
+| `mypy src prototype_codex_harbor_e2e.py` | **Success: no issues found in 168 source files** |
 
 ## 5. 仍然做不到的事（不要在本机浪费时间）
 
 - 容器类验证：需要 Docker Desktop（当前未运行）+ 题目镜像（未拉）。
-- Harbor 的依赖环境：`framework/harbor` 源码已在位，但 venv 未建——文档记载 Windows 上 `uv sync --locked --extra huggingface --no-dev` 曾耗时 **275 分 06 秒**（`litellm` 源码构建，需 VS 2022 C++ 环境），且明确要求「不要无理由重建」。
+- ~~Harbor 的依赖环境~~ **已完成**（2026-09-21，3 分 20 秒，见第 1 节）。
 - SWE-Bench-Fork 的隔离依赖环境：文档记载载体是 **Ubuntu WSL2 的 Python 3.12.3**（`framework/swe-bench-fork/.venv`），与后端 Windows venv 不同。
 - 真实模型调用与真实凭据：需单独授权，且与本机环境无关。
 - 共享 PostgreSQL（`sss.tail03c757.ts.net:15432`）：本机 Tailscale 在正确的 tailnet 内但看不到任何其他设备（netmap `Peers = 0`），问题在 host 侧，见 [ISSUE-06](../04-issues/KNOWN_ISSUES.md)。

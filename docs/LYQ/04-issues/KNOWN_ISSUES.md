@@ -26,7 +26,7 @@
 
 - **现象**：任务 04 的资格验证需要在容器里跑参考/空/错误三种补丁，开发机无法执行。
 - **证据（当时，2026-09-19）**：无 `framework/`、`runtime/`、`infra/data/`、`infra/volumes/`；无固定 Parquet 数据快照；`docker ps` 报 `dockerDesktopLinuxEngine` 管道不存在；系统 Python 为 3.11.9（后端要求 3.13），连 `import eval_platform` 都失败。
-- **解决部分（2026-09-20）**：已建立本机开发环境——`apps/backend/.venv`（Python 3.13.15 + 锁定依赖）、便携 PostgreSQL 15.14 于 `127.0.0.1:55432`、测试库 `agentexam_identity_test` 与开发库 `agentexam_dev`。`tests/catalog` **33 passed / 7 skipped**；全量 `pytest -q` **452 passed / 36 skipped / 2 failed**（2 项为缺 `framework/harbor` 的既有环境失败）。**2026-09-21 追加**：SWE-Gym Lite 快照与 `framework/` 三个固定框架源码均已恢复，全量变为 **469 passed / 35 skipped / 1 failed**（唯一失败项需要 Harbor 的依赖环境）。事实与命令见[本机开发环境](../06-environment/LOCAL_SETUP.md)与[环境行动文档](../../actions/2026-09-20-local-environment-setup.md)。
+- **解决部分（2026-09-20）**：已建立本机开发环境——`apps/backend/.venv`（Python 3.13.15 + 锁定依赖）、便携 PostgreSQL 15.14 于 `127.0.0.1:55432`、测试库 `agentexam_identity_test` 与开发库 `agentexam_dev`。`tests/catalog` **33 passed / 7 skipped**；全量 `pytest -q` **452 passed / 36 skipped / 2 failed**（2 项为缺 `framework/harbor` 的既有环境失败）。**2026-09-21 追加**：SWE-Gym Lite 快照、`framework/` 三个固定框架源码与 Harbor 依赖环境均已就位，全量变为 **474 passed / 31 skipped / 0 failed**（本机首次零失败）。剩下的缺口只有需 Docker + 题目镜像的容器类验证、需 WSL2 的 Fork 依赖环境，以及需固定 MinIO 镜像的一致性用例。事实与命令见[本机开发环境](../06-environment/LOCAL_SETUP.md)与[环境行动文档](../../actions/2026-09-20-local-environment-setup.md)。
 - **仍未解决**：容器、固定镜像与固定 Parquet 快照仍不存在，Docker Desktop 未运行。五道候选题的三补丁资格验证**只能**在组长机器上或由 E 执行（参见成员 E 的阶段 0 计划，该文档在其分支 `upstream/lly/dev` 的 `docs/LLY/01-plan/PLAN.md`，不在上游 `main` 上）。
 - **遗留风险**：不要因为本机可跑测试就把容器类或固定数据类门禁当作已完成；那两类在任务 04 中仍未开始。
 
