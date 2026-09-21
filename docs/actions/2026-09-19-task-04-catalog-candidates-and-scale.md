@@ -137,6 +137,31 @@ HANDOFF.md                          # 当前停点与下一步（收尾时更新
 计划要求"`15876` 额外确认存在真实 FAIL_TO_PASS，不用仅文档修改凑数量"。预检结果：gold patch 改的是 **1 个 `.py` 文件**（1303 字节），test patch 覆盖 **8 个 `.test` 文件**，FAIL_TO_PASS **6 项** —— **不是纯文档修改**。真实判定仍需按门禁在容器里跑参考/空/错误三种补丁。
 
 
+
+## 04 门禁实跑：候选 python__mypy-15131 通过（2026-09-21）
+
+> 前提：Docker Desktop 启动、该候选镜像按 digest 拉取、`framework/swe-bench-fork` 的 WSL Linux 依赖环境就位。
+> 新增参数化门禁测试 `apps/backend/tests/catalog/qualification/test_candidate_gate.py`（5 候选 × 参考/空/错误），
+> **镜像身份由测试注入**——候选在通过门禁前不写入产品白名单 `FIXED_TASK_IMAGES`。
+> 运行方式：`AGENTEXAM_RUN_FORK_INTEGRATION=1 pytest tests/catalog/qualification/test_candidate_gate.py -k "<instance>"`。
+
+| 补丁 | 期望 | 实测（15131） |
+|---|---|---|
+| 参考补丁（`gold_patch`） | `resolved=True`、`patch_applied=True` | ✅ 一致（2 分 26 秒） |
+| 空补丁（`""`） | `resolved=False`、`patch_applied=False` | ✅ 一致 |
+| 可应用但错误的补丁 | `resolved=False`、`patch_applied=True` | ✅ 一致 |
+
+三个场景的容器清理均 `verified=True`、`remaining_ids=[]`、Fork 进程 `returncode=0`、`warnings=[]`；证据留在 `runtime/fork-evidence/`（Git 忽略，不覆盖旧 scope）。
+
+**镜像与题目的交叉验证**：容器内 `/testbed` 的 `git log -1` = `00f3913b314994b4b391a2813a839c094482b632`，与数据集里该题的 `base_commit` 逐位一致；镜像内 Python 3.11.9。
+
+**资源事实（供后续串行执行）**：该镜像解压后 2.49 GB，Docker 数据盘 1.43→4.21 GB，C 盘余量 16→11 GB。因此五个候选**必须串行**（拉一个 → 跑门禁 → 删镜像 → 下一个），峰值只占一个镜像。
+
+**环境侧改动**：Docker Desktop 的代理原本指向 `127.0.0.1:7897`（无监听）导致拉取失败，已改为实际可用的 `127.0.0.1:7892`（设置文件已备份为 `settings-store.json.bak-20260921`）。
+
+**剩余**：15139、15184、15208、15876 四个候选按同一流程串行执行；每个候选三场景约 4–6 分钟，加镜像拉取与清理约 10 分钟。
+
+
 ## 任务 04 测试设计（准备阶段成果，未执行）
 
 按[分层验收规范](../../.scratch/ui-catalog-providers/verification.md)第 2 节需求覆盖表（Q5、Q7 归 04）与第 4 节负例整理。用例先落在此处，实施时再落到具体测试文件；本轮未编写也未运行任何测试。

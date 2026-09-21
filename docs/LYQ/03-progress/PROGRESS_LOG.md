@@ -5,6 +5,16 @@
 
 ## 2026-09-21
 
+### 门禁在本机跑通：候选 python__mypy-15131 通过三补丁门禁 🎉
+
+- 准备：用户指示"能做就做，不等授权"。启动 Docker Desktop（引擎 27.5.1）时发现 **Docker 的代理指向 `127.0.0.1:7897`（没有监听）→ 拉取直接失败**；把 Docker Desktop 的 `OverrideProxyHTTP/HTTPS` 改到实际可用的 `127.0.0.1:7892`（先备份 `settings-store.json` 为 `.bak-20260921`）并重启，拉取恢复。
+- 拉取第一个候选镜像 `python_s_mypy-15131`（按 digest）：**2.49 GB 解压后**，Docker 数据盘 1.43→4.21 GB，**C 盘余量 16→11 GB**——所以五个镜像必须**串行**处理（拉一个→跑门禁→删掉→下一个），峰值只占一个镜像。
+- 镜像身份交叉验证：容器内 `/testbed` 的 HEAD = `00f3913b314994b4b391a2813a839c094482b632`，**与数据集里该题的 `base_commit` 完全一致**（说明镜像和题目对得上）；镜像内 Python 3.11.9。
+- 新增参数化门禁测试 `apps/backend/tests/catalog/qualification/test_candidate_gate.py`（5 候选 × 3 补丁，镜像身份由测试注入，**候选通过前不进产品白名单**）。写的过程中修了两个自伤问题：本文件比 `tests/integration/` 深一层，仓库根要上溯 5 级而不是 4 级；证据根必须在仓库内（适配器要生成相对对象引用），改用 `runtime/fork-evidence/`。
+- **实跑结果（15131）**：`gold` → `resolved=True, patch_applied=True`（2 分 26 秒）；`empty` → 两者皆否；`wrong` → 能应用但未解决。三个场景的容器清理均 `verified`、Fork 进程 `returncode=0`、无 warnings。**该候选门禁通过**。
+- 证据留在 `runtime/fork-evidence/`（Git 忽略），按项目要求不覆盖旧 scope。
+- 剩余四个候选（15139、15184、15208、15876）按同一流程串行处理；每个约 2.5–2.8 GB，跑完即删镜像。
+
 ### 建立 Fork 的 Linux 依赖环境（门禁的另一半前置）
 
 - 按[依赖总表 §5.2](../../dependencies/DEPENDENCIES.md)的三步恢复流程执行，**未修改系统 Python、未对上游做 editable 安装**：
