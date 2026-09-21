@@ -5,6 +5,14 @@
 
 ## 2026-09-21
 
+### 同步上游并重放到新基线（fd369cc），全量复验
+
+- 上游在我这条 PR 打开期间前进了：`beed93f → fd369cc`（B 的 `7553ce0 fix: harden comparison reports and preset upgrade` + 合并提交；同期 E 的 `lly/dev` 也更新到我这里）。其中对比报告模块被**重命名/搬家**：`delivery/http/routes/jobs/report_comparisons.py` → `delivery/http/routes/jobs/reporting/comparisons.py`。
+- 先算交集确认**我的改动与上游新改动零重叠**，再在本机 `git rebase upstream/main`：20 个提交全部干净重放，无冲突（旧头存为本地分支 `backup-lyq-before-rebase`）。
+- 新基线上复验：`ruff check` 通过；`mypy src prototype_codex_harbor_e2e.py` 通过（168 个源文件）；全量 `pytest -q` → **468 passed / 35 skipped / 2 failed**（2 项仍是缺 `framework/harbor` 的既有环境失败；通过数从 461 升到 468 是上游新增用例）。我的三个测试增量在新 main 上全部仍然通过，包括会打到已搬家对比端点的公开面扫描。
+- `ruff format --check` 复核：**从 5 个不合格降到 2 个**（`tests/jobs/cancellation/test_cancel_races.py`、`tests/jobs/reporting/test_matrix_rehearsal.py`）——另外 3 个已随上游修好；这 2 个仍是 D 的文件。
+- 已 `git push --force-with-lease` 更新 fork 分支，PR #2 随之刷新（20 个提交）。
+
 ### 04 第一步：固定快照到位、五题身份冻结
 
 - 组长授权下载 SWE-Gym 数据集后已下载并校验：HuggingFace `SWE-Gym/SWE-Gym-Lite` revision `61231f2c…` 的 `default/train/0000.parquet` → `runtime/cache/swe-gym-lite/<revision>/train-0000.parquet`（与 `preflight.py`、契约/集成测试的约定路径一致；`/runtime/` 已在 `.gitignore`）。本地校验 **931,193 字节**、sha256 **`f3a7cd93…`**，与代码里 `DatasetIdentity` 的固定身份**逐位一致**，远程 `X-Linked-Size`/`X-Linked-ETag` 亦一致。数据集为上游原样拉取、未修改，不入 Git。

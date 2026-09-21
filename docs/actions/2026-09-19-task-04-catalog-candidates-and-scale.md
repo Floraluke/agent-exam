@@ -5,7 +5,7 @@
 - 状态：In progress（准备阶段，未获实施授权；本机开发环境已于 2026-09-20 建立）。本行动由 C（目录与配置 DRI、任务 04 任务 DRI）建立，先记录范围、前置门禁、计划文件树与验证方式。**截至当前未修改任何产品代码、未下载镜像或数据、未调用模型、未读取真实凭据、未连接共享数据库。**
 - 对应任务：[执行计划](../../.scratch/ui-catalog-providers/plan.md)第 6 节任务 04；分工见[团队分工](../architecture/modules/TEAM_WORK_ALLOCATION.md)第 4.2 与第 5 节。任务 04 当前为“已规划、未发布 issue”，按计划第 1 节第 5 条与第 5.2 节，任务单发布且用户安排前不进入实施。
 - 本行动是独立实施任务的行动文档；`ui-catalog-providers` 的规划正文仍由[规划行动](2026-09-17-ui-catalog-provider-planning.md)维护，本文件不复制规则正文，只记录 04 的实施、偏差与验证证据。
-- 实施基线（2026-09-20 更新）：团队上游仓库 `anphuchoang5-sys/agent-exam`，只作只读同步、不直接推送；交付分支为个人 fork `Floraluke/agent-exam` 的 `lyq`，基于上游 `main` 的 `a49b000`；PR 从 fork 提到上游 `main`。本机克隆 `C:\Users\陆泳倩\Desktop\agent-exam`。
+- 实施基线（2026-09-21 更新）：团队上游仓库 `anphuchoang5-sys/agent-exam`，只作只读同步、不直接推送；交付分支为个人 fork `Floraluke/agent-exam` 的 `lyq`，**2026-09-21 已 rebase 到上游 `main` 的 `fd369cc`（20 个提交）**；PR #2 从 fork 提到上游 `main`。本机克隆 `C:\Users\陆泳倩\Desktop\agent-exam`。
 
 ### 当前事实（2026-09-19 实际核对）
 
@@ -182,7 +182,7 @@ HANDOFF.md                          # 当前停点与下一步（收尾时更新
 - **2026-09-20 晚间：本机环境已建立并实测**（只建立环境、只跑既有测试，未改任何产品代码）：
   - `pytest tests/catalog -q`（带 `AGENTEXAM_RUN_IDENTITY_POSTGRES=1` 与专属回环测试库 DSN）→ **33 passed, 7 skipped**；7 项为需 MinIO 的集成用例，按设计跳过，不计为通过。
   - 全量 `pytest -q` → **452 passed, 36 skipped, 2 failed**（119.75s）。2 个失败为 `tests/contract/test_execution_network.py` 缺 `framework/harbor` 的既有环境失败；已用 `--tb=line` 核对报错为 `git -C .../framework/harbor rev-parse HEAD` 失败，非代码缺陷，也无法在本机修复。
-  - 静态检查（同期补跑）：`ruff check .` → **All checks passed**；`mypy src/eval_platform` → **Success: no issues found in 166 source files**（直接跑 `mypy` 会因 editable 安装缺 `py.typed` 标记报错，须给显式路径）；`ruff format --check` → 本分支基线（`beed93f`）仍报 5 个文件不合格，均为 D 近期合入、非本行动引入；**D 已于 2026-09-20 深夜对这批文件跑 `ruff format` 并验证 `format --check` 293/293 全绿、受影响用例 8 个通过（含 4 个真实 PG 门禁用例）、diff 为纯格式差异**。该修复尚未进入本分支基线，rebase 到含修复的提交后需重新复核，本行动不代替那次复核。
+  - 静态检查（同期补跑）：`ruff check .` → **All checks passed**；`mypy src/eval_platform` → **Success: no issues found in 166 source files**（直接跑 `mypy` 会因 editable 安装缺 `py.typed` 标记报错，须给显式路径）；`ruff format --check` → **2026-09-21 重放到上游 `fd369cc` 后复核：仍有 2 个文件不合格**（`tests/jobs/cancellation/test_cancel_races.py`、`tests/jobs/reporting/test_matrix_rehearsal.py`），均为 D 的文件、非本行动引入；原先 5 个中的另外 3 个已随上游 `7553ce0` 修好。D 报的本地修复 `5172ae2` 尚未推送到上游，推送前建议先 rebase 到 `fd369cc`，只需再修这 2 个。
 - 任务 04 的题库侧与判卷侧验收项**未开始**（需组长机器/E）；目录侧的打通链已按实施措施第 6 条落地，其余目录侧项未开始。
 
 ### 本次代码增量（2026-09-20，用户明确要求开工后实施）

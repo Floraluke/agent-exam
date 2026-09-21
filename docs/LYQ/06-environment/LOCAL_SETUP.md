@@ -70,7 +70,7 @@ AGENTEXAM_TEST_DATABASE_URL="postgresql://agentexam_identity_test@127.0.0.1:5543
 | 全量 `pytest -q` | **452 passed, 36 skipped, 2 failed**，119.75s |
 | 2 个失败 | `tests/contract/test_execution_network.py` 两项，原因是缺 `framework/harbor`（该目录不进 Git，只在组长机器上）。属既有环境失败，与 D 记录的基线同类 |
 | `ruff check .` | **All checks passed!** |
-| `ruff format --check .` | 本机基线仍是 5 个文件不合格（均为 D 近期合入，非我引入）。**D 已于 2026-09-20 深夜对这批文件跑 `ruff format` 并验证 293/293 全绿、受影响用例 8 passed**；该修复尚未进入我的基线，rebase 后需复核 |
+| `ruff format --check .` | 2026-09-21 重放到上游 `fd369cc` 后复核：**仍有 2 个文件不合格**（`tests/jobs/cancellation/test_cancel_races.py`、`tests/jobs/reporting/test_matrix_rehearsal.py`），均为他人文件；原先 5 个中的 3 个已随上游 `7553ce0` 修好 |
 | `mypy src/eval_platform` | **Success: no issues found in 166 source files** |
 
 ## 5. 仍然做不到的事（不要在本机浪费时间）
