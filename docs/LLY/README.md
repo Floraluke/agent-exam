@@ -33,6 +33,7 @@
 
 ## 当前状态
 
+- **第三块实施计划（准备件，新会话据此开工）**：[`01-plan/STAGE1_PROXY_SERVICE_PLAN.md`](01-plan/STAGE1_PROXY_SERVICE_PLAN.md)（`service.py` 与接线的流水线顺序、文件树、分片 S6a–S6e、取证规则、阻塞与风险；S10/S11 等 T2）
 - 阶段 1 实施方案：[`01-plan/STAGE1_IMPLEMENTATION_PLAN.md`](01-plan/STAGE1_IMPLEMENTATION_PLAN.md)（文件树、S1–S11 分片、逐片验证与机器归属、待授权清单；**S3–S7 与 T1 已实施，S2/`service.py`/S8–S9 未做；T2 待窗口**）
 - 计划书：[`01-plan/PLAN.md`](01-plan/PLAN.md)
 - 阶段 1 测试设计：[`01-plan/STAGE1_PROXY_TEST_DESIGN.md`](01-plan/STAGE1_PROXY_TEST_DESIGN.md)（准备性设计，05 未开工，不代表已授权或已运行）
