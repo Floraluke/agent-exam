@@ -35,7 +35,7 @@
 
 - 计划书：[`01-plan/PLAN.md`](01-plan/PLAN.md)
 - 阶段 1 测试设计：[`01-plan/STAGE1_PROXY_TEST_DESIGN.md`](01-plan/STAGE1_PROXY_TEST_DESIGN.md)（准备性设计，05 未开工，不代表已授权或已运行）
-- 扩展任务进展：P、任务 01、任务 02 已完成；03–08 未发布。E 模块主责 05、06、07，配合 04 与 08，详见[计划书第 1、3 节](01-plan/PLAN.md)
+- 扩展任务进展：P、任务 01、任务 02、任务 04 已完成；03 无独立任务单但 B 在推进；**05 已由 E 起草、待负责人发布**。E 模块主责 05、06、07，配合 04 与 08，详见[计划书第 1、3 节](01-plan/PLAN.md)
 - 本地环境：阶段 0 已完成；数据库实时运行状态只在 [`02-environment/LOCAL_SETUP.md`](02-environment/LOCAL_SETUP.md) 维护
 - 未决问题：见 [`04-issues/KNOWN_ISSUES.md`](04-issues/KNOWN_ISSUES.md)
-- 对应行动记录：[初始环境搭建](../actions/2026-09-18-lly-local-dev-environment.md)、[阶段 0 两库隔离与验收](../actions/2026-09-19-stage0-local-development-plan.md)、[归档计划文档与同步 origin/main](../actions/2026-09-21-file-plan-docs-and-sync.md)、[阶段 1 测试设计准备](../actions/2026-09-21-stage1-proxy-test-design.md)
+- 对应行动记录：[初始环境搭建](../actions/2026-09-18-lly-local-dev-environment.md)、[阶段 0 两库隔离与验收](../actions/2026-09-19-stage0-local-development-plan.md)、[归档计划文档与同步 origin/main](../actions/2026-09-21-file-plan-docs-and-sync.md)、[阶段 1 测试设计准备](../actions/2026-09-21-stage1-proxy-test-design.md)、[起草任务 05 任务单](../actions/2026-09-21-draft-task-05-issue.md)
