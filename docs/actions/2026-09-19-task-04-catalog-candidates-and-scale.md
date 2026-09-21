@@ -138,12 +138,30 @@ HANDOFF.md                          # 当前停点与下一步（收尾时更新
 
 
 
-## 04 门禁实跑：候选 python__mypy-15131 通过（2026-09-21）
+## 04 门禁实跑：五道候选全部通过（2026-09-21）
 
 > 前提：Docker Desktop 启动、该候选镜像按 digest 拉取、`framework/swe-bench-fork` 的 WSL Linux 依赖环境就位。
 > 新增参数化门禁测试 `apps/backend/tests/catalog/qualification/test_candidate_gate.py`（5 候选 × 参考/空/错误），
 > **镜像身份由测试注入**——候选在通过门禁前不写入产品白名单 `FIXED_TASK_IMAGES`。
 > 运行方式：`AGENTEXAM_RUN_FORK_INTEGRATION=1 pytest tests/catalog/qualification/test_candidate_gate.py -k "<instance>"`。
+
+### 五道候选结果汇总（每题三场景 15/15 通过）
+
+| 候选 | 镜像 digest | 参考补丁 | 空补丁 | 错误补丁 | 耗时 |
+|---|---|---|---|---|---|
+| `python__mypy-15131` | `sha256:7fcf8e1c…f735c5` | resolved ✅ | 未解决 ✅ | 未解决（可应用）✅ | 2:26 + 1:29 |
+| `python__mypy-15139` | `sha256:a41d688f…bd0037` | resolved ✅ | 未解决 ✅ | 未解决（可应用）✅ | 2:33 |
+| `python__mypy-15184` | `sha256:affb9253…e74835` | resolved ✅ | 未解决 ✅ | 未解决（可应用）✅ | 2:20 |
+| `python__mypy-15208` | `sha256:4fd4bf6a…235c8f` | resolved ✅ | 未解决 ✅ | 未解决（可应用）✅ | 2:33 |
+| `python__mypy-15876` | `sha256:cc465fe9…678f1` | resolved ✅ | 未解决 ✅ | 未解决（可应用）✅ | 2:47 |
+
+（完整 digest 见上文第 4 节镜像表；每题的容器清理 `verified=True`、`remaining_ids=[]`、Fork 进程 `returncode=0`、`warnings=[]`。）
+
+**证据位置**：`runtime/fork-evidence/qualify-mypy-<题号>-<场景>-<8位随机>/`，共 **15 个 scope**（5 题 × 3 场景），
+每个含判卷报告、Fork 进程记录与清理记录；Git 忽略、按项目要求不覆盖旧 scope。
+**镜像已按串行方案逐个删除**（可随时按 digest 重新拉取），C 盘余量在执行前后为 11 GB → 9.4 GB。
+
+### 单题明细（以 15131 为例）
 
 | 补丁 | 期望 | 实测（15131） |
 |---|---|---|
