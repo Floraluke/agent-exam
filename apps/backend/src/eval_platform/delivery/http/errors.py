@@ -82,7 +82,12 @@ async def catalog_error(request: Request, exc: Exception) -> JSONResponse:
 async def job_error(request: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, JobError)
     if isinstance(exc, JobInputError):
-        return error_response(400, exc.code, "评测批次选择无效")
+        message = {
+            "EMPTY_COMPARISON_SELECTION": "请至少选择一个评测批次",
+            "COMPARISON_LIMIT_EXCEEDED": "一次对比最多选择 20 个评测批次",
+            "INVALID_REQUEST": "请求参数无效",
+        }.get(exc.code, "评测批次选择无效")
+        return error_response(400, exc.code, message)
     status, code, message = {
         OwnerApprovalRequired: (
             403,

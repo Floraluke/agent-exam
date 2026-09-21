@@ -2,19 +2,21 @@
 
 > 更新：2026-09-18；工作区：`E:\9.1agent_exam`。
 >
-> 换窗停点（13:54）：取消备份后的最小本地持久化 P1–P4 已完成，当前没有自动续做的目标。新窗口先完整读取 AGENTS.md、本文和第 6 节指向的权威文档，恢复上下文后停下等待用户发布新任务；不得自动重做整机重启、恢复备份方案、任务 14、UI、新题、真实 Worker 或模型接入。
+> 当前停点（2026-09-18）：最小本地持久化 P1–P4、扩展任务 01 和扩展任务 02 均已完成。任务 02 的正式 Web、32 条浏览器回归、类型检查、生产构建、31 项 API 对账和双轴评审已经收口；当前没有自动续做的目标，不得自动启动任务 03、新题、真实 Worker 或模型接入。
 >
 > 最新进展（13:54）：Windows 最后启动时间确认晚于重启前检查点；项目未随系统或 Docker 自动启动。正式启动后清单 SHA-256、5 类业务记录和 9 个对象全部一致；随后只删除清单指定对象、随机数据库和清单。最终状态复核为初始化完成、PostgreSQL/AIStor 运行、活动 Job 为 0、停止标记 false；Worker 与模型未启动。
 >
+> Web 工作台进展（2026-09-18）：扩展任务 01 已完成并选定纯 A「侧栏工作台」；任务 02 已落地 A 壳、角色首页、评测列表/详情、三步提交、审批/取消/恢复、目录/成员/排行榜入口和 390/360 移动菜单。产品 UI 只为已注册 API 提供业务动作；当前 31 项文档清单与实时 OpenAPI 差异为 0，Standards/Spec 评审问题均关闭；03 未授权。
+>
 > 后续决定（2026-09-18）：用户明确按五人课设只使用 owner 电脑上的一套 PostgreSQL，五人共用 `agentexam_admin` 管理员账号直连；不建立只读库、分角色数据库账号或每人独立数据库。owner 已建立 tailnet `15432 → 127.0.0.1:55432` TCP Serve，`Test-NetConnection` 主机自测成功；组员正常连接只需登录同一 Tailscale，并在 Navicat 填写 Host、Port、Initial Database、Username、Password，极简步骤见 [`TEAM_POSTGRESQL_CONNECTION.md`](docs/operations/TEAM_POSTGRESQL_CONNECTION.md)。组员真实 Navicat 登录仍待首次实测，MinIO 仍未向组员开放。
 >
-> 团队分工（2026-09-18）：七个 Module 已按五人 A–E 建立唯一 DRI、上下游交接和 52/55/54/55/56 小时初始工时基线；M1-14 与扩展 01–08 已映射负责人，入口见 [`TEAM_WORK_ALLOCATION.md`](docs/architecture/modules/TEAM_WORK_ALLOCATION.md)。该文档已补齐七个 Module 的当前 JSON 交接示例，并区分实际 HTTP、内部 dataclass 表示和运维状态；除 A 是 owner 外其余姓名待填。分工完成不等于 01–08 已发布 issue、已开工或已取得真实模型调用授权。
+> 团队分工（2026-09-18）：七个 Module 已按五人 A–E 建立唯一 DRI、上下游交接和 52/55/54/55/56 小时初始工时基线；M1-14 与扩展 01–08 已映射负责人，入口见 [`TEAM_WORK_ALLOCATION.md`](docs/architecture/modules/TEAM_WORK_ALLOCATION.md)。该文档已补齐七个 Module 的当前 JSON 交接示例，并区分实际 HTTP、内部 dataclass 表示和运维状态；除 A 是 owner 外其余姓名待填。任务 01–02 已完成；分工完成不等于 03–08 已发布或已取得真实模型调用授权。
 >
-> 当前状态：实现检查点为 `af0c1cb`（`feat: verify local persistence lifecycle`），重启前文档检查点为 `3ed4dca`，整机重启验收收尾文档检查点为 `d9c6e04`；本地 `main` 相对 `origin/main` 超前 12 个提交。HANDOFF 及其他混合旧文档、缓存、framework/runtime 全部保留且未暂存。课设继续采用“不做备份恢复”的已确认范围。另一设备负向和整个 MVP 仍未验；未访问远端或推送。
+> 当前状态：分支 `fengyy-fixweb`，任务 02 评审固定基准为 HEAD `625d02b`；UI 原型、正式 Web 和本轮文档增量均未提交。历史持久化实现检查点为 `af0c1cb`，重启前文档检查点为 `3ed4dca`，整机重启验收收尾文档检查点为 `d9c6e04`。课设继续采用“不做备份恢复”的已确认范围。另一设备负向和整个 MVP 仍未验；未访问远端或推送。
 >
 > 本文是当前恢复入口，不替代专题事实源。新窗口若只收到“恢复上下文”或同义要求，读完后只汇报已恢复并等待，不把历史计划当作新授权。历史架构讨论、迁移和逐轮探针保留在对应行动记录，不再全文复制到交接中。
 
-先按AGENTS阅读docs/agents的任务/标签/领域约定，再读[模块架构索引](docs/architecture/modules/README.md)和当前[执行计划](.scratch/ui-catalog-providers/plan.md) → [规格](.scratch/ui-catalog-providers/spec.md) → 按阶段读[实现地图](.scratch/ui-catalog-providers/implementation-map.md)与[验证规范](.scratch/ui-catalog-providers/verification.md)。原八项加独立 P 阶段的细化拆分仍待审阅，尚未正式发布独立任务单；不要把“计划写好”当成允许开始01。原规划历史见[规划行动](docs/actions/2026-09-17-ui-catalog-provider-planning.md)，本轮模块/单机规划见[行动文档](docs/actions/2026-09-17-module-architecture-and-owner-host-planning.md)，持久化范围见[已前移的 P 阶段规格](.scratch/persistence-deferred/spec.md)。
+先按AGENTS阅读docs/agents的任务/标签/领域约定，再读[模块架构索引](docs/architecture/modules/README.md)和当前[执行计划](.scratch/ui-catalog-providers/plan.md) → [规格](.scratch/ui-catalog-providers/spec.md) → 按阶段读[实现地图](.scratch/ui-catalog-providers/implementation-map.md)与[验证规范](.scratch/ui-catalog-providers/verification.md)。扩展任务 01–02 已完成；03–08 仍待逐项发布，不能把任务 02 完成当成允许自动开始任务 03。原规划历史见[规划行动](docs/actions/2026-09-17-ui-catalog-provider-planning.md)，本轮模块/单机规划见[行动文档](docs/actions/2026-09-17-module-architecture-and-owner-host-planning.md)，持久化范围见[已前移的 P 阶段规格](.scratch/persistence-deferred/spec.md)。
 
 持久化前移和本次执行已获确认，不再重复询问优先级。业务读写 Adapter 与本地生命周期已落地；备份恢复明确移出课设范围。准备度由[所有者单机模块第 10 节](docs/architecture/modules/owner-host-runtime/ARCHITECTURE.md#10-当前代码准备度2026-09-18-实际核对)维护。已确认的根目录、手动启停及无备份风险由[课设运行约束](docs/architecture/modules/owner-host-runtime/ARCHITECTURE.md#11-已确认的课设运行约束2026-09-17)维护，云存储仍只是未来可选。
 
@@ -32,7 +34,7 @@
 
 既有目标是完成 **Codex-only MVP（最小可用平台）**。交付顺序不变：先完成不带网页的本机技术原型 M0，再进入包含网页、账号、批准、队列和存储的 M1。Aider/Claude Code 后续接入，自研 Agent 属于 P2；具体业务规则见第 3 节权威文档。
 
-当前 **M0核心闭环通过、M1任务01–13验收完成、14部分验收有证据但未关单；当前优先级转为扩展规划，MVP仍未完成**。任务13证据在[同任务行动](docs/actions/2026-09-13-m1-local-real-acceptance.md)，任务14正向完成及首次启动/浏览器失败原因在[同任务行动](docs/actions/2026-09-14-m1-private-remote-acceptance.md)。后者末尾仍含早期“待验证”快照，恢复时逐项对账，不忽略中间已有正向证据，也不把它扩大成全部通过。本轮没有重新启动/核验这些服务。M0剩余差距见[Harbor验收对账](docs/interfaces/HARBOR_EXECUTION.md#暂停后的验收对账2026-09-08)。
+当前 **M0核心闭环通过、M1任务01–13验收完成、14部分验收有证据但未关单；扩展任务 01–02 已完成，MVP仍未完成**。任务13证据在[同任务行动](docs/actions/2026-09-13-m1-local-real-acceptance.md)，任务14正向完成及首次启动/浏览器失败原因在[同任务行动](docs/actions/2026-09-14-m1-private-remote-acceptance.md)。后者末尾仍含早期“待验证”快照，恢复时逐项对账，不忽略中间已有正向证据，也不把它扩大成全部通过。本轮没有重新启动/核验这些服务。扩展任务 02 的范围与验证只由[实施行动](docs/actions/2026-09-18-ui-workbench-implementation.md)维护。M0剩余差距见[Harbor验收对账](docs/interfaces/HARBOR_EXECUTION.md#暂停后的验收对账2026-09-08)。
 
 | 能力 | 已有事实 | 不能据此推断 |
 |---|---|---|
@@ -56,13 +58,13 @@
 
 ## 2. 当前阻塞与授权边界
 
-当前持久化范围已调整为 P1–P4，且实施按用户要求暂停；UI/新题/API 扩展仍是规划阶段，不是恢复旧 M0 或任务 14 的许可。下表历史技术缺口仅供按分支查阅；当前目标、技术门禁和下一停点以第 6 节为准。
+当前持久化范围 P1–P4 和 UI 扩展 02 已经完成；新题和模型 API 扩展仍是规划阶段。任何扩展都不是恢复旧 M0 或任务 14 的许可。下表历史技术缺口仅供按分支查阅；当前目标、技术门禁和下一停点以第 6 节为准。
 
 | 类型 | 当前缺口 | 恢复动作与事实源 |
 |---|---|---|
-| 开发进展 | 任务01–13已收尾；14已有正向真实流程，仍未关单 | 当前只整理扩展计划，14留在原行动，不自动恢复 |
+| 开发进展 | 任务01–13已收尾；14已有正向真实流程，仍未关单；扩展 02 已完成 | 当前无自动续做目标；14留在原行动，不自动恢复，03 未发布 |
 | 数据库验证 | 任务 12 最新专属 PostgreSQL+MinIO 验收 132 项通过并精确清理；长期数据库仍未部署 | 后续任务继续复用既有固定镜像、无发布端口、合成数据和精确清理；不连接现有库 |
-| 当前评审结果 | 任务13相对 `5e39632` 的最终Standards/Spec均为0 findings/PASS | 任务14尚未完成双轴终审；新扩展未实施 |
+| 当前评审结果 | 任务13相对 `5e39632` 的最终Standards/Spec均为0 findings/PASS；扩展 02 的 Standards hard findings 均关闭、Spec PASS | 任务14尚未完成双轴终审；扩展 02 只保留已记录的 URL 分散判断项，不扩展重构 |
 | 接入准备 | 任务 03 三张规划内表、必要 Interface/子目录已落地，隔离验证通过；不等于正式部署 | 版本候选/风险见[依赖总表第 2.3 节](docs/dependencies/DEPENDENCIES.md#23-任务-03-对象存储依赖复核)，结构和不发布端口的专属测试方案见[已实施方案](docs/actions/2026-09-12-m1-task-agent-catalog.md#任务-03-最小接入方案)；实际构建、合成运行与精确清理见行动，不部署长期服务 |
 | 已修复的基础设施阻塞 | Docker 外部 DNS 转发已用限定 UDP53 例外接通；未知 resolver 配置在 nft 前拒绝，固定上游未改，双哈希已记录 | 见[执行接口的限定 DNS 适配](docs/interfaces/HARBOR_EXECUTION.md#限定-dns-适配2026-09-08)；不要重复申请该授权或重做已通过的 DNS 修正 |
 | 技术验收 | 第四场真实模型路径已可用；具体 FlClash 路由、IPv6、长连接/故障及 DNS/ICMP 外部范围仍有未验收项 | 先读 [Harbor 接口](docs/interfaces/HARBOR_EXECUTION.md#第四次授权运行真实补丁与独立判卷通过2026-09-08)；保留本场通过结果，不扩大为完整网络保护 |
@@ -227,6 +229,8 @@
 
 ### 最新确认与当前停点（2026-09-18）
 
+用户已在 `fengyy-fixweb` 分支完成扩展任务 01 的选型：`runtime/prototype/ui-workbench-20260918-01/` 中三种离线假数据 Web 布局通过静态/浏览器检查，最终选择纯 A「侧栏工作台」，不混入 B/C。获授权的任务 02 已把该结构重写为正式 Next.js 工作台，连接现有会话、目录、Job、审批/取消/恢复、成员、报告/证据和排行榜 HTTP Interface；新建向导、服务端筛选/不透明游标、URL 恢复和 390/360 手机菜单已完成。最终 32 条全量浏览器测试、TypeScript、生产构建、双轴评审通过，31 项 API 文档与实时 OpenAPI 差异为 0。未运行真实 Worker/模型，任务 03 未授权。
+
 当前工作状态为 completed 并已到换窗停点：取消备份后的最小本地持久化 P1–P4 已完成，当前没有自动续做的目标。随机数据库 `ae_persist_reboot_9777563a`、9 个随机对象及不含凭据的 `D:\AgentExamData\control\reboot-acceptance.json` 先通过重启前读回；用户完成 Windows 整机重启后，系统启动时间、清单 SHA-256、项目未自启状态均得到独立核对。正式启动后 5 类业务记录和 9 个对象逐项一致，随后只删除清单指定对象、随机数据库和清单。最终只读状态为初始化完成、PostgreSQL/AIStor 运行、活动 Job 为 0、停止标记 false；真实 Worker/模型调用仍未授权。
 
 收尾时 Codex Windows `elevated` 沙箱因自身残留 runtime staging 路径校验失败；重开仍复现。用户按 OpenAI 官方后备方案临时切换到 `unelevated` 后，普通命令与项目补丁恢复。它是本机 Codex 工具状态，不是 AgentExam 产品故障或项目能力；后续若恢复 `elevated`，应先确认 Codex 运行时问题已修复。
@@ -264,7 +268,7 @@ AIStor 官方核对检查点为 `35a62a6`，仅本次持久化行动和原 MinIO
 1. 完整读 AGENTS、HANDOFF 及第 3/4 节当项文档/源码，再核对本地 git status/log/diff；保留混合旧增量、全部缓存与 framework/runtime，不 pull/reset/push。若用户只要求恢复上下文，完成这些只读步骤后停下等待新任务，不自动实施或运行测试。
 2. 先阅读模块架构、行动指南与最新持久化实施行动，核对目标状态；若用户当轮改为只读/停止则遵从。不因旧任务14未关单恢复机器变更。
 3. P1–P4 本地持久化已完成，不自动重做整机重启、重新制造验收样本或恢复已取消的备份方案。原任务 14 的另一设备远程负向仍独立未完，只有用户安排该任务时才继续。
-4. 计划拆分获确认后依本地任务约定逐份发布任务单；技术未知明确列门禁，未关闭不假标 ready-for-agent。用户安排 01 时才做假数据 HTML；原型选定后，才另按安排进入 UI 实现。
+4. 任务 02 的实现、验证、双轴评审和文档已经关闭。当前停止，不自动进入任务 03。
 5. 后续严格按各项前置/步骤/验收/停止条件推进。API代理方向和本机私有文件已确认；精确拓扑、计量和固定CLI工具循环仍需验证，不回退真Key进做题容器或协议桥。
 6. 真实API阶段重新核验官方模型/地区/价格、账户资格与预算，取得相应调用授权；历史ChatGPT三次许可不覆盖新提供方。人民币费用为条件性估算，不自动充值或扩大Run次数。
 7. 每项完成更新同项行动、相关权威文档、任务与本交接；做所需验证与双轴评审后停下。需要新的业务选择/Module/Interface/表或范围扩展时另请用户决定。

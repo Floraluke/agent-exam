@@ -9,7 +9,7 @@ CREATE TABLE evaluation_jobs (
     )),
     evaluation_track text NOT NULL CHECK (evaluation_track = 'closed_book'),
     result_scope text NOT NULL CHECK (result_scope IN ('official', 'internal_test')),
-    batch_preset text NOT NULL CHECK (batch_preset IN ('demo', 'quick', 'standard')),
+    batch_preset text NOT NULL CHECK (batch_preset IN ('demo', 'quick', 'standard', 'continuous')),
     limit_profile_id text NOT NULL CHECK (limit_profile_id = 'default-single-host-v1'),
     limit_snapshot jsonb NOT NULL CHECK (jsonb_typeof(limit_snapshot) = 'object'),
     network_policy_id text NOT NULL CHECK (length(network_policy_id) > 0),

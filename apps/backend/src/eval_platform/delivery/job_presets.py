@@ -25,6 +25,8 @@ def submission_policy(result_scope: ResultScope = "official") -> SubmissionPolic
             BatchPreset("demo", 1, 3),
             BatchPreset("quick", 5, 5),
             BatchPreset("standard", 10, 20),
+            # Continuous scale: any 1-20 tasks, keeping the existing 60-run cap.
+            BatchPreset("continuous", 1, 20),
         ),
         limit_profiles=(
             LimitProfile(

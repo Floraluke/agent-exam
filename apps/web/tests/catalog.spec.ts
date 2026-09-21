@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { loginOwner, navigation } from "./support/workbench";
 
 test("multiple task and configuration summaries remain browsable", async ({ page }) => {
   const task = {
@@ -21,31 +22,30 @@ test("multiple task and configuration summaries remain browsable", async ({ page
       agent_configuration_id: "00000000-0000-0000-0000-000000000004",
       display_name: "second-config" }], next_cursor: null,
   } }));
-  await page.goto("/");
-  await page.getByLabel("账号", { exact: true }).fill("owner");
-  await page.getByLabel("密码", { exact: true }).fill("synthetic browser password");
-  await page.getByRole("button", { name: "登录", exact: true }).click();
+  await loginOwner(page);
+  await navigation(page).getByRole("button", { name: "任务目录" }).click();
   await expect(page.getByRole("button", { name: "查看 first-task" })).toBeVisible();
   await expect(page.getByRole("button", { name: "查看 second-task" })).toBeVisible();
+  await navigation(page).getByRole("button", { name: "配置目录" }).click();
   await expect(page.getByRole("button", { name: "查看 first-config" })).toBeVisible();
   await expect(page.getByRole("button", { name: "查看 second-config" })).toBeVisible();
 });
 
 test("owner registers catalogs; collaborator browses but cannot manage them", async ({ page, browser }) => {
-  await page.goto("/");
-  await page.getByLabel("账号", { exact: true }).fill("owner");
-  await page.getByLabel("密码", { exact: true }).fill("synthetic browser password");
-  await page.getByRole("button", { name: "登录", exact: true }).click();
+  await loginOwner(page);
+  await navigation(page).getByRole("button", { name: "任务目录" }).click();
   const tasks = page.getByRole("region", { name: "任务目录" });
   await expect(tasks).toBeVisible();
   await tasks.getByRole("button", { name: "登记已核验题目" }).click();
   await tasks.getByRole("button", { name: "查看 example__repo-1" }).click();
   await expect(tasks.getByText("Fix the visible bug.", { exact: true })).toBeVisible();
+  await navigation(page).getByRole("button", { name: "配置目录" }).click();
   const agents = page.getByRole("region", { name: "Codex 配置目录" });
   await agents.getByRole("button", { name: "登记固定 Codex 配置" }).click();
   await agents.getByRole("button", { name: "查看 Synthetic Codex" }).click();
   await expect(agents.getByText("推理强度：medium")).toBeVisible();
 
+  await navigation(page).getByRole("button", { name: "成员管理" }).click();
   const members = page.getByRole("region", { name: "成员管理" });
   await members.getByRole("button", { name: "创建邀请码" }).click();
   const token = await members.getByLabel("仅此一次的邀请码").inputValue();
@@ -62,6 +62,7 @@ test("owner registers catalogs; collaborator browses but cannot manage them", as
     await join.getByLabel("账号", { exact: true }).fill("catalog_teammate");
     await join.getByLabel("密码", { exact: true }).fill("synthetic teammate password");
     await join.getByRole("button", { name: "登录", exact: true }).click();
+    await navigation(join).getByRole("button", { name: "任务目录" }).click();
     const guestTasks = join.getByRole("region", { name: "任务目录" });
     await guestTasks.getByLabel("仓库筛选").fill("no/match");
     await guestTasks.getByRole("button", { name: "筛选任务" }).click();
@@ -72,8 +73,10 @@ test("owner registers catalogs; collaborator browses but cannot manage them", as
     await expect(guestTasks.getByText("Fix the visible bug.", { exact: true })).toBeVisible();
     await expect(join.getByRole("button", { name: "登记已核验题目" })).toHaveCount(0);
     await expect(join.getByRole("button", { name: "禁用 Synthetic Codex" })).toHaveCount(0);
+    await navigation(page).getByRole("button", { name: "配置目录" }).click();
     await agents.getByRole("button", { name: "禁用 Synthetic Codex" }).click();
     await expect(agents.getByText("已禁用（保留历史）")).toBeVisible();
+    await navigation(join).getByRole("button", { name: "配置目录" }).click();
     await join.reload();
     await expect(join.getByText("已禁用（保留历史）")).toBeVisible();
     await expect(join.locator("body")).not.toContainText("HIDDEN_ANSWER");

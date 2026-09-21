@@ -18,6 +18,8 @@ from eval_platform.application.job_lifecycle.recovery import JobRecovery
 from eval_platform.application.job_lifecycle.retention import ArtifactRetention
 from eval_platform.application.job_submission import JobSubmission
 from eval_platform.application.owner_approval import OwnerApproval
+from eval_platform.application.reporting.matrix import build_matrix
+from eval_platform.application.reporting.matrix_markdown import render_matrix_markdown
 from eval_platform.application.task_catalog import TaskCatalog
 from eval_platform.delivery.http.config import database_url
 from eval_platform.delivery.job_presets import submission_policy
@@ -48,6 +50,11 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="AgentExam 本机 Job 维护")
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("init-db", help="仅在空白专属数据库建立 Job 表")
+    render = commands.add_parser(
+        "render-matrix",
+        help="把多个已完成批次的报告渲染为题目×配置 Markdown 对比矩阵",
+    )
+    render.add_argument("job_ids", nargs="+")
     cleanup = commands.add_parser(
         "cleanup-artifacts", help="所有者逐对象清理已到期 raw_30d 正文"
     )
@@ -61,6 +68,13 @@ def main(argv: list[str] | None = None) -> int:
         if arguments.command == "init-db":
             initialize_schema(dsn)
             print("Job 表已建立；未创建批次、读取凭据或运行评测。")
+            return 0
+        if arguments.command == "render-matrix":
+            repository = PostgresJobRepository(dsn)
+            reports = [
+                repository.get_job_report(job_id) for job_id in arguments.job_ids
+            ]
+            print(render_matrix_markdown(build_matrix(reports)))
             return 0
         with warnings.catch_warnings():
             warnings.simplefilter("error", getpass.GetPassWarning)

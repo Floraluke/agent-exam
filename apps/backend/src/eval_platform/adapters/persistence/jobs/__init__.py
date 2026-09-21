@@ -21,6 +21,21 @@ def job_transaction(dsn: str) -> Iterator[psycopg.Connection[DictRow]]:
         yield connection
 
 
+@contextmanager
+def job_read_transaction(dsn: str) -> Iterator[psycopg.Connection[DictRow]]:
+    """Read several tables in one snapshot so concurrent writes cannot tear.
+
+    `read_job` runs multiple SELECTs; under READ COMMITTED each statement may
+    see a different snapshot, assembling an impossible state that fails the
+    stored-state validation. REPEATABLE READ pins one snapshot for the read.
+    """
+    with job_transaction(dsn) as connection:
+        connection.execute(
+            "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"
+        )
+        yield connection
+
+
 def initialize_schema(dsn: str) -> None:
     schema = files(__package__).joinpath("schema.sql").read_text(encoding="utf-8")
     with job_transaction(dsn) as connection:

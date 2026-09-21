@@ -61,8 +61,9 @@ export async function retryJob(id: string, key: string): Promise<JobSummary> {
   );
 }
 
-export async function jobs(): Promise<Page<JobSummary>> {
-  return parseJobPage(await request("jobs?limit=20"));
+export async function jobs(query = new URLSearchParams({ limit: "20" })):
+Promise<Page<JobSummary>> {
+  return parseJobPage(await request("jobs?" + query));
 }
 
 export async function runReport(id: string): Promise<RunReport> {

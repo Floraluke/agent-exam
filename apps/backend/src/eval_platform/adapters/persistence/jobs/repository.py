@@ -2,7 +2,11 @@
 
 from datetime import datetime
 
-from eval_platform.adapters.persistence.jobs import cancellations, job_transaction
+from eval_platform.adapters.persistence.jobs import (
+    cancellations,
+    job_read_transaction,
+    job_transaction,
+)
 from eval_platform.adapters.persistence.jobs.decisions import decide
 from eval_platform.adapters.persistence.jobs.execution import (
     batch,
@@ -72,7 +76,7 @@ class PostgresJobRepository(PostgresArtifactRetention):
         return stored
 
     def get(self, job_id: str) -> EvaluationJob:
-        with job_transaction(self.dsn) as connection:
+        with job_read_transaction(self.dsn) as connection:
             record = read_job(connection, job_id)
         if record is None:
             raise JobNotFound
@@ -155,15 +159,15 @@ class PostgresJobRepository(PostgresArtifactRetention):
             finalization.finish(connection, lease, now, failure_code)
 
     def get_run_report(self, run_id: str) -> RunReport:
-        with job_transaction(self.dsn) as connection:
+        with job_read_transaction(self.dsn) as connection:
             return reports.read_run_report(connection, run_id)
 
     def get_job_report(self, job_id: str) -> JobReport:
-        with job_transaction(self.dsn) as connection:
+        with job_read_transaction(self.dsn) as connection:
             return reports.read_job_report(connection, job_id)
 
     def get_artifact_report(self, artifact_id: str) -> RunReport:
-        with job_transaction(self.dsn) as connection:
+        with job_read_transaction(self.dsn) as connection:
             return reports.read_artifact_report(connection, artifact_id)
 
     def list(
@@ -173,5 +177,5 @@ class PostgresJobRepository(PostgresArtifactRetention):
         cursor: str | None,
         limit: int,
     ) -> list[EvaluationJob]:
-        with job_transaction(self.dsn) as connection:
+        with job_read_transaction(self.dsn) as connection:
             return list_jobs(connection, created_by, filters, cursor, limit)

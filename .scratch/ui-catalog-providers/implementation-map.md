@@ -2,7 +2,9 @@ Status: needs-info
 
 # 实现地图与文档联动
 
-> 供[执行计划](plan.md)按阶段读取。现有路径是 2026-09-17 工作区事实；“候选新增”只供审阅，本轮没有创建这些源码目录。实现前回读源码、锁定当时 HEAD；不得按这张地图重造平行链。
+> 标签只表示 03–08 的候选仍待后续任务确认；任务 02 已实现并在本文回填实际契约与文件树。
+
+> 供[执行计划](plan.md)按阶段读取。任务 02 的逐控件契约和实际 Web 文件树已按 2026-09-18 工作区回填；03–08 标有“候选”的内容仍只供后续审阅。后续实现前继续回读源码、锁定当时 HEAD，不得按候选地图重造平行链。
 
 ## 1. 责任边界
 
@@ -27,7 +29,67 @@ Web 只改善呈现与交互，复用唯一请求客户端与现有 HTTP；Task 
 
 04 必须继续读取 Job snapshots/factory、PG records/state_validation 与报告可比性校验，避免仅修改 options 后被旧读出校验拒绝。05 必须继续读取 Harbor process_runner/result mapper 与 Codex 安装约定，不用独立脚本绕开正式链。
 
-## 3. 候选文件树：只新增最小内部职责
+### 2.1 任务 02–03 的逐控件契约门槛
+
+任务 02 已按页面和角色落实完整交互清单；任务 03 开始前沿用同一门槛。每一项必须记录：可见/禁用条件、用户意图、前端事件与状态、URL 行为、HTTP 方法/路径/查询/body/Header、响应解析器、FastAPI 路由、Application 用例与持久化端口、权限与前置状态、稳定错误、成功后的重新读取/导航、浏览器及 HTTP 测试。导航、抽屉开关、向导前后步等纯客户端动作必须写“无后端请求”，不能留空。
+
+以下是从当前源码和 [HTTP API](../../docs/interfaces/HTTP_API.md)核对出的可复用基线，不是对未来页面新增接口的授权：
+
+| A 版交互族 | 前端契约 | HTTP/后端契约 |
+|---|---|---|
+| 会话恢复、登录、登出 | `api-client.ts` 的 `currentActor/login/logout`；Actor 运行时校验，未知形状关闭为 `UNAVAILABLE` | `GET /api/v1/auth/me`、`POST /api/v1/auth/login`、`POST /api/v1/auth/logout` → `routes/identity.py` |
+| 新建向导加载选项、提交 | `job-client.ts` 的 `jobOptions/submitJob`；提交期间锁定动作并复用同一未决幂等键 | `GET /api/v1/job-options`、`POST /api/v1/jobs` + `Idempotency-Key` → `routes/jobs/routes.py` → Job Submission |
+| 列表、详情与刷新 | `jobs/jobDetail`；返回值经 `parseJobPage/parseJobDetail` 校验 | `GET /api/v1/jobs`、`GET /api/v1/jobs/{job_id}` → `routes/jobs/routes.py` → Job Repository 查询 |
+| 批准、拒绝、取消 | `decideJob/cancelJob`；写请求携带 `Idempotency-Key`，成功后重新读取服务端事实 | `POST /api/v1/jobs/{job_id}/approve|reject|cancel` → `routes/jobs/routes.py` → 生命周期用例/Repository |
+| 中断收束、新建重试 | `recoverJob/retryJob`；retry 使用新幂等键，返回新 Job 后按新标识导航 | `POST /api/v1/jobs/{job_id}/recover|retry` → `routes/jobs/lifecycle/routes.py` → Recovery/Retry 用例 |
+| 批次报告、单 Run、制品、轨迹 | `jobReport/runReport/runArtifacts/runTrajectory`；各自运行时解析，缺失不伪造 | `GET /api/v1/reports/jobs/{job_id}`、`GET /api/v1/reports/runs/{run_id}`、`GET /api/v1/runs/{run_id}/artifacts|trajectory` → report/artifact routes |
+| 侧栏导航、移动抽屉、向导上一步/下一步 | React 路由或组件内状态；保留可分享 URL、前进后退与选择 | **无后端请求**；浏览器测试断言不产生网络写入 |
+
+控件隐藏不等于授权：协作者看不到 owner 动作，但服务器仍是最终权限边界。任何未在当前接口文档和源码中找到的行为先标“接口缺口”；若要新增公共 Interface、Module 或表，按项目规则说明现有能力为何不能承载并取得用户确认后再继续。
+
+### 2.2 任务 02：A 版逐控件契约清单
+
+下表冻结任务 02 正式页面的控件责任。产品 UI 不得为缺少现存后端 API 的业务能力设置按钮、交互、假数据或假成功状态；发现接口缺口时不展示对应业务控件并报告，不由前端模拟完成。`HTTP` 写“无”只允许改变可见状态、URL 或向导步骤且不得声称业务事实已改变；它必须由浏览器测试断言不会产生写请求。动态 `{id}` 按 [HTTP API](../../docs/interfaces/HTTP_API.md)作为不透明值编码，不从 UUID 推断时间或顺序。
+
+| 页面与控件 | 前端处理 / URL | HTTP Interface | 后端与权限 / 完成后状态 | 验证 |
+|---|---|---|---|---|
+| 登录：`登录` | 校验原生表单、锁定重复提交；成功保存可信 Actor | `POST /api/v1/auth/login` | IdentityService；任何角色可登录；失败显示稳定错误，成功进入角色首页 | identity 浏览器 + task-02 首页 |
+| 登录：`使用邀请码加入` / `返回登录` | 在登录与加入表单间切换并清空一次性提示 | **无** | 无后端请求、无身份变化 | 浏览器断言零写请求 |
+| 加入：`加入平台` | 提交后清空 Token/密码并回登录 | `POST /api/v1/invitations/redeem` | MembershipService；成功只建立 collaborator，随后仍需登录 | membership 浏览器 |
+| 全局：品牌/侧栏导航 | 设置 `view=home|jobs|new|tasks|agents|members|leaderboard`；保留 `job` 仅在详情 | **无** | 无后端请求；不可见 owner 导航不能替代服务器权限 | URL 前进/后退、刷新恢复 |
+| 全局：`打开菜单` / `关闭菜单` | 只切换 390/360 移动侧栏；选中导航后关闭 | **无** | 无后端请求 | 两档移动 viewport |
+| 全局：`退出登录` | 锁定动作；成功清空 Actor、当前视图和私有选择 | `POST /api/v1/auth/logout` | IdentityService 撤销当前会话；回到登录页 | identity + task-02 |
+| 首页：`新建评测` / `查看全部评测` | 分别进入 `view=new` / `view=jobs` | **无** | 无后端请求 | 角色首页导航 |
+| 首页：`刷新工作台` | 读取当前角色可见的第一页；owner 另按待批准、各执行状态、失败/部分出错状态分组读取 | `GET /api/v1/jobs?limit=5`；owner 再按 8 个既有 `status` 值分别请求 `limit=5` | Job Repository；协作者由服务器限制为本人；明确接口不保证创建时间排序，每组数量只是当前页 | 空、错误、两角色首页与状态请求审计 |
+| 首页：Job 行 / `打开评测` | 写入 `view=jobs&job={id}` 并读详情 | `GET /api/v1/jobs/{id}` | Job Repository；不可见与不存在统一 404 | owner 优先分组与 collaborator 可见页 |
+| 评测列表：状态、范围筛选 / `应用筛选` | 生成 `status`、owner 可选 `created_by`；重置 cursor 历史 | `GET /api/v1/jobs?status=&created_by=&limit=20` | Job Repository；协作者即使伪造 created_by 仍只能看到自己 | 筛选、越权空页、失效输入 |
+| 评测列表：`清除筛选` / `刷新列表` | 清空后读第一页，或用当前筛选/当前 cursor 重读 | 同上 | 服务器事实覆盖页面缓存；不猜总数 | 空列表、刷新保持条件 |
+| 评测列表：`上一页` / `下一页` | 前端保存已访问 cursor 栈；按钮触发相应页 GET | `GET /api/v1/jobs?...&cursor={cursor}` | Job Repository 不透明游标；无前页时禁用 | 前后翻页、边界禁用 |
+| 评测列表：`新建评测` | 进入 `view=new` | **无** | 无后端请求 | URL/焦点 |
+| 评测列表：Job 行 / `查看详情` | 写入 `view=jobs&job={id}` 并读详情 | `GET /api/v1/jobs/{id}` | Job Repository 可见性；失败留在列表并提示 | 详情、刷新链接 |
+| 三步向导：进入页面 / `刷新可选项` | 并行加载题目、启用配置和限制；剔除已失效选择 | `GET /api/v1/tasks?limit=100`、`GET /api/v1/agent-configurations?limit=100&agent_type=codex&enabled=true`、`GET /api/v1/job-options` | Task Catalog、Agent Registry、Job Submission policy；任一畸形响应整体失败关闭 | options 解析、空目录、错误 |
+| 三步向导：任务/配置勾选、批次/限制选择 | 只更新当前会话内向导状态并重算 Run 数 | **无** | 无后端请求；上限提示来自服务端 options | 返回上步保持、空选择禁用 |
+| 三步向导：`上一步` / `下一步` | 只变更 1–3 步；进入下一步前做页面可解释校验 | **无** | 无后端请求 | 步骤、焦点、选择保持 |
+| 三步向导：`取消新建` | 清除向导私有选择并返回 `view=jobs` | **无** | 无后端请求 | 清理状态、刷新不恢复他人选择 |
+| 三步向导：`提交并等待批准` | 同一未决正文复用幂等键；成功写 `view=jobs&job={id}` 并重读详情 | `POST /api/v1/jobs` + `Idempotency-Key`，随后 `GET /api/v1/jobs/{id}` | Job Submission → Job Repository；任何已登录角色可提交；只创建 `AWAITING_OWNER_APPROVAL` | owner/collaborator、重复点击、错误/超时 |
+| 详情：`返回评测列表` | 移除 `job`，保留列表筛选 | **无** | 无后端请求 | URL 恢复 |
+| 详情：`刷新当前批次` | 重读当前 Job；已打开批次报告时一并刷新 | `GET /api/v1/jobs/{id}`；可选 `GET /api/v1/reports/jobs/{id}` | Job Repository / Reporting；服务器状态覆盖缓存 | 状态推进、404/会话过期 |
+| 详情：`批准并排队` / `拒绝批次` | 规范化说明；同一未决决定复用键；成功重读详情 | `POST /api/v1/jobs/{id}/approve|reject` + `Idempotency-Key`，随后详情 GET | OwnerApproval；仅 owner 且待批准；冲突后也重读服务器事实 | 自提交自批、双角色、并发冲突 |
+| 详情：`取消批次` | 同一 Job/说明的未决请求复用键；成功重读详情 | `POST /api/v1/jobs/{id}/cancel` + `Idempotency-Key`，随后详情 GET | JobCancellation；owner 任意、collaborator 仅本人；请求态不冒充终态 | 待批/排队/执行、越权 |
+| 详情：`检查并收束中断` | 仅租约到期且 owner 可见；成功重读旧 Job | `POST /api/v1/jobs/{id}/recover`，随后详情 GET | Recovery；不运行模型、不自动重试 | interruption-recovery 浏览器 |
+| 详情：`新建重试批次` | 同一旧 Job 的未决请求复用键；成功导航新 Job 并重读 | `POST /api/v1/jobs/{id}/retry` + `Idempotency-Key`，随后新详情 GET | Retry；仅 owner/已收束终态；新 Job 重新等待批准 | 新旧 ID、再次批准 |
+| 详情：`查看批次进度` | 读取并显示既有简版进度，不在任务 02 重做矩阵 | `GET /api/v1/reports/jobs/{id}` | Reporting；只读、保持缺失/故障语义 | 既有 job-batch 回归 |
+| 批次进度：`查看 {任务}/{配置} 运行报告` / 详情：`查看单题运行报告` | 读取选中 Run；不猜测结果 | `GET /api/v1/reports/runs/{run_id}` | Reporting；只读，未知与缺失不填零 | 既有报告/证据回归 |
+| 安全证据：下载补丁/摘要 | 浏览器同源下载，文件名固定为公开类型 | `GET /api/v1/artifacts/{artifact_id}/content` | Artifact route / Store；仅公开安全制品，权限与删除状态由服务器判断 | evidence/retention 回归 |
+| 安全证据：`查看安全轨迹` / `加载更多轨迹` | 首次 after=0，后续使用返回的 next sequence 追加 | `GET /api/v1/runs/{run_id}/trajectory?after_sequence=&limit=100` | Artifact/trajectory 查询；不显示正文、工具参数或思维链 | evidence 回归 |
+| 任务目录：登记、筛选、查看、刷新、下一页 | 复用现有 TasksPanel；筛选/分页只发受控 query | `POST /api/v1/tasks/register`；`GET /api/v1/tasks[/{id}]` | Task Catalog；登记仅 owner，查询为已登录用户 | 既有 catalog 回归 |
+| 配置目录：登记、状态筛选、查看、禁用、刷新、下一页 | 复用现有 AgentsPanel；不提供 Key/URL 输入 | `POST /api/v1/agent-configurations[/{id}/disable]`；`GET /api/v1/agent-configurations[/{id}]` | Agent Registry；管理仅 owner，查询为已登录用户 | 既有 catalog 回归 |
+| 成员：刷新、创建/关闭/撤销邀请、更多邀请、停用/更多成员 | 复用现有 MembersPanel；关闭邀请码只清本地一次性值 | `GET/POST /api/v1/invitations...`、`GET/POST /api/v1/members...`；`关闭邀请码`为**无后端请求** | MembershipService；整个页面仅 owner；Token 不写日志或 URL | 既有 membership 回归 |
+| 排行榜：`查询排行榜` / `加载下一页` | 复用现有筛选与不透明 cursor；来源 Job 链接进入 A 版详情 | `GET /api/v1/leaderboard?...`；来源运行报告为报告 GET | Reporting；只读，不因 UI 改排名/分母 | 既有 leaderboard 回归 |
+
+任务 01 的角色切换、场景切换、A/B/C 切换、演示 Toast 与“返回演示”均是原型专用控件，正式产品不实现，因此不映射任何生产 Interface。任务 02 当前可操作控件已全部列在本表；后续任务若新增控件，仍须先补契约行，再写测试和 Implementation。
+
+## 3. 文件树：任务 02 实际结构与后续候选
 
 ### 01 原型，不进入产品构建
 
@@ -44,30 +106,29 @@ runtime/prototype/ui-workbench-<date>-<scope>/ # 候选；Git 忽略的静态假
 
 本地静态 HTML 是用户指定形式；可离线打开，需本机预览时仅回环，不启用 Serve。原型不提交成生产功能；确认的交互结论进入后续行动/原型决策记录，生产代码按既有 React 结构重写。
 
-### 02–03 Web 内部整理
+### 02 Web 实际结构；03 报告重组仍是候选
 
 ```text
 apps/web/src/features/
 ├─ identity/session.tsx                     # 修改：保留会话与身份门禁，组合角色工作台
-├─ workbench/                              # 候选新增：布局职责，不是新业务 Module
-│  ├─ shell.tsx                            # 导航/当前视图/移动布局
-│  ├─ owner.tsx                            # owner 的可见 Job 概览与入口
-│  └─ collaborator.tsx                     # 本人评测与新建入口
+├─ workbench/                               # 已新增：Web 内部布局职责，不是新业务 Module
+│  ├─ shell.tsx                             # 导航、当前视图、角色边界与移动布局
+│  └─ dashboard.tsx                         # 当前可见页及 owner 待批/执行/异常状态分组
 ├─ jobs/
-│  ├─ submit.tsx                           # 修改：薄组合，旧组件对外入口兼容
-│  ├─ wizard/                              # 候选新增：选题、配置、复核及向导状态
-│  ├─ listing/                             # 候选新增：复用游标/筛选、非全局计数
-│  ├─ reporting/                           # 候选新增：矩阵/指标/详情呈现
+│  ├─ submit.tsx                           # 修改：详情与生命周期动作的薄组合
+│  ├─ wizard/view.tsx                      # 已新增：选题、配置、复核、幂等提交
+│  ├─ listing/{labels,view,workspace}.tsx  # 已新增：筛选、游标、列表/详情 URL 组合
+│  ├─ reporting/                           # 任务 03 候选；任务 02 未创建
 │  └─ lifecycle/recovery.tsx               # 修改仅动线：保留恢复和新 Job 语义
-├─ catalog/{tasks,agents}.tsx               # 修改展示/导航，不增加秘密输入
-└─ identity/members.tsx                     # 修改展示；服务器权限照旧
+├─ catalog/{tasks,agents}.tsx               # 复用：目录管理，不增加秘密输入
+└─ identity/members.tsx                     # 复用：服务器权限照旧
 apps/web/src/lib/job-client.ts              # 修改：列表参数化/复用 request，保留 API 校验
-apps/web/src/lib/jobs/                      # 已有；新增类型若必要在此承载
-apps/web/tests/workbench/                   # 候选新增：桌面/手机/角色/导航用例
-apps/web/tests/jobs/                        # 候选新增：向导与对比用例，测试入口不重复
+apps/web/tests/support/workbench.ts          # 已新增：经可见 A 侧栏进入既有验收页面
+apps/web/tests/workbench/                   # 已新增：桌面、手机、角色、导航、分页和韧性用例
+apps/web/tests/jobs/                        # 已有：审批、取消、恢复等回归入口
 ```
 
-当前 jobs 已有 8 个直接文件、lib 已超过默认指标，不再向这些目录平铺文件。仅把本次被修改的状态/渲染按职责移入子目录，保持旧导出直到调用全部迁移通过；不顺手清理全仓。原有重复/长页耦合在本次 UI 内处理，其他坏味道另报范围。
+当前 jobs 有 8 个直接文件，本轮只把列表和向导放入职责子目录，没有继续平铺；`workbench` 2 个文件，测试工作台目录 7 个文件。任务 03 的 `reporting/` 仍是候选，不得从本树推断已经实现。URL 读写目前散落在壳、列表组合、恢复和登出代码，是评审记录的 Shotgun Surgery 判断项；本轮不扩大成路由重构，后续动导航时再收敛。
 
 ### 04 目录与规模
 

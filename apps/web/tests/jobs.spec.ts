@@ -1,24 +1,25 @@
 import { expect, test } from "@playwright/test";
+import {
+  loginOwner, navigation, openWizard, registerCatalog, reviewSelection,
+} from "./support/workbench";
 
 test("owner approves a frozen job and reloads its audit", async ({ page }) => {
-  await page.goto("/");
-  await page.getByLabel("账号", { exact: true }).fill("owner");
-  await page.getByLabel("密码", { exact: true }).fill("synthetic browser password");
-  await page.getByRole("button", { name: "登录", exact: true }).click();
-  await page.getByRole("button", { name: "登记已核验题目" }).click();
-  await page.getByRole("button", { name: "登记固定 Codex 配置" }).click();
-  const jobs = page.getByRole("region", { name: "提交评测" });
-  await jobs.getByRole("button", { name: "刷新可提交选项" }).click();
+  await loginOwner(page);
+  await registerCatalog(page);
+  const jobs = await openWizard(page);
   await jobs.getByLabel("任务 example__repo-1").check();
+  await jobs.getByRole("button", { name: "下一步" }).click();
   await jobs.getByLabel("配置 Synthetic Codex").check();
-  await expect(jobs.getByText("组合数量：1", { exact: true })).toBeVisible();
   await expect(jobs.getByLabel("评测赛道")).toHaveValue("closed_book");
   await expect(jobs.getByLabel("资源限制")).toHaveValue("default-single-host-v1");
+  await jobs.getByRole("button", { name: "下一步" }).click();
+  await expect(jobs.getByText("1 道题 × 1 个配置 = 1 个 Run", { exact: true }))
+    .toBeVisible();
   const response = page.waitForResponse((candidate) =>
     candidate.request().method() === "POST" &&
     new URL(candidate.url()).pathname === "/api/v1/jobs",
   );
-  await jobs.getByRole("button", { name: "提交等待批准" }).click();
+  await jobs.getByRole("button", { name: "提交并等待批准" }).click();
   const created = await (await response).json();
   await expect.poll(() => new URL(page.url()).searchParams.get("job"))
     .toBe(created.job_id);
@@ -77,12 +78,9 @@ test("owner approves a frozen job and reloads its audit", async ({ page }) => {
 test("collaborator cannot decide and sees the owner's rejection", async ({
   page, browser,
 }) => {
-  await page.goto("/");
-  await page.getByLabel("账号", { exact: true }).fill("owner");
-  await page.getByLabel("密码", { exact: true }).fill("synthetic browser password");
-  await page.getByRole("button", { name: "登录", exact: true }).click();
-  await page.getByRole("button", { name: "登记已核验题目" }).click();
-  await page.getByRole("button", { name: "登记固定 Codex 配置" }).click();
+  await loginOwner(page);
+  await registerCatalog(page);
+  await navigation(page).getByRole("button", { name: "成员管理" }).click();
   const members = page.getByRole("region", { name: "成员管理" });
   await members.getByRole("button", { name: "创建邀请码" }).click();
   const token = await members.getByLabel("仅此一次的邀请码").inputValue();
@@ -101,19 +99,17 @@ test("collaborator cannot decide and sees the owner's rejection", async ({
     await teammate.getByLabel("密码", { exact: true })
       .fill("synthetic teammate password");
     await teammate.getByRole("button", { name: "登录", exact: true }).click();
-    const jobs = teammate.getByRole("region", { name: "提交评测" });
-    await jobs.getByRole("button", { name: "刷新可提交选项" }).click();
-    await jobs.getByLabel("任务 example__repo-1").check();
-    await jobs.getByLabel("配置 Synthetic Codex").check();
+    const jobs = await openWizard(teammate);
+    await reviewSelection(jobs, ["example__repo-1"]);
     const submitted = teammate.waitForResponse((candidate) =>
       candidate.request().method() === "POST" &&
       new URL(candidate.url()).pathname === "/api/v1/jobs",
     );
-    await jobs.getByRole("button", { name: "提交等待批准" }).click();
+    await jobs.getByRole("button", { name: "提交并等待批准" }).click();
     const created = await (await submitted).json();
     await expect(jobs.getByRole("region", { name: "所有者决定" })).toHaveCount(0);
 
-    await page.goto(`/?job=${created.job_id}`);
+    await page.goto(`/?view=jobs&job=${created.job_id}`);
     const ownerJobs = page.getByRole("region", { name: "提交评测" });
     await expect(ownerJobs.getByText("等待所有者批准", { exact: true }))
       .toBeVisible();
@@ -136,38 +132,20 @@ test("malformed nested job options fail closed", async ({ page }) => {
       limit_profiles: [{}], maximum_agent_configurations: 3, maximum_runs: 60,
     } });
   });
-  await page.goto("/");
-  await page.getByLabel("账号", { exact: true }).fill("owner");
-  await page.getByLabel("密码", { exact: true }).fill("synthetic browser password");
-  await page.getByRole("button", { name: "登录", exact: true }).click();
+  await loginOwner(page);
+  const jobs = await openWizard(page);
   await expect(page.locator("p[role=alert]")).toContainText("暂时无法连接平台");
-  await expect(page.getByRole("region", { name: "提交评测" }))
-    .not.toContainText("undefined");
+  await expect(jobs).not.toContainText("undefined");
 });
 
 test("executing cancellation stays requested until the current run settles", async ({
   page,
 }) => {
-  await page.goto("/");
-  await page.getByLabel("账号", { exact: true }).fill("owner");
-  await page.getByLabel("密码", { exact: true }).fill("synthetic browser password");
-  await page.getByRole("button", { name: "登录", exact: true }).click();
-  await page.getByRole("button", { name: "登记已核验题目" }).click();
-  await page.evaluate(async () => {
-    const response = await fetch("/api/v1/tasks/register", {
-      method: "POST", credentials: "same-origin",
-      headers: { "Content-Type": "application/json", "X-AgentExam-Request": "1" },
-      body: JSON.stringify({ preset_id: "swe-gym-lite-example-2" }),
-    });
-    if (!response.ok) throw new Error("second task registration failed");
-  });
-  await page.getByRole("button", { name: "登记固定 Codex 配置" }).click();
-  const jobs = page.getByRole("region", { name: "提交评测" });
-  await jobs.getByRole("button", { name: "刷新可提交选项" }).click();
-  await jobs.getByLabel("任务 example__repo-1").check();
-  await jobs.getByLabel("任务 example__repo-2").check();
-  await jobs.getByLabel("配置 Synthetic Codex").check();
-  await jobs.getByRole("button", { name: "提交等待批准" }).click();
+  await loginOwner(page);
+  await registerCatalog(page, true);
+  const jobs = await openWizard(page);
+  await reviewSelection(jobs, ["example__repo-1", "example__repo-2"]);
+  await jobs.getByRole("button", { name: "提交并等待批准" }).click();
   await jobs.getByRole("button", { name: "批准并排队" }).click();
   const refresh = jobs.getByRole("button", { name: "刷新当前批次" });
   await expect.poll(async () => {
