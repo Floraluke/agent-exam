@@ -56,17 +56,17 @@ docs/interfaces/HTTP_API.md      # §10.4 现行正文在 main 上（B 的分支
 
 ## 5. 自验证情况
 
-- B 侧**未新增任何实现代码**；子行动 c 未开始。
+- 子行动 c（对比页 UI）**已实现并验证**，随 PR #8 合入 `main`（`18bbd8d`）；实现与实测见[对比页行动](03-comparison-ui.md)第 3、6 节。
 - **已执行（2026-09-20，基于当时的 `beed93f`）**：后端环境恢复（`uv 0.12.17` + uv 管理的 Python 3.13.15）；`test_comparison_http.py` → **3 passed**、`tests/jobs/reporting` → 14 passed / 2 skipped、全量 → 2 failed / 404 passed / 84 skipped。当时该分支无第 4 个用例，故为 3。
-- **未在新 `main` 上重跑**：环境已就绪；建议按 **4 passed** 预期重跑并核对那 2 个 Harbor 失败。基线可移植性说明见[进展与未决项](../progress.md)。
+- **已在新 `main` 上重跑（2026-09-21，`fd369cc`）**：`test_comparison_http.py` → **4 passed**（含 D 的第 4 个用例）、`tests/jobs/reporting` → 16 passed / 2 skipped、全量 → 2 failed / 408 passed / 86 skipped；2 个失败仍是已知的 `framework/harbor` 环境缺口。基线可移植性说明见[进展与未决项](../progress.md)。
 - **未执行**：B 侧未运行 `ruff` / `mypy`。
 
 ## 6. 未验证项与待确认项
 
 | 项 | 说明 |
 |---|---|
-| 对比页 UI 的契约行 | 按[实现地图 2.1 节门槛](../../../../../.scratch/ui-catalog-providers/implementation-map.md)，写代码前须先补逐控件契约行 |
-| 在**新 main** 上重跑测试 | 环境已就绪，未执行；预期 4 passed + 2 个 Harbor 失败 |
+| 对比页 UI 的契约行 | ✅ 已完成：逐控件契约表见[对比页行动](03-comparison-ui.md)，代码已随之实现并合入 |
+| 在**新 main** 上重跑测试 | ✅ 已完成（2026-09-21）：4 passed / 16 passed 2 skipped / 全量 2 failed 408 passed 86 skipped，见上节 |
 | 与 D 的重复工作 | ✅ 已关闭 | D 于 2026-09-21 拍板接受 `main` 为最终形态：`cdcb4cf`/`c5e036d` 不再合入，以 `7553ce0` 为准；"不收敛"决定作废；`xinyue-modules` 转历史存档。细节见[进展与未决项](../progress.md) |
 | 任务 03 的正式 issue | `.scratch` 当前无 `03-*` 任务单；是否发布待 B 确认 |
 | 实时 OpenAPI 计数 | ✅ 已复核：32 个端点与 §2.1 的 32 条逐条集合比对差异 0（2026-09-21，见[进展与未决项](../progress.md)） |
