@@ -51,7 +51,7 @@ test("owner compares two batches and reads the matrix without inventing results"
   const missing = table.locator('tbody td[data-outcome="missing"]');
   await expect(incomplete).toHaveCount(2);
   await expect(missing).toHaveCount(2);
-  // 缺失格没有 Run：显示「无运行」，不冒充未通过，也不提供钻取。
+  // 缺失格没有 Run：显示「无运行」，不冒充未解决，也不提供钻取。
   await expect(missing.first()).toContainText("无运行");
   await expect(missing.first().getByRole("button")).toHaveCount(0);
 

@@ -110,7 +110,7 @@ function cell(value: unknown): ComparisonCell {
     failure_code: nullableText(item, "failure_code"),
     report_path: nullableText(item, "report_path"),
   };
-  // 硬规则：missing 不当作未通过或零，其 resolved 与 report_path 必须为 null。
+  // 硬规则：missing 不当作未解决或零，其 resolved 与 report_path 必须为 null。
   if (parsed.outcome === "missing" &&
       (parsed.resolved !== null || parsed.report_path !== null)) {
     throw new ApiError("UNAVAILABLE");
