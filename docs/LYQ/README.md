@@ -39,11 +39,11 @@
 
 - 长期 Module：**目录与配置**（Task Catalog 题目目录 + Agent Registry 配置目录）
 - 当前任务 DRI：**任务 04 五道新题入库与 1–20 连续规模**
-- 环境：**本机开发环境已建立**（2026-09-20）——Python 3.13.15 + 便携 PostgreSQL 15.14（`127.0.0.1:55432`）；目录模块测试 33 passed，全量基线 452 passed / 36 skipped / 2 failed（2 项为缺 `framework/harbor` 的既有环境失败）。见 [`06-environment/LOCAL_SETUP.md`](06-environment/LOCAL_SETUP.md)
+- 环境：**本机开发环境已建立**（2026-09-20）——Python 3.13.15 + 便携 PostgreSQL 15.14（`127.0.0.1:55432`）；目录模块测试 37 passed，全量基线 456 passed / 36 skipped / 2 failed（2 项为缺 `framework/harbor` 的既有环境失败）。见 [`06-environment/LOCAL_SETUP.md`](06-environment/LOCAL_SETUP.md)
 - 状态：**准备阶段，产品开发未开工**。任务 04 尚未发布独立 issue，按项目规则不提前修改后续任务代码
 - 本机可以验证的部分：目录侧一致性、规模侧拒绝边界的核对、目录→options→提交→冻结 Job 的打通。仍需组长机器的部分：五道候选题的三补丁门禁
 - 计划书：[`01-plan/PLAN.md`](01-plan/PLAN.md)
-- 未决问题：[`04-issues/KNOWN_ISSUES.md`](04-issues/KNOWN_ISSUES.md)（当前 6 条，其中 ISSUE-02、04 已解决）
+- 未决问题：[`04-issues/KNOWN_ISSUES.md`](04-issues/KNOWN_ISSUES.md)（当前 6 条：ISSUE-02、04 已解决，ISSUE-05 的「重复项」冲突已于 2026-09-20 定案）
 - 协作过程记录：[`05-sessions/2026-09-19_20-collaboration-record.md`](05-sessions/2026-09-19_20-collaboration-record.md)
 - 对应行动记录：[任务 04 行动文档](../actions/2026-09-19-task-04-catalog-candidates-and-scale.md)、[本机环境行动文档](../actions/2026-09-20-local-environment-setup.md)
 

@@ -42,7 +42,7 @@
 2. 资格验证候选顺序：`python__mypy-15184`、`python__mypy-15208`、`python__mypy-15131`、`python__mypy-15139`、`python__mypy-15876`。同项目不共用旧题镜像；`15876` 额外确认存在真实 FAIL_TO_PASS，不用仅文档修改凑数量。
 3. 每题独立容器、固定 Fork、外网关闭，依次跑参考补丁、空补丁、可应用但错误的补丁；确认测试确实执行且参考通过、负例未解决。基础设施错误不算负例成功；空补丁本来就通过的题不合格。记录镜像/数据/报告身份与精确清理结果（执行由 E 主责，C 组织交接并收口证据）。
 4. 只有通过门禁的题进入受控目录白名单；保留旧题身份与 M0 单题入口。候选不合格时从同一固定 mypy 集合选替补并重走全部门禁。
-5. 规模侧（2026-09-20 核对后收窄）：连续预设 `continuous(1–20)` 及其边界用例**已由 D 合入上游**——4/6/9 题通过、0/21 题拒绝、20×3=60 允许、第 4 个配置拒绝均已有测试；「未知条目」「停用条目」的拒绝也已覆盖（`tests/jobs/test_security.py:60`、`tests/jobs/test_concurrency.py:58`）。剩余工作改为：**核对**上述既有覆盖是否覆盖计划要求的全部拒绝项。**2026-09-20 复核更正**：所谓「0 个配置」空白项并不存在——`tests/jobs/test_security.py:41-42` 已同时断言 0 题与 0 个配置返回 `400 EMPTY_JOB_SELECTION`，我先前的结论核查不充分。**注意**：「重复 ID」的现有行为是**去重**而不是拒绝（`tests/jobs/test_security.py:66` 断言 `task_ids` 翻倍后 `trial_count == 1`），本行动 09-19 版写的「重复题目必须拒绝」与既有断言冲突，处理方式需先与 D 确认，不擅自改动既有断言。
+5. 规模侧（2026-09-20 核对后收窄）：连续预设 `continuous(1–20)` 及其边界用例**已由 D 合入上游**——4/6/9 题通过、0/21 题拒绝、20×3=60 允许、第 4 个配置拒绝均已有测试；「未知条目」「停用条目」的拒绝也已覆盖（`tests/jobs/test_security.py:60`、`tests/jobs/test_concurrency.py:58`）。剩余工作改为：**核对**上述既有覆盖是否覆盖计划要求的全部拒绝项。**2026-09-20 复核更正**：所谓「0 个配置」空白项并不存在——`tests/jobs/test_security.py:41-42` 已同时断言 0 题与 0 个配置返回 `400 EMPTY_JOB_SELECTION`，我先前的结论核查不充分。**已定案（2026-09-20 深夜，D 回复）**：「重复 ID」的**去重是刻意设计，实现不改**。统一规则为「未知/重复**参数键**拒绝、值列表**去重归一化**」。依据：[任务 04 行动记录](2026-09-12-m1-job-submission.md)第 22 行「题目与配置**去重后计数**；空选择、规模不符、非法覆盖在创建前拒绝」，[HTTP_API.md](../interfaces/HTTP_API.md) 第 426/430 行「必须非空、去重」「列表在规范正文中去重并排序」（两处已逐字核对属实）。剩余动作在措辞侧：请组长把 `verification.md` Q7 与 `plan.md` 第 6 节第 5 步的「重复 ID…拒绝」对齐为「重复项去重后计数」。本行动 09-19 版的「重复题目必须拒绝」表述作废。
 6. 打通目录 → HTTP options → 三步向导 → 冻结 Job/全部 Runs/初始事件的事务；创建只返回“等待批准”。验证读取旧 Job、恢复新 Job、双存储一致性与指纹/摘要防漂移；同步权威文档后收尾。**进展（2026-09-20）：C 侧打通链已实现并测试**——新增 `apps/backend/tests/catalog/test_catalog_job_flow.py`，用目录列表与 HTTP 选项驱动 6 题 × 2 配置提交，断言创建只返回 `AWAITING_OWNER_APPROVAL`、全部 Runs 恰好覆盖笛卡尔积、Job 与每个 Run 都带 `JOB_SUBMITTED`、冻结身份与目录记录逐字段一致；并覆盖“配置停用后旧 Job 不被改写、新提交被拒”。剩余：三步向导的浏览器动线（与 B 交接）、恢复新 Job 与双存储一致性。
 
 7. 暴露面收敛的 HTTP 层断言（2026-09-20 第二增量，实施中）：现有断言只在契约层（`tests/contract/test_m0_pipeline.py:47` 的 `not hasattr(request.runs[0].task, "gold_patch")`）与个别响应上成立，**没有任何测试逐条扫描公开读取面**。做法：用带哨兵值的合成目录（`HIDDEN_ANSWER`、`hidden_test`、`hidden_pass`、`private-test-reference` 分别来自 `gold_patch`/`test_patch`、`fail_to_pass`、`pass_to_pass`、`credential_profile_id`）登记并提交后，逐条请求目录、配置、选项、Job、报告、对比、制品索引与轨迹端点，断言哨兵一处都不出现，并用公开题面仍在作为对照，避免"响应为空所以通过"。加在既有 `tests/catalog/test_security.py`（该文件已负责"隐藏答案与 Key 不进入公开输出"，且 `tests/catalog/` 内容文件数已达 8 的上限，不再新增第 9 个）。浏览器页面与其他读取面仍归 B/后续任务。
@@ -60,7 +60,8 @@ apps/backend/src/eval_platform/
 ├─ application/job_submission.py    # （2026-09-20 复核：空选择的拒绝已有覆盖，无需改动）
 └─ delivery/http/routes/jobs/routes.py  # job-options 暴露新预设（与 B 交接前端展示）
 apps/backend/tests/
-├─ catalog/test_http.py             # 目录 HTTP：六题可选、未知/停用拒绝
+├─ catalog/test_http.py             # 目录 HTTP：登记与读取；2026-09-20 增补配置列表分页与状态筛选
+├─ catalog/conftest.py              # 2026-09-20：catalog_api 增加可选 agent_presets（默认行为不变）
 ├─ catalog/test_catalog_job_flow.py # 新增（2026-09-20 已实现）：目录→options→提交→冻结 Job/Runs/初始事件的打通链
 ├─ catalog/test_consistency.py      # 目录记录与对象摘要一致
 ├─ catalog/test_security.py         # 隐藏答案与 Key 不进入公开输出（2026-09-20 新增公开读取面全量扫描用例）
@@ -125,7 +126,7 @@ HANDOFF.md                          # 当前停点与下一步（收尾时更新
 - **2026-09-20 晚间：本机环境已建立并实测**（只建立环境、只跑既有测试，未改任何产品代码）：
   - `pytest tests/catalog -q`（带 `AGENTEXAM_RUN_IDENTITY_POSTGRES=1` 与专属回环测试库 DSN）→ **33 passed, 7 skipped**；7 项为需 MinIO 的集成用例，按设计跳过，不计为通过。
   - 全量 `pytest -q` → **452 passed, 36 skipped, 2 failed**（119.75s）。2 个失败为 `tests/contract/test_execution_network.py` 缺 `framework/harbor` 的既有环境失败；已用 `--tb=line` 核对报错为 `git -C .../framework/harbor rev-parse HEAD` 失败，非代码缺陷，也无法在本机修复。
-  - 静态检查（同期补跑）：`ruff check .` → **All checks passed**；`mypy src/eval_platform` → **Success: no issues found in 166 source files**（直接跑 `mypy` 会因 editable 安装缺 `py.typed` 标记报错，须给显式路径）；`ruff format --check .` → **5 个文件不合格**（`adapters/persistence/jobs/__init__.py`、`delivery/http/routes/jobs/report_comparisons.py`、`tests/jobs/cancellation/test_cancel_races.py`、`tests/jobs/reporting/test_comparison_http.py`、`tests/jobs/reporting/test_matrix_rehearsal.py`）。这 5 个均来自 D 近期合入的对比端点与取消竞争修复，**非本行动引入，本行动不擅自格式化他人文件**，已如实记录供 D/组长处置。
+  - 静态检查（同期补跑）：`ruff check .` → **All checks passed**；`mypy src/eval_platform` → **Success: no issues found in 166 source files**（直接跑 `mypy` 会因 editable 安装缺 `py.typed` 标记报错，须给显式路径）；`ruff format --check` → 本分支基线（`beed93f`）仍报 5 个文件不合格，均为 D 近期合入、非本行动引入；**D 已于 2026-09-20 深夜对这批文件跑 `ruff format` 并验证 `format --check` 293/293 全绿、受影响用例 8 个通过（含 4 个真实 PG 门禁用例）、diff 为纯格式差异**。该修复尚未进入本分支基线，rebase 到含修复的提交后需重新复核，本行动不代替那次复核。
 - 任务 04 的题库侧与判卷侧验收项**未开始**（需组长机器/E）；目录侧的打通链已按实施措施第 6 条落地，其余目录侧项未开始。
 
 ### 本次代码增量（2026-09-20，用户明确要求开工后实施）
@@ -144,4 +145,13 @@ HANDOFF.md                          # 当前停点与下一步（收尾时更新
 - 实测结果：`pytest tests/catalog -q` → **36 passed / 7 skipped**（此前 35）；全量 `pytest -q` → **455 passed / 36 skipped / 2 failed**（104.16s，失败项与改动前完全相同）；`ruff check`、`ruff format --check` 通过。
 - 如实记录：`/runs/{id}/trajectory` 对**未执行**的 Run 按契约返回 **409**（内容尚未产出），本用例把拒绝集合显式断言为 `⊆ {trajectory}` 并**不把 409 当作通过**，只验证"拒绝响应里同样不含隐藏字段"；一旦 Run 真正产出制品，读取成功路径由 D 的 `tests/jobs/artifacts/test_http_limits.py`、`tests/jobs/execution/test_evidence_publication.py` 覆盖。
 - **变异检查**：把公开题面 `"Fix the visible bug."` 混入哨兵列表后跑该用例，结果 `1 failed`（说明断言确实在扫描响应体，不是空跑）；探针文件已删除。
-- 未覆盖（如实记录）：网页（Web 页面）读取面归 B；`/api/v1/leaderboard` 未在本夹具中装配，未纳入本轮扫描；提供方凭据的实际字段（05–07）在任务发布后另行覆盖。
+
+
+### 本次代码增量 3（2026-09-20，目录 HTTP 的配置列表分页与筛选）
+
+- 修改 `apps/backend/tests/catalog/conftest.py`（加可选参数 `agent_presets`，默认与原先完全一致）与 `apps/backend/tests/catalog/test_http.py`（新增 `test_agent_list_paginates_and_filters_by_state`）。
+- 补的缺口：目录 HTTP 支持 `cursor`/`limit`/`agent_type`/`enabled`，但此前只有「停用后 `?enabled=true` 返回空」一个断点；**配置列表的游标往返与状态筛选没有测试**，而三步向导真实调用是 `GET /api/v1/agent-configurations?limit=100&agent_type=codex&enabled=true`。
+- 用例断言：3 个配置两页取完、不重不漏、末页无 `next_cursor`；`?limit=100&agent_type=codex` 返回全部 3 个；`?agent_type=other` 被 422 拒绝；停用一个后 `enabled=true` 返回其余两个、`enabled=false` 只返回被停用的那个。
+- 实测：`pytest tests/catalog -q` → **37 passed / 7 skipped**；全量 `pytest -q` → **456 passed / 36 skipped / 2 failed**（失败集合同前，无回归）；`ruff check`、`ruff format --check` 对改动文件通过。
+- **变异检查**：把首页期望改为 3 项、把停用侧期望改为空列表后，用例确实失败（探针已删）。
+- 如实记录一条实现事实：`agent_type` 参数被路由接受并做字面量校验（只允许 `codex`），但**不参与过滤**（`registry.list` 只接收 `enabled`/`cursor`/`limit`）。因为登记路径本身只接受 codex 配置，行为上等价；但若将来新增提供方，这个参数需要真正接上过滤。

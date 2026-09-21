@@ -45,6 +45,39 @@
 - **新发现 2（preset ID 与地图候选不一致）**：[实现地图](../../../.scratch/ui-catalog-providers/implementation-map.md)第 4.1 节把连续规模的 preset ID 候选写作 `flexible-v2`，而 D 实际落地为 `continuous` 并已合入 `main`。地图原文标明是"候选"，故不算违规，但**地图、D 的实现与 B 待补的 `HTTP_API.md` 受控选项小节三者需要对齐**（`continuous` 已是公开选项取值）。
 - 新发现 3（对后续测试归属有用）：实现地图第 3 节已规划 04 的候选测试目录 `apps/backend/tests/catalog/qualification/`（五题参数化资格/隐藏信息/漂移）与 `apps/backend/tests/jobs/submission/`（新规模与旧快照兼容矩阵）。后续 04 测试应落在这两个候选目录，而不是继续往 `tests/catalog/` 平铺。
 
+#### 增量 3：目录 HTTP 的配置列表分页与状态筛选
+
+- 改 `tests/catalog/conftest.py`（`catalog_api` 加可选 `agent_presets`，默认行为与原先完全一致）与
+  `tests/catalog/test_http.py`（新增 `test_agent_list_paginates_and_filters_by_state`）。补的缺口：配置列表的
+  **游标往返与状态筛选**此前没有测试，而三步向导真实调用是
+  `GET /api/v1/agent-configurations?limit=100&agent_type=codex&enabled=true`。
+- 实测：目录模块 **37 passed / 7 skipped**；全量 **456 passed / 36 skipped / 2 failed**（失败集合同前，无回归）；
+  `ruff check` 与 `ruff format --check` 对改动文件通过；变异检查（改错首页期望与停用侧期望）确实失败，探针已删。
+- 附带发现：`agent_type` 被路由接受并做字面量校验（只允许 `codex`），但**不参与过滤**
+  （`registry.list` 只接收 `enabled`/`cursor`/`limit`）。因登记路径本身只接受 codex 配置，行为上等价；
+  将来新增提供方时需要真正接上过滤。
+
+### D 的回复与核实（2026-09-20 深夜）
+
+- D 回复「刻意」，并纠正我的表述：不是 URL 与正文的不对称，对比端点本身遵循统一规则
+  **「未知/重复参数键拒绝、值列表去重归一化」**。
+- 我逐条核实他给的两处依据，**均属实**：
+  - `docs/actions/2026-09-12-m1-job-submission.md` 第 22 行：「题目与配置**去重后计数**；空选择、规模不符、
+    非法覆盖在创建前拒绝。」
+  - `docs/interfaces/HTTP_API.md` 第 426/430 行：「任务和 Agent 列表**必须非空、去重**」
+    「任务/配置列表在规范正文中**去重并排序**；相同规范正文返回原 Job」。
+  - 另核实 `report_comparisons.py` 的 `_parse_job_ids` 确实对列表内重复值去重。
+- 两处小出入（已回给 D 指出）：他说「plan.md 第 5 节」，实际在**第 6 节第 5 步**（第 5 节是任务 03）；
+  HTTP_API 行号在我的版本是 **426/430**（他的 384/388 属版本差异）。
+- 结论：**实现不改、改措辞**——请组长把 `verification.md` Q7 与 `plan.md` 第 6 节第 5 步的
+  「重复 ID…拒绝」对齐为「重复项去重后计数」。
+- D 同时报 `ruff format` 已修：那 5 个文件跑完 format，`--check` 293/293 全绿，受影响用例 8 passed
+  （含 4 个真实 PG 门禁用例），diff 为纯格式差异。**该修复不在我当前基线 `beed93f` 上**，
+  本地 `ruff format --check` 仍报那 5 个文件；rebase 到含修复的提交后需重新复核，我不替那次复核下结论。
+- 环境事实（如实记录）：**本机代理 `127.0.0.1:7892` 与 GitHub 直连在深夜都出现过连不上**，
+  `git fetch` 一度既走不通代理也走不通直连；期间我把 `http.proxy` 临时移除又加回。
+  当前配置指向代理，能否连通取决于代理是否在运行与线路状态，两种切换方式见 ISSUE-01。本地测试不受影响。
+
 ### 事实更正
 
 - **ISSUE-02 已解决**：上游 `main` 现在包含 `issues/01`、`issues/02`，且 `plan.md` 与我手上那份更新版逐字节相同（随 `ff46cec` 于 09-20 20:42 进入上游）。此前「请组长推送更新版」的请求作废。
