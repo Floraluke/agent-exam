@@ -76,9 +76,20 @@ runtime/prototype/t05-topology-<日期>-<序号>/   # T1 探针与证据（被 G
 - 错误只抛固定错误码，不回显路径与密钥；测试用断言钉住"错误信息不含路径、不含假 Key、且形如错误码"。
 - `PrivateProfile.secret` 设 `repr=False, compare=False`，另有断言钉住假 Key 不出现在 `repr` / `str`。
 
+**S4 `provider_access/request_policy.py`——已实现并验证**
+
+- 文件：`request_policy.py`（约 140 行，≤200）；测试 `tests/providers/policy/test_request_policy.py`。
+- 定向测试：`pytest tests/providers -q` → **28 passed, 1 skipped**（含 S3 的 18 项）。
+- 静态检查：`ruff check`（全量）→ `All checks passed!`；`ruff format --check`（全量）→ `307 files already formatted`；`mypy` 对新增包 → `no issues found in 3 source files`。
+- 全量回归：`445 passed, 102 skipped, 2 failed`；相对上一片 `435/102/2` 通过数 **+10**（本片新增用例），失败项完全相同，无新增失败。
+- **测试又发现一处真实缺陷**：`stream` 键缺失时原实现 `body["stream"]` 抛**裸 `KeyError`** 而非受控错误码——在安全边界上，未受控异常可能被上层误当非拒绝路径处理。已改为 `.get()`，**缺键与值不符统一收敛为 `REQUEST_STREAM_REQUIRED`**；同时修正了我自己写错的一处测试期望（原断言缺 `stream` 会报 `REQUIRED_FIELD_MISSING`）。
+- 本片覆盖的拒绝（全部发生在**出站前**、抛固定错误码）：非 `POST`；路径非 `/responses`（含 `/v1/responses`、带查询串、**绝对 URL**、`/`）；正文非对象（含非字符串键）；未知字段（含 `base_url`、`web_search`）；必填空缺；模型与绑定不符；非流式；输入为空或类型非法；`max_output_tokens` 超上限或非法值；未登记工具类型（含 `web_search`、`computer_use_preview`）。
+- 另实现 `strip_client_auth`：大小写不敏感地剥离 `Authorization`/`Proxy-Authorization`/`X-Api-Key`/`Api-Key`，由可信侧添加真实凭据；测试断言剥离结果中不含假值。
+- 字段集合（`model`/`stream`/`input`/`tools`/`max_output_tokens`/`instructions`/`reasoning`）与研究第 1、2、4 节一致，但**属候选**：仓库内无 `config.toml` 样例，须在契约层用固定 CLI 复核实际请求字段后再定稿。
+
 ### 未完成与遗留
 
-- **S2、S4–S9 与 T1 尚未实施**；本片只完成前置验证与 S3。S2 依赖 Codex TOML 字段名（研究第 1 节有据，但仓库内无 `config.toml` 样例，须在契约层用固定 CLI 复核）。
-- **T1 未执行**：拓扑探针尚未编写；本机 Docker 能力已验证，但探针本身与 7 条断言仍全部未做。
-- **本片未提交、未推送 Git**（由用户确认）。
-- 授权依据：用户会话内明确"同意"，但负责人书面回执原写"未授予实施开工许可"；建议补一句书面确认后再同步任务单第 2 项验收的机器归属。
+- **S2、S5–S9 与 T1 尚未实施**；已完成前置验证、S3、S4。
+- **S2 暂缓**：Codex TOML 字段名研究第 1 节有据，但仓库内无 `config.toml` 样例（探针样例在被 Git 忽略的 `runtime/`，只在负责人机器）。定稿前须用固定 CLI 在契约层复核一次字段名，不凭文档当已确认。
+- **T1 未执行**：本机 Docker 能力已验证，但拓扑探针与 7 条断言仍未做。
+- 授权依据：用户会话内明确"同意"，并追加"其它需要开工授权的也同意"；本行动按其**只覆盖 E 本机实施与 T1 执行**理解执行——**不含真实模型/供应商调用**（项目规定须单独授权、历史 ChatGPT 许可不覆盖 DeepSeek/Kimi），**也不含负责人机器的 T2 操作**。负责人书面回执原写"未授予实施开工许可"，建议补一句书面确认后再同步任务单第 2 项验收的机器归属。
