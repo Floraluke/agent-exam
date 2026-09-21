@@ -5,6 +5,13 @@
 
 ## 2026-09-21
 
+### 补上最后一块：MinIO 一致性用例真跑通过
+
+- 用户开启 Clash"允许局域网连接"后，构建容器得以通过 `host.docker.internal:7892` 走代理；按 `tests/catalog/runtime/Dockerfile.minio` 用**固定源码归档**（sha256 `71794c2d…` 校验通过）成功构建 `agentexam-minio-test:local`（112 MB，与组长那份 111,899,710 字节一致，说明固定输入可复现）。
+- 本机起端点的偏离：镜像本身是 `FROM scratch` + `USER 65534`，但 WSL2 不认 tmpfs 的 `uid/gid`、Windows 绑定挂载回来是 root 属主 → 前三次尝试都报 `Unable to initialize backend: file access denied`；改用 `--user 0:0` 后正常。**这只影响本机一次性测试端点的启动方式，不改镜像内容**（已记录在环境文档）。
+- 结果：7 个原本跳过的用例（5 个目录一致性 + 2 个 MinIO 集成）**真跑通过**——`tests/catalog` 由 42 passed / 22 skipped 变为 **49 passed / 15 skipped**（剩 15 个是门禁用例，按设计等 Fork 开关）；带 PG + MinIO 的全量为 **481 passed / 39 skipped / 0 failed**。模块职责"目录记录与对象摘要一致"本机验证完成。
+- 清理：已删容器与 golang 基础镜像、清空构建缓存，保留 112 MB 的 MinIO 镜像供复用。**磁盘提示**：Docker 的 `docker_data.vhdx` 不会随删镜像自动缩盘（C 盘显示 7.3 GB 空闲，其中约 3–4 GB 是 vhdx 内已释放的空间，后续拉镜像会复用；要真正回收需 Docker Desktop 的 Purge 或 `wsl --shutdown` 后压缩）。
+
 ### 同步上游新 main 并完成权威文档同步（任务 04 清单最后一条）
 
 - 拉到 D 的落地：`0b66a29`（含 `ad09aaf` 格式修复）等；与我改的文件零交集，`git rebase upstream/main` 干净重放 27 个提交。**复验：`ruff check` 全绿、`ruff format --check` 300 个文件全通过（核对 D 说的 295 全绿，我这份因新增文件计数为 300）、`mypy` 通过、全量 474 passed / 46 skipped / 0 failed。** 已 `push --force-with-lease` 刷新 PR。

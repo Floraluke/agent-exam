@@ -22,7 +22,8 @@
 | 三个固定框架源码 | `framework/{swe-gym,swe-bench-fork,harbor}` | 2026-09-21 按[依赖总表 §7](../../dependencies/DEPENDENCIES.md)恢复到固定提交（`--detach`），HEAD 与 origin 已核对、工作树干净 |
 | Harbor 依赖环境 | `framework/harbor/.venv` | 2026-09-21 建立：Python 3.13.15、Harbor `0.22.0`、218 个包 / 325 MB、`harbor.exe` 可用，`import harbor` 指向上游固定源码。**实测 3 分 20 秒**（全命中预编译 wheel，未触发源码构建）——文档里 275 分钟的记录在 Python 3.13 + Windows 上**没有复现**；`--locked` 未改动上游锁文件 |
 | Fork 的 Linux 依赖环境 | `framework/swe-bench-fork/.venv` | 2026-09-21 按[依赖总表 §5.2](../../dependencies/DEPENDENCIES.md)三步建立：venv 由 WSL Ubuntu 的 `/usr/bin/python3`（**3.12.3**）创建，依赖用 Windows 侧 uv 以 `--python-platform x86_64-unknown-linux-gnu --require-hashes` 装入（63 项哈希锁定，134 条目 / 316 MB）。验证：`swebench 2.0.13`、`docker 7.2.0`、`datasets 5.0.1` 可导入（`swebench` 经 `PYTHONPATH` 指向固定源码，上游未做 editable 安装） |
-| 固定 uv 工具 | `runtime/tools/{uv-bootstrap,uv-linux}` | 2026-09-21 按 §5.2 引导：`uv-bootstrap`（Python 3.13 venv + `uv 0.12.10`，与文档 pin 一致）与 `uv-linux`（`x86_64-unknown-linux-gnu` 目标、仅二进制）|
+| 固定 uv 工具 | `runtime/tools/{uv-bootstrap,uv-linux}` | 2026-09-21 按 §5.2 引导（uv 0.12.10） |
+| MinIO 测试端点 | 镜像 `agentexam-minio-test:local`（112 MB）+ 数据目录 `runtime/minio-data` | 2026-09-21 按固定源码归档构建：commit `7aac2a2c…`、归档 sha256 `71794c2d…` 校验通过；构建时把代理指向 `host.docker.internal:7892`（构建容器在 WSL 虚拟机内，`127.0.0.1` 够不到宿主机代理）。**启动时用 `--user 0:0`**——WSL2 不认 tmpfs 的 uid/gid、Windows 绑定挂载回来是 root 属主，而镜像本身是 `FROM scratch` + `USER 65534`；这是为在本机跑通一致性用例的**本地端点偏离**，不改镜像内容 |
 
 ## 2. 为什么这么选
 
@@ -73,7 +74,7 @@ AGENTEXAM_TEST_DATABASE_URL="postgresql://agentexam_identity_test@127.0.0.1:5543
 |---|---|
 | `tests/catalog` | **37 passed, 7 skipped**（7 个为需 MinIO 的集成用例，按设计跳过） |
 | `tests/catalog/qualification` | **5 passed**（固定候选身份机制） |
-| 全量 `pytest -q` | **474 passed, 31 skipped, 0 failed**（安装 Harbor 依赖环境后，最后 1 个失败与 4 个原本跳过的用例转为通过） |
+| 全量 `pytest -q`（PG + MinIO 全开） | **481 passed, 39 skipped, 0 failed**；`tests/catalog` **49 passed / 15 skipped**（此前 7 个 MinIO 用例由跳过转为真跑通过） |
 | 失败项 | **无**（此前两项 `framework/harbor` 环境失败已随源码恢复 + 依赖环境安装全部消除） |
 | `ruff check .` | **All checks passed!** |
 | `ruff format --check .` | 2026-09-21 重放到上游 `fd369cc` 后复核：**仍有 2 个文件不合格**（`tests/jobs/cancellation/test_cancel_races.py`、`tests/jobs/reporting/test_matrix_rehearsal.py`），均为他人文件；原先 5 个中的 3 个已随上游 `7553ce0` 修好 |
@@ -81,9 +82,10 @@ AGENTEXAM_TEST_DATABASE_URL="postgresql://agentexam_identity_test@127.0.0.1:5543
 
 ## 5. 仍然做不到的事（不要在本机浪费时间）
 
-- 容器类验证：需要 Docker Desktop（当前未运行）+ 题目镜像（未拉）。
+- 容器类验证：Docker Desktop **已在运行**、五个候选镜像已按 digest 拉取验证过（用完即删）；其余需 Docker 的用例（Harbor 探针、真实 Codex Trial、网络探针、Fork 的旧题集成）仍需各自开关与镜像，未在本机跑。
 - ~~Harbor 的依赖环境~~ **已完成**（2026-09-21，3 分 20 秒，见第 1 节）。
-- ~~SWE-Bench-Fork 的隔离依赖环境~~ **已完成**（2026-09-21，见第 1 节）。
+- ~~SWE-Bench-Fork 的隔离依赖环境~~ **已完成**；~~需要固定 MinIO 镜像~~ **已完成**（两者均见第 1 节）。
+- 启动本地 MinIO 跑一致性用例：`docker run -d --name ae-minio-test --user 0:0 -p 127.0.0.1:9000:9000 -v "<仓库>/runtime/minio-data:/data" -e MINIO_ROOT_USER=ae_test_local -e MINIO_ROOT_PASSWORD=ae_test_local_secret -e MINIO_BROWSER=off agentexam-minio-test:local server /data --address :9000 --console-address :9001`，并设 `AGENTEXAM_RUN_CATALOG_MINIO=1`、`AGENTEXAM_MINIO_ENDPOINT=http://127.0.0.1:9000`、`AGENTEXAM_MINIO_BUCKET=agentexam-synthetic-test`、`AGENTEXAM_MINIO_ACCESS_KEY=ae_test_local`、`AGENTEXAM_MINIO_SECRET_KEY=...`（桶 `agentexam-synthetic-test` 需预先建好且私有）。
 - 真实模型调用与真实凭据：需单独授权，且与本机环境无关。
 - 共享 PostgreSQL（`sss.tail03c757.ts.net:15432`）：本机 Tailscale 在正确的 tailnet 内但看不到任何其他设备（netmap `Peers = 0`），问题在 host 侧，见 [ISSUE-06](../04-issues/KNOWN_ISSUES.md)。
 - 门禁所需的三样（Docker、五个题目镜像、Fork 的 Linux 依赖环境）本机尚不具备，因此五道候选题的三补丁资格验证仍需要组长机器或由 E 执行；**Harbor 不在门禁的前置里**（门禁只走固定 Fork 判卷，不跑 agent）。
