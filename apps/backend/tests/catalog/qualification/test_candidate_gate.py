@@ -1,12 +1,15 @@
 """五道候选题的三补丁门禁：参考补丁通过、空补丁不通过、错误补丁不通过。
 
-与 `tests/integration/test_swe_bench_integration.py` 走同一条真实判卷链路（固定 Fork + 真实镜像），
-区别是本文件**参数化到五道候选**，并且**镜像身份由本测试注入**——候选在通过门禁前不得写入产品白名单
-`FIXED_TASK_IMAGES`，所以这里自带一张待验证表。基础设施失败（抛 `EvaluationError`）不会被当作
+与 `tests/integration/test_swe_bench_integration.py` 走同一条真实判卷链路
+（固定 Fork + 真实镜像），
+区别是本文件**参数化到受控白名单里的全部候选**。候选的镜像 digest 单一来源是
+`adapters/tasks/catalog.py`，因此本文件同时是白名单的回归门禁：新题入库后要能在这里逐题通过。
+基础设施失败（抛 `EvaluationError`）不会被当作
 "负例正确拒绝"，它直接让用例失败。
 
 默认跳过：需要 Docker 已启动、该题的镜像已按 digest 拉取，并显式设置
-`AGENTEXAM_RUN_FORK_INTEGRATION=1`。每个镜像解压后约 2.5–2.8 GB，建议**一次只保留正在验的那一个**。
+`AGENTEXAM_RUN_FORK_INTEGRATION=1`。每个镜像解压后约 2.5–2.8 GB，
+建议**一次只保留正在验的那一个**（拉一个 → 跑门禁 → 删镜像）。
 """
 
 from __future__ import annotations
@@ -19,26 +22,20 @@ from pathlib import Path
 import pytest
 
 from eval_platform.adapters.evaluation.swe_bench import SWEbenchEvaluator
-from eval_platform.adapters.tasks.swe_gym import DATASET_REVISION, SWEGymTaskSource
+from eval_platform.adapters.tasks.catalog import FIXED_TASK_IMAGES
+from eval_platform.adapters.tasks.swe_gym import (
+    CANDIDATE_INSTANCE_ID,
+    DATASET_REVISION,
+    SWEGymTaskSource,
+)
 from eval_platform.application.ports.evaluator import EvaluationRequest
 from eval_platform.application.ports.execution import RunLimits
 
 pytestmark = pytest.mark.integration
 
-# 待验证候选及其固定镜像身份（Docker Hub 上唯一的 latest 标签 digest）。
-# 门禁通过后才把这些条目移入 src/eval_platform/adapters/tasks/swe_gym.py 的 FIXED_TASK_IMAGES。
-PENDING_CANDIDATES = {
-    "python__mypy-15131": "xingyaoww/sweb.eval.x86_64.python_s_mypy-15131"
-    "@sha256:7fcf8e1c849ffd2a3436c056f9b3b8f1ec0103ed7f429e5001d5f77f64f735c5",
-    "python__mypy-15139": "xingyaoww/sweb.eval.x86_64.python_s_mypy-15139"
-    "@sha256:a41d688fba76599fcc2bfbfbfe580e864c0c4c6a8ee6ce7edec9b83b34bd0037",
-    "python__mypy-15184": "xingyaoww/sweb.eval.x86_64.python_s_mypy-15184"
-    "@sha256:affb925329f2dfb2173482c64a1b65648b250777b66b0d7417ee5340fce74835",
-    "python__mypy-15208": "xingyaoww/sweb.eval.x86_64.python_s_mypy-15208"
-    "@sha256:4fd4bf6ae2d9e6f8b2fe6565018c15b35b9ed7bc1207a9b604b8c82061235c8f",
-    "python__mypy-15876": "xingyaoww/sweb.eval.x86_64.python_s_mypy-15876"
-    "@sha256:cc465fe939951b1f3ab43bf834b41a9017efc404cc9c9d5ad8b0ff95b90678f1",
-}
+# 门禁对象＝受控白名单里的全部候选（digest 单一来源：adapters/tasks/catalog.py）。
+# 本测试是白名单的回归门禁：任何新题入库后都要能在这里逐题通过三补丁验证。
+GATE_CANDIDATES = tuple(sorted(set(FIXED_TASK_IMAGES) - {CANDIDATE_INSTANCE_ID}))
 
 WRONG = (
     "diff --git a/agentexam_wrong_probe.txt b/agentexam_wrong_probe.txt\n"
@@ -48,16 +45,19 @@ WRONG = (
 
 
 @pytest.mark.parametrize("kind", ["gold", "empty", "wrong"])
-@pytest.mark.parametrize("instance_id", sorted(PENDING_CANDIDATES))
+@pytest.mark.parametrize("instance_id", GATE_CANDIDATES)
 def test_candidate_passes_the_three_patch_gate(kind: str, instance_id):
     if os.environ.get("AGENTEXAM_RUN_FORK_INTEGRATION") != "1":
         pytest.skip("Set AGENTEXAM_RUN_FORK_INTEGRATION=1 for the real Fork probe")
-    # 本文件在 tests/catalog/qualification/ 下，比 tests/integration/ 深一层，故上溯 5 级到仓库根
+    # 本文件在 qualification/ 下，比 tests/integration/ 深一层，上溯 5 级到仓库根
     repo = Path(__file__).resolve().parents[5]
-    parquet = repo / "runtime/cache/swe-gym-lite" / DATASET_REVISION / "train-0000.parquet"
-    source = SWEGymTaskSource(parquet, None, {instance_id: PENDING_CANDIDATES[instance_id]})
+    cache = repo / "runtime" / "cache" / "swe-gym-lite" / DATASET_REVISION
+    parquet = cache / "train-0000.parquet"
+    source = SWEGymTaskSource(
+        parquet, None, {instance_id: FIXED_TASK_IMAGES[instance_id]}
+    )
     bundle = source.load(instance_id)
-    assert bundle.public.environment_image == PENDING_CANDIDATES[instance_id]
+    assert bundle.public.environment_image == FIXED_TASK_IMAGES[instance_id]
 
     patches = {"gold": bundle.evaluator.gold_patch, "empty": "", "wrong": WRONG}
     short = instance_id.split("__")[-1]

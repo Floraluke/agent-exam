@@ -10,6 +10,15 @@ from typing import Any
 import pyarrow.parquet as pq  # type: ignore[import-untyped]
 
 from eval_platform.adapters.execution.network import compose_profile
+from eval_platform.adapters.tasks.catalog import (
+    CANDIDATE_IMAGE as CANDIDATE_IMAGE,
+)
+from eval_platform.adapters.tasks.catalog import (
+    CANDIDATE_INSTANCE_ID as CANDIDATE_INSTANCE_ID,
+)
+from eval_platform.adapters.tasks.catalog import (
+    FIXED_TASK_IMAGES as FIXED_TASK_IMAGES,
+)
 from eval_platform.application.ports.execution import RunLimits
 from eval_platform.domain.task import EvaluationTask, EvaluatorTaskData, TaskBundle
 
@@ -18,18 +27,6 @@ DATASET_REVISION = "61231f2c90b18985b42a1419738a240085a15107"
 DATASET_SPLIT = "train"
 DATASET_SIZE = 931_193
 DATASET_SHA256 = "f3a7cd934e8cc523b6053298d0abb2c82fd7db2b83f9f2ccba5944545aaa4eb1"
-CANDIDATE_INSTANCE_ID = "python__mypy-15413"
-# 已通过资格门禁的固定候选：instance_id -> 固定镜像身份（含 digest）。
-# 只有逐题跑过参考/空/错误补丁门禁的题才允许登记在这里；未登记的 instance 一律拒绝，
-# 也不会被任何镜像“顺带”服务。新题入库 = 在这里加一条（各题镜像互不共用）。
-FIXED_TASK_IMAGES: Mapping[str, str] = {
-    "python__mypy-15413": (
-        "xingyaoww/sweb.eval.x86_64.python_s_mypy-15413"
-        "@sha256:f069dfc74592d438ad870bbc6dfb369bff1b125d21237ead49190b414f5f3456"
-    ),
-}
-# M0 单题入口保留：下面这个名字只服务既有诊断路径（preflight），不是新题的上车口。
-CANDIDATE_IMAGE = FIXED_TASK_IMAGES[CANDIDATE_INSTANCE_ID]
 
 
 @dataclass(frozen=True, slots=True)

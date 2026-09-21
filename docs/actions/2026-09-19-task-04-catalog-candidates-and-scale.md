@@ -51,7 +51,9 @@
 
 ```text
 apps/backend/src/eval_platform/
-├─ adapters/tasks/swe_gym.py        # 2026-09-20 已改：单题常量 → FIXED_TASK_IMAGES 固定映射（白名单仍只含旧题）
+├─ adapters/tasks/catalog.py        # 新增（2026-09-21）：受控白名单 instance → 固定镜像身份（含 digest），六条
+├─ adapters/tasks/swe_gym.py        # 2026-09-21：白名单移到 catalog.py 并显式 re-export（保持 198 行内；preflight 未改动）
+├─ delivery/catalog_presets.py      # 2026-09-21：TASK_PRESETS 由 1 条扩为 6 条（旧题 + 五道过门禁的新题）
 ├─ adapters/tasks/collect_patch.sh  # 题目侧 patch 收集；多题时核对参数与路径假设
 ├─ delivery/catalog_presets.py      # TASK_PRESETS 扩展为旧题+合格新题；AGENT_PRESETS 预留 05–07
 ├─ application/task_catalog.py      # 白名单登记与校验；多题语义按需扩展，不放松 allowlist
@@ -177,7 +179,14 @@ HANDOFF.md                          # 当前停点与下一步（收尾时更新
 
 **环境侧改动**：Docker Desktop 的代理原本指向 `127.0.0.1:7897`（无监听）导致拉取失败，已改为实际可用的 `127.0.0.1:7892`（设置文件已备份为 `settings-store.json.bak-20260921`）。
 
-**剩余**：15139、15184、15208、15876 四个候选按同一流程串行执行；每个候选三场景约 4–6 分钟，加镜像拉取与清理约 10 分钟。
+**剩余**：~~15139、15184、15208、15876 四个候选按同一流程串行执行~~ **已于同日完成**，见上表。
+
+**入库（2026-09-21）**：门禁通过后把五道题写进受控白名单——新增 `adapters/tasks/catalog.py` 承载
+`FIXED_TASK_IMAGES`（六条：旧题 + 五道新题，各带 digest），`swe_gym.py` 改为从该模块显式 re-export
+（自身 198 行，未超 200 行指标；`preflight.py` 一行未改），`delivery/catalog_presets.py` 的
+`TASK_PRESETS` 由 1 条扩为 6 条——即"六题可选"。门禁测试改为读白名单（digest 单一来源），
+成为白名单的回归门禁。复验：`ruff check` 全绿、`mypy src` 通过、全量 **474 passed / 46 skipped / 0 failed**
+（跳过数 +15 即新门禁用例，需 Docker + 镜像 + `AGENTEXAM_RUN_FORK_INTEGRATION=1` 才跑）。
 
 
 ## 任务 04 测试设计（准备阶段成果，未执行）
