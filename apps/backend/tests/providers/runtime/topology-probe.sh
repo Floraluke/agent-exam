@@ -43,8 +43,11 @@ PROXY="${NAME}-proxy-1"
 UPSTREAM="${NAME}-fakeupstream-1"
 OTHER="${NAME}-othertrial-1"
 
-WORKLOAD_IMAGE="debian:bookworm-slim"
-LISTENER_IMAGE="redis:7-alpine"
+# Overridable so a machine that already has other images cached does not have to pull
+# these two: the probe needs any image with bash and /dev/tcp, and any image that can listen
+# on a TCP port (the listener is driven through its own redis-cli).
+WORKLOAD_IMAGE="${T05_WORKLOAD_IMAGE:-debian:bookworm-slim}"
+LISTENER_IMAGE="${T05_LISTENER_IMAGE:-redis:7-alpine}"
 ENTRY_PORT=6379          # the proxy's fixed entry the workload may reach
 RELAY_PORT=8080          # minimal forwarding stand-in, for the positive control only
 REDIS_UID=999            # "redis" in this image: uid=999 gid=1000

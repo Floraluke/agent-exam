@@ -118,7 +118,7 @@ bash apps/backend/tests/providers/runtime/topology-probe.sh            # 期望 
 NEGATIVE_CONTROL=1 bash apps/backend/tests/providers/runtime/topology-probe.sh  # 自检：故意泄漏必须被检出
 ```
 
-证据默认写到 `<仓库根>/.tmp/t05-topology/`（已被 Git 忽略）；**不需要负责人准备任何假文件**，fixture 随仓库走。Git Bash 上脚本内部已 `export MSYS_NO_PATHCONV=1`——缺了它探针会返回**假阴性 CLOSED**。
+证据默认写到 `<仓库根>/.tmp/t05-topology/`（已被 Git 忽略）；**不需要负责人准备任何假文件**，fixture 随仓库走。两个镜像默认 `debian:bookworm-slim` 与 `redis:7-alpine`（约 170 MB，若未缓存会拉取）；该机器已有等价镜像时用 `T05_WORKLOAD_IMAGE` / `T05_LISTENER_IMAGE` 指过去，避免为一个探针下载新镜像。Git Bash 上脚本内部已 `export MSYS_NO_PATHCONV=1`——缺了它探针会返回**假阴性 CLOSED**。
 
 **T2 的第一步（本片唯一的新问题）**：读 `framework/harbor` 的 docker 环境实现，回答"它的侧车网络附加能否被替换"。既有事实是 `adapters/execution/network.py::compose_profile()` **刻意不声明 `networks`**，由 Harbor 附加自己的侧车，主容器与侧车共享网络命名空间（[认证接口第 4.1 节第 5 条](../../docs/interfaces/CODEX_AUTHENTICATION.md)）。若 Harbor 允许替换 → 按候选双网络结构接线；若不允许 → 按计划第 7 节**停在本任务**，不带真实 Key、不放宽到公网。
 
