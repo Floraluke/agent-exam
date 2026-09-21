@@ -1,6 +1,8 @@
 # 阶段 1（05）`service.py` 与接线：实施计划
 
-> **状态：准备件，未开工。** 用途：让一个新会话据此直接实施。本文不构成任何授权——真实模型调用、T2 在负责人机器的操作仍各自需要单独授权。
+> **状态：已按本计划实施 S6a–S6e（2026-09-21）；S10/S11 仍等 T2。** 实测数字、偏差与区分力证据见[行动记录](../../actions/2026-09-21-task05-local-implementation.md)。本文不构成任何授权——真实模型调用、T2 在负责人机器的操作仍各自需要单独授权。
+>
+> 实施后的偏差（已记入行动记录）：`server/` 因单文件 200 行指标拆成 `contracts`（跨边界值）、`service`（流水线）、`stream`（终止事件扫描）、`runner`（执行与结算）、`egress`（唯一开 socket 的地方）、`http`（入站表面）、`closure`（Run 收束）共 8 文件，**已达每层上限**；`http.py` 与 `stream.py` 按计划落地。
 >
 > 权威边界：机制见[设计冻结](STAGE1_PROXY_DESIGN_FREEZE.md)，步骤与验收以[执行计划第 7 节](../../../.scratch/ui-catalog-providers/plan.md)为准，秘密边界见[认证接口第 4.1、5 节](../../interfaces/CODEX_AUTHENTICATION.md)。本文不复制其正文。
 >

@@ -18,6 +18,7 @@ hidden here."""
 from __future__ import annotations
 
 import json
+import sys
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -29,6 +30,7 @@ STREAM_CONTENT_TYPE = "text/event-stream"
 # Long enough that the caller's own timeout always wins when a script holds the line.
 UPSTREAM_HOLD_SECONDS = 60
 FAKE_USAGE = {"input_tokens": 7, "output_tokens": 3, "total_tokens": 10}
+CLIENT_GONE = (BrokenPipeError, ConnectionResetError, ConnectionAbortedError)
 
 
 @dataclass
@@ -53,6 +55,14 @@ class RecordedRequest:
     header_names: tuple[str, ...]
     authorization: str | None
     body: dict | None
+
+
+class _QuietServer(ThreadingHTTPServer):
+    """A client that vanished mid-answer is a scripted case here, not a traceback."""
+
+    def handle_error(self, request: object, client_address: object) -> None:
+        if not isinstance(sys.exc_info()[1], CLIENT_GONE):
+            super().handle_error(request, client_address)
 
 
 class FakeUpstream:
@@ -147,7 +157,7 @@ class FakeUpstream:
                     )
                 return completed(response_id, model, script.text, script.usage)
 
-        self._httpd = ThreadingHTTPServer(("127.0.0.1", self._port), Handler)
+        self._httpd = _QuietServer(("127.0.0.1", self._port), Handler)
         self.base_url = f"http://127.0.0.1:{self._httpd.server_port}"
         self._thread = threading.Thread(target=self._httpd.serve_forever, daemon=True)
         self._thread.start()
