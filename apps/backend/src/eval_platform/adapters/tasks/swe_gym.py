@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -18,10 +19,17 @@ DATASET_SPLIT = "train"
 DATASET_SIZE = 931_193
 DATASET_SHA256 = "f3a7cd934e8cc523b6053298d0abb2c82fd7db2b83f9f2ccba5944545aaa4eb1"
 CANDIDATE_INSTANCE_ID = "python__mypy-15413"
-CANDIDATE_IMAGE = (
-    "xingyaoww/sweb.eval.x86_64.python_s_mypy-15413"
-    "@sha256:f069dfc74592d438ad870bbc6dfb369bff1b125d21237ead49190b414f5f3456"
-)
+# 已通过资格门禁的固定候选：instance_id -> 固定镜像身份（含 digest）。
+# 只有逐题跑过参考/空/错误补丁门禁的题才允许登记在这里；未登记的 instance 一律拒绝，
+# 也不会被任何镜像“顺带”服务。新题入库 = 在这里加一条（各题镜像互不共用）。
+FIXED_TASK_IMAGES: Mapping[str, str] = {
+    "python__mypy-15413": (
+        "xingyaoww/sweb.eval.x86_64.python_s_mypy-15413"
+        "@sha256:f069dfc74592d438ad870bbc6dfb369bff1b125d21237ead49190b414f5f3456"
+    ),
+}
+# M0 单题入口保留：下面这个名字只服务既有诊断路径（preflight），不是新题的上车口。
+CANDIDATE_IMAGE = FIXED_TASK_IMAGES[CANDIDATE_INSTANCE_ID]
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,9 +44,16 @@ class DatasetIdentity:
 class SWEGymTaskSource:
     """Read a content-verified local Parquet snapshot, never a moving HF branch."""
 
-    def __init__(self, parquet_path: Path, identity: DatasetIdentity | None = None):
+    def __init__(
+        self,
+        parquet_path: Path,
+        identity: DatasetIdentity | None = None,
+        images: Mapping[str, str] | None = None,
+    ):
         self._path = parquet_path
         self._identity = identity or DatasetIdentity()
+        # 空映射必须表示“没有任何已登记候选”，不得回落到内置白名单。
+        self._images = FIXED_TASK_IMAGES if images is None else images
 
     def load(self, instance_id: str) -> TaskBundle:
         self._verify_dataset()
@@ -78,7 +93,8 @@ class SWEGymTaskSource:
         if missing:
             raise ValueError(f"SWE-Gym record is missing fields: {', '.join(missing)}")
         instance_id = _string(record, "instance_id")
-        if instance_id != CANDIDATE_INSTANCE_ID:
+        image = self._images.get(instance_id)
+        if image is None:
             raise ValueError(f"No fixed M0 image is registered for {instance_id!r}")
         raw = json.dumps(
             record,
@@ -94,7 +110,7 @@ class SWEGymTaskSource:
             repo=_string(record, "repo"),
             base_commit=_string(record, "base_commit"),
             problem_statement=_string(record, "problem_statement"),
-            environment_image=CANDIDATE_IMAGE,
+            environment_image=image,
             raw_record_sha256=hashlib.sha256(raw).hexdigest(),
         )
         evaluator = EvaluatorTaskData(
