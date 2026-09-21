@@ -2,6 +2,7 @@
   color-scheme: light; --ink: #17211d; --muted: #63706a; --line: #dce4df;
   --soft-line: #edf1ee; --paper: #fff; --canvas: #f4f6f3;
   --accent: #126b4f; --accent-dark: #0b503b; --accent-soft: #e5f3ec;
+  --warn: #8a5a00; --danger: #a3341f;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
   color: var(--ink); background: var(--canvas);
 }
@@ -68,6 +69,17 @@ code, pre { max-width: 100%; overflow-wrap: anywhere; }
 .leaderboard-row, [aria-label="任务详情"], [aria-label="配置详情"] { margin-top: 14px; padding: 18px; }
 details { margin-top: 10px; }
 summary { cursor: pointer; font-weight: 700; }
+/* 对比矩阵在带标题的区域内横向滚动；body 已 overflow-x: hidden，宽表必须靠这里承载。 */
+.comparison-matrix { margin-top: 16px; overflow-x: auto; }
+.comparison-matrix table { width: 100%; border-collapse: collapse; }
+.comparison-matrix caption { padding-bottom: 8px; color: var(--muted); font-size: .8rem; text-align: left; }
+.comparison-matrix th, .comparison-matrix td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+.comparison-matrix thead th, .comparison-matrix tfoot th { background: #fbfcfb; }
+.comparison-matrix td[data-outcome="resolved"] { color: var(--accent-dark); font-weight: 700; }
+.comparison-matrix td[data-outcome="unresolved"] { color: var(--warn); }
+.comparison-matrix td[data-outcome="infrastructure_error"] { color: var(--danger); }
+.comparison-matrix td[data-outcome="incomplete"] { color: var(--muted); }
+.comparison-matrix td[data-outcome="missing"] { color: var(--muted); font-style: italic; }
 @media (max-width: 700px) {
   .workbench-shell { display: block; padding-top: 62px; }
   .workbench-mobilebar { position: fixed; z-index: 50; inset: 0 0 auto; display: flex; align-items: center; justify-content: space-between; height: 62px; padding: 9px 14px; border-bottom: 1px solid var(--line); background: #fbfcfb; }

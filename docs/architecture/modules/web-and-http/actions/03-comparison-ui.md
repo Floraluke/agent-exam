@@ -1,6 +1,6 @@
 # 子行动 c：对比报告 UI —— 逐控件契约表
 
-> 状态：**已定稿（2026-09-21）**——入口（侧栏「对比报告」`view=reports`）、多选交互（列表勾选带入）、限制差异展示（列头进详情）三项已确认；失败态与汇总呈现按草案默认（见第 4 节，不同意可改）。写代码前按本表逐行落实。
+> 状态：**进行中**（2026-09-21）。契约表已随 PR #7 合入 `main`（`98c6db2`）；实现分支 `feat/03-comparison-ui`。三项产品决策已确认，失败态与汇总呈现按草案默认（第 4 节）。
 >
 > 契约权威：[`HTTP_API.md`](../../../../interfaces/HTTP_API.md) §10.4（`main` 现行版）；逐控件契约门槛见[实现地图 2.1 节](../../../../../.scratch/ui-catalog-providers/implementation-map.md)；任务 03 总览见[总行动](03-report-catalog.md)。
 >
@@ -60,7 +60,43 @@ apps/web/tests/jobs/comparison.spec.ts           # 新增：本表 2.1 节的浏
 3. 失败后矩阵状态：**草案默认**保留旧矩阵并提示失败 + 「重试」，不清空回空态。
 4. 列汇总行呈现：**草案默认**只显示 `decided/total` 比值，五档细分靠单元格颜色承载。
 
-## 5. 明确不做（v1）
+## 5. 实施措施
+
+按"一个失败用例→最小实现→通过→回归"推进，不先把所有层改完再补测试。
+
+1. **接口层**：`lib/contracts.ts` 的 `ApiErrorCode` 与 `lib/api-client.ts` 的文案表补 `EMPTY_COMPARISON_SELECTION`、`COMPARISON_LIMIT_EXCEEDED`（后端 `service.compare` 会抛这两个码；不加会被前端收敛为 `UNAVAILABLE`，丢失可解释错误）。
+2. **形状层**：新增 `lib/reporting/comparison-shapes.ts`，按 `report-shapes.ts` 的 helper 写法校验 `columns/rows/cells/totals`；五档取值、`missing` 的 `null` 语义、`decided+missing=total` 的算术一致性都在解析期失败关闭。五档类型与中文文案定义在本模块（**不改** §10.1 的 `BatchOutcome` 四档）。
+3. **调用层**：`lib/job-client.ts` 加 `comparisons(ids)`，GET `reports/comparisons?job_ids=...`，与既有只读调用同形。
+4. **矩阵视图**：新增 `features/jobs/reporting/comparison.tsx`（列头/行/单元格/汇总/空态/错误态/钻取）。单元格钻取复用 `runReport`，列头钻取复用 `jobDetail` 的既有动线。失败保留旧矩阵并提示 + 「重试」。
+5. **入口与多选**：`workbench/shell.tsx` 加 `reports` 视图与侧栏项，并在壳内持有 `comparisonIds`（列表与矩阵共用，刷新即清空）；`jobs/listing/view.tsx` 加勾选框与「对比所选」。
+6. **验证**：`npm run typecheck`、`npm run build`，并补 `tests/jobs/comparison.spec.ts` 浏览器用例（覆盖契约表 2.1 节的验证列）。
+
+## 6. 自验证情况
+
+2026-09-21 在本机执行并检查输出（命令在 `apps/web` 下）：
+
+- `npm run typecheck`（`tsc --noEmit`）→ **退出码 0**，零类型错误。
+- `npm run build`（`next build`）→ **退出码 0**，`Compiled successfully in 29.2s`，静态页生成 4/4。
+- `npm run test:e2e -- comparison.spec.ts` → **3 passed**：
+  - `owner compares two batches and reads the matrix without inventing results`：两列矩阵；列头是配置显示名且可点进批次详情；两批各一格有结果、一格缺失；缺失格显示「无运行」且**不提供钻取按钮**（`getByRole("button")` 计数为 0）；汇总行含 `decided/total` 比值；页面不出现 `coverage` 文本；单元格钻取进入既有单次运行报告并可返回矩阵。
+  - `comparison selection stays opt-in and resets on reload`：0 项时「对比所选」禁用，勾选 1 项后可用；刷新后归零且 `job_ids` 不写进 URL。
+  - `390 and 360 contain the matrix without page overflow`：手机菜单进入列表并勾选；断言矩阵容器 `overflow-x: auto`（页面本身是 `body { overflow-x: hidden }`，容器不接管宽表会被**裁掉**而非可滚动）且页面在 390/360 下均无横向溢出；两档各留一张截图到 `runtime/tests/03-comparison-mobile-{390,360}.png`（`runtime/` 被忽略）。
+- `npm run test:e2e`（**全量 18 个 spec**）→ **退出码 0，全绿**；既有身份、目录、Job、报告、证据、制品保留、排行榜与工作台动线**无回归**。
+
+**本轮由验证抓出并修复的缺陷（如实记录）**：首版矩阵只加了 `className="comparison-matrix"`，**没有对应的 CSS 规则**。由于 `body { overflow-x: hidden }`，宽表在手机上会被静默裁掉。补 `.comparison-matrix { overflow-x: auto }` + 五档着色后，由上面的手机用例断言容器的 `overflow-x` 与页面无溢出。这条也是"契约表写了移动端要求、但实现漏掉"的实例——契约行本身没有保证实现。
+
+**未覆盖（如实记录）**：
+
+环境前置（本机一次性，均不改仓库）：`npm ci --ignore-scripts`；按[依赖总表](../../../../dependencies/DEPENDENCIES.md)第 119 行生成自签证书到 `runtime/tests/`（`runtime/` 已被 `.gitignore:55` 命中；`-subj /CN=...` 在 Git Bash 下需 `MSYS_NO_PATHCONV=1`，否则参数被路径转换破坏）；用 `AGENTEXAM_USE_SYSTEM_CHROME=1` 复用系统 Chrome，避免下载 Playwright 浏览器。
+
+**未覆盖（如实记录）**：
+
+- 后端的两条 400（空选择、超过 20）**未在浏览器用例里断言**：前端在 0 项时禁用按钮、在 20 项时禁用勾选框，所以正常操作打不到这两条错误；服务端边界由后端契约测试覆盖。
+- 手机用例断言的是"容器接管横向滚动且页面不溢出"，**没有强制制造宽表溢出**（本次只用 2 列，390px 下并不溢出）。列数很多时的横向滚动手感需在真实对比（如 20 列）时再看。
+- `data-outcome` 是为可测性加的 DOM 语义属性，属实现细节，**未写进 `HTTP_API.md`**。
+- 矩阵页的手机截图在 `runtime/tests/`（gitignored），**没有进仓库**；需要长期证据时另行安排。
+
+## 7. 明确不做（v1）
 
 - 不新增端点、不修改 `HTTP_API.md`；不改后端与 `report_comparisons.py`。
 - 不实现每列指标汇总（用量/费用/耗时）——§10.4 明确不含计费，惰性取用留待后续。
