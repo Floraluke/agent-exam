@@ -85,6 +85,7 @@ uv run ruff check . && uv run ruff format --check src tests && uv run mypy src
 - `pytest tests/jobs -q`（含真实 PostgreSQL 门禁）→ **162 passed / 4 skipped**（新增本用例后从 161 增至 162；跳过项仍是"专属 MinIO 集成未显式启用"）。
 - `ruff check .` → All checks passed；`ruff format --check src tests` → 300 files already formatted；`mypy src` → Success: no issues found in 168 source files。
 - 全量后端回归：**2 failed / 468 passed / 51 skipped（98.80 秒）**；两个失败仍是 `tests/contract/test_execution_network.py` 缺 `framework/harbor` 的既有环境缺口（`passed/skipped` 随上游新增用例变化，不作为跨机器基线）。
+- 基线说明：上述后端数字在 `051ea51` 上测得；推送时远端已被他人推进到 `c71d342`，本提交变基到该基线后复跑 `pytest tests/jobs/reporting -q` → **19 passed**（含本新增用例）。已核对 `git diff --name-only 051ea51..c71d342 -- apps/backend` 为**空**：该区间只改文档与 `apps/web`，后端代码与用例未变，故上述后端数字对新基线同样成立。
 
 ### 偏差与边界
 
