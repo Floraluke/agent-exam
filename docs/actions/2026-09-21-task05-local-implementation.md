@@ -225,9 +225,18 @@ runtime/prototype/t05-topology-20260921-02/   # T1 证成时的开发副本（�
 - **真实旧库升级已验证**：对本机阶段 0 的 `agentexam_dev`（真实旧约束）调用 `upgrade_api_constraints` → 首次 `True`、再次 `False`，`pg_get_constraintdef` 复核两条约束均已放宽。
 - **两处计划偏差（如实记录）**：① 实施方案原写新增 `upgrade_api.sql`，实际**复用 Job 包既有的"读定义→升级→复核"Python 模式**（`upgrade_continuous_preset`），不新增 SQL 文件，理由是与既有约定一致且能校验未知形状；② 原写"响应枚举扩宽待 B 确认"，实际**代码侧先落地**（不落地则链条根本不通），只把**契约正文措辞**留给 B，避免阻塞。
 
+**S6 片段：受控文案映射（已完成并验证）**
+
+- 依据：[HTTP_API 第 10.2 节](../../docs/interfaces/HTTP_API.md) 要求 `failure_code` 是受控枚举、`failure_summary` 与 `stage_message` 是**面向用户的受控短文案**，不得含上游主机名或 URL、文件系统路径、凭据 profile 名、令牌或 Key 片段、容器与网络拓扑；B 于 2026-09-21 点名"由写入方负责、Web 层不猜测"。
+- 新增 `adapters/execution/provider_access/failures.py`：把代理内部错误码按四类（凭据不可用 / 访问未授权 / 请求被策略拒绝 / 额度或期限用尽）映射为 `PROVIDER_*` 受控码与固定中文短句；**未映射的内部码一律落到通用受控值，绝不回显内部码**（内部码未经发布审查，且有的就在路径与 profile 旁边抛出）。
+- 新增 `tests/providers/policy/test_controlled_failures.py` 6 个用例，其中两条是**结构性门禁**：① **词汇表防漂移**——扫描 `provider_access/*.py` 中全部大写码字面量，凡出现而未在映射表或"仅配置期"集合中决定，用例失败；② **文案哨兵扫描**——发布文案不得含主机名/URL/路径/profile 名/令牌片段/拓扑词，且长度受限。
+- 自验证：`pytest tests/providers` **73 passed / 1 skipped**；默认回归 **495 passed / 104 skipped / 2 failed**（相对上一片 `489/104/2` 增量正是 6 个新用例）；`ruff check` 通过、`ruff format --check` 317 文件、`mypy` 175 源文件无问题；2 项失败仍是缺 `framework/harbor` 的 ISSUE-04。
+- **门禁区分力已实测**：临时把一个内部码改名（注入 `TRANSPORT_NEW_UNREVIEWED_CODE`）→ 防漂移用例失败并指名该码；还原后通过。
+- 边界：映射表当前**尚无调用方**——接线在 `service.py`（S6 剩余部分，等 T2 决定网络形态）；受控码与短句**标注为候选**，待 B 在 `HTTP_API.md` 第 10.2 节列入枚举后定稿。`provider_access/` 现有 7 个源文件（上限 8）。
+
 ### 未完成与遗留
 
-- **S2、`service.py` 与 S9 尚未实施**；已完成前置验证、S3–S7、T1、S8（筛选接线 + 受控身份与登记）。**代理中所有能以纯逻辑表达的安全不变量均已落地并有测试**：私有文件可信、请求出站前拒绝、额度不超支、未知不记零、令牌不跨 Run、出站目标不由请求决定、重试与重定向结构上不可配。
+- **S2、`service.py` 与 S9 尚未实施**；已完成前置验证、S3–S7、T1、S8（筛选接线 + 受控身份与登记）、S6 的受控文案映射片段。**代理中所有能以纯逻辑表达的安全不变量均已落地并有测试**：私有文件可信、请求出站前拒绝、额度不超支、未知不记零、令牌不跨 Run、出站目标不由请求决定、重试与重定向结构上不可配。
 - **T1 已不再是 `service.py` 的未知项**：拓扑在本机（纯 Docker 层）成立，且七条断言的每一条都有实际输出。**但 `service.py` 仍不应据 T1 直接定稿**，理由有二：① T1 结论只在纯 Docker/Compose 层成立，固定 Harbor 能否替换侧车网络附加仍未回答（T2，负责人机器）；② T1 的转发实现是中继替身，不含 HTTP 语义。可行做法是先实现与拓扑无关的部分（鉴权、令牌生命周期、错误码映射、流收束），把网络形态留到 T2 之后接线。
 - **S2 暂缓**：Codex TOML 字段名研究第 1 节有据，但仓库内无 `config.toml` 样例（探针样例在被 Git 忽略的 `runtime/`，只在负责人机器）。定稿前须用固定 CLI 在契约层复核一次字段名，不凭文档当已确认。
 - **本轮未改动任何产品代码**，故静态检查与默认回归沿用同一 HEAD（`4c7c4d6`）的实测结果：`ruff check` 通过、`ruff format --check` 313 文件、`mypy` 174 源文件无问题、默认回归 **484 passed / 102 skipped / 2 failed**（失败项仍为缺 `framework/harbor` 的 ISSUE-04），`pytest tests/providers` **67 passed / 1 skipped**。
