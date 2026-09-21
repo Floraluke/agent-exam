@@ -2,9 +2,9 @@ Status: needs-info
 
 # 实现地图与文档联动
 
-> 标签只表示 03–08 的产品阶段仍待后续任务确认；任务 02 已实现。2026-09-20 已先行落地 continuous 规模和跨批次比较后端，但 Web 对比页、五道新题及真实矩阵验收仍未完成。
+> 顶层标签只表示 04–08 的产品阶段仍待后续任务确认；任务 02–03 已实现并完成全量验收，03 等待用户确认 UI。五道新题及真实冻结矩阵验收仍未完成。
 
-> 供[执行计划](plan.md)按阶段读取。任务 02 的逐控件契约和实际 Web 文件树已按 2026-09-18 工作区回填；03–08 标有“候选”的内容仍只供后续审阅。后续实现前继续回读源码、锁定当时 HEAD，不得按候选地图重造平行链。
+> 供[执行计划](plan.md)按阶段读取。任务 02–03 的逐控件契约和实际 Web 文件树已回填；04–08 标有“候选”的内容仍只供后续审阅。后续实现前继续回读源码、锁定当时 HEAD，不得按候选地图重造平行链。
 
 ## 1. 责任边界
 
@@ -20,7 +20,7 @@ Web 只改善呈现与交互，复用唯一请求客户端与现有 HTTP；Task 
 
 | 阶段 | 现有入口与职责 | 相关验证入口 |
 |---|---|---|
-| 01–03 | [会话壳](../../apps/web/src/features/identity/session.tsx)、[提交与动线](../../apps/web/src/features/jobs/submit.tsx)、[批次报告](../../apps/web/src/features/jobs/batch-report.tsx)、[单次报告](../../apps/web/src/features/jobs/report.tsx)、[Job 客户端](../../apps/web/src/lib/job-client.ts)：替换长页组织，复用鉴权请求；后端已有 `GET /api/v1/reports/comparisons`，Web 尚无客户端或页面 | [浏览器运行器](../../apps/web/tests/run-browser-tests.mjs)、[Web 包脚本](../../apps/web/package.json)、[比较 HTTP/矩阵测试](../../apps/backend/tests/jobs/reporting/) |
+| 01–03 | [会话壳](../../apps/web/src/features/identity/session.tsx)、[提交与动线](../../apps/web/src/features/jobs/submit.tsx)、[对比页面](../../apps/web/src/features/jobs/reporting/comparison.tsx)、[单次报告](../../apps/web/src/features/jobs/report.tsx)、[比较客户端](../../apps/web/src/lib/reporting/comparison-client.ts)：复用鉴权请求和既有报告，不重算权威结论 | [浏览器运行器](../../apps/web/tests/run-browser-tests.mjs)、[03 浏览器测试](../../apps/web/tests/reporting/)、[比较 HTTP/矩阵测试](../../apps/backend/tests/jobs/reporting/) |
 | 04 题目 | [受控种子](../../apps/backend/src/eval_platform/delivery/catalog_presets.py)、[Task Source](../../apps/backend/src/eval_platform/adapters/tasks/swe_gym.py)、[目录用例](../../apps/backend/src/eval_platform/application/task_catalog.py)：固定 Parquet/镜像和公开/隐藏数据分离 | [目录 HTTP](../../apps/backend/tests/catalog/test_http.py)、[一致性](../../apps/backend/tests/catalog/test_consistency.py)、[Fork 集成](../../apps/backend/tests/integration/test_swe_bench_integration.py) |
 | 04 规模 | [策略组合](../../apps/backend/src/eval_platform/delivery/job_presets.py)、[领域策略](../../apps/backend/src/eval_platform/domain/jobs/policy.py)、[提交用例](../../apps/backend/src/eval_platform/application/job_submission.py)、[Repository](../../apps/backend/src/eval_platform/adapters/persistence/jobs/repository.py)：服务端边界与冻结事务 | [提交 HTTP](../../apps/backend/tests/jobs/test_http.py)、[并发](../../apps/backend/tests/jobs/test_concurrency.py)、[真实 PG](../../apps/backend/tests/jobs/test_postgres.py)、[恢复](../../apps/backend/tests/jobs/recovery/test_retry.py) |
 | 05–07 配置 | [配置身份](../../apps/backend/src/eval_platform/domain/agent.py)、[Registry](../../apps/backend/src/eval_platform/application/agent_registry.py)、[目录 SQL](../../apps/backend/src/eval_platform/adapters/persistence/catalog/schema.sql)、[配置 Repository](../../apps/backend/src/eval_platform/adapters/persistence/catalog/agents.py)：当前只接受旧 ChatGPT 的约束需扩展 | [目录安全](../../apps/backend/tests/catalog/test_security.py)、目录 HTTP/PG/一致性测试 |
@@ -31,7 +31,7 @@ Web 只改善呈现与交互，复用唯一请求客户端与现有 HTTP；Task 
 
 ### 2.1 任务 02–03 的逐控件契约门槛
 
-任务 02 已按页面和角色落实完整交互清单；任务 03 开始前沿用同一门槛。每一项必须记录：可见/禁用条件、用户意图、前端事件与状态、URL 行为、HTTP 方法/路径/查询/body/Header、响应解析器、FastAPI 路由、Application 用例与持久化端口、权限与前置状态、稳定错误、成功后的重新读取/导航、浏览器及 HTTP 测试。导航、抽屉开关、向导前后步等纯客户端动作必须写“无后端请求”，不能留空。
+任务 02–03 已按页面和角色落实完整交互清单。每一项必须记录：可见/禁用条件、用户意图、前端事件与状态、URL 行为、HTTP 方法/路径/查询/body/Header、响应解析器、FastAPI 路由、Application 用例与持久化端口、权限与前置状态、稳定错误、成功后的重新读取/导航、浏览器及 HTTP 测试。导航、抽屉开关、向导前后步等纯客户端动作必须写“无后端请求”，不能留空。
 
 以下是从当前源码和 [HTTP API](../../docs/interfaces/HTTP_API.md)核对出的可复用基线，不是对未来页面新增接口的授权：
 
@@ -43,7 +43,7 @@ Web 只改善呈现与交互，复用唯一请求客户端与现有 HTTP；Task 
 | 批准、拒绝、取消 | `decideJob/cancelJob`；写请求携带 `Idempotency-Key`，成功后重新读取服务端事实 | `POST /api/v1/jobs/{job_id}/approve|reject|cancel` → `routes/jobs/routes.py` → 生命周期用例/Repository |
 | 中断收束、新建重试 | `recoverJob/retryJob`；retry 使用新幂等键，返回新 Job 后按新标识导航 | `POST /api/v1/jobs/{job_id}/recover|retry` → `routes/jobs/lifecycle/routes.py` → Recovery/Retry 用例 |
 | 批次报告、单 Run、制品、轨迹 | `jobReport/runReport/runArtifacts/runTrajectory`；各自运行时解析，缺失不伪造 | `GET /api/v1/reports/jobs/{job_id}`、`GET /api/v1/reports/runs/{run_id}`、`GET /api/v1/runs/{run_id}/artifacts|trajectory` → report/artifact routes |
-| 跨批次比较 | **Web 尚未接入**，因此当前没有按钮或假结果；任务 03 实施时先补客户端解析和逐控件契约 | `GET /api/v1/reports/comparisons?job_ids=...` → `routes/jobs/reporting/comparisons.py` → `JobReporting.compare` / `matrix.py` |
+| 跨批次比较 | `comparison-client.ts` 校验五档矩阵；`comparison.tsx` 只允许从服务端可见首屏选择，配置/用量分别有限并发读取 | `GET /api/v1/reports/comparisons?job_ids=...` → `routes/jobs/reporting/comparisons.py` → `JobReporting.compare` / `matrix.py`；另复用 Job 详情和 Run 报告 |
 | 侧栏导航、移动抽屉、向导上一步/下一步 | React 路由或组件内状态；保留可分享 URL、前进后退与选择 | **无后端请求**；浏览器测试断言不产生网络写入 |
 
 控件隐藏不等于授权：协作者看不到 owner 动作，但服务器仍是最终权限边界。任何未在当前接口文档和源码中找到的行为先标“接口缺口”；若要新增公共 Interface、Module 或表，按项目规则说明现有能力为何不能承载并取得用户确认后再继续。
@@ -90,6 +90,22 @@ Web 只改善呈现与交互，复用唯一请求客户端与现有 HTTP；Task 
 
 任务 01 的角色切换、场景切换、A/B/C 切换、演示 Toast 与“返回演示”均是原型专用控件，正式产品不实现，因此不映射任何生产 Interface。任务 02 当前可操作控件已全部列在本表；后续任务若新增控件，仍须先补契约行，再写测试和 Implementation。
 
+### 2.3 任务 03：对比报告逐控件契约
+
+| 页面与控件 | 前端处理 / URL | HTTP Interface | 后端与权限 / 完成后状态 | 验证 |
+|---|---|---|---|---|
+| 全局：`对比报告` | 设置 `view=reports`，离开 Job 详情时移除 `job` | **无** | 只切换页面，不改变业务事实 | 03 入口浏览器用例 |
+| 对比页初次进入 / `刷新可见批次` | 读取首屏并替换选择来源；不声称按创建时间排序 | `GET /api/v1/jobs?limit=20` | Job Repository；owner 可见全部、collaborator 仅本人 | owner 与 collaborator 权限用例 |
+| 批次勾选 | 只更新当前页面选择；无选择时禁用生成 | **无** | 不改变 Job，不把 UUID 当时间 | 空页、按钮禁用和真实批次用例 |
+| `生成对比（n）` | 清掉旧矩阵/用量/详情；解析矩阵后以最多 3 并发加载列对应冻结快照 | `GET /api/v1/reports/comparisons?job_ids=...`；`GET /api/v1/jobs/{id}` | Reporting/Job Repository；任一隐藏 Job 由服务端整请求 404；页面不重算 outcome | 比较 HTTP + 真实浏览器 + 混合状态 fixture |
+| `加载用量与资源` / `重新加载…` | 用户触发后仅对同时有 `run_id/report_path` 的单元格请求报告；最多 3 并发；0 保持已知，null/失败保持未知 | `GET /api/v1/reports/runs/{run_id}` | Reporting；只有全覆盖称总量，否则部分/未知；USD 不换算人民币 | 并发上限、0/未知、缺失覆盖用例 |
+| 矩阵有报告单元格 | 请求该 Run 并打开复用的单次报告；已由用量加载时复用缓存 | `GET /api/v1/reports/runs/{run_id}` | Reporting；服务端做最终可见性校验 | 桌面/手机单次证据用例 |
+| 矩阵 `missing` 单元格 | 仅显示缺失解释，无按钮 | **无** | 不伪造 Run/报告，不计作未通过或零 | 混合状态按钮数量断言 |
+| `关闭单次证据` | 清除当前展开报告 | **无** | 不改变服务器报告 | 组件状态回归 |
+| 下载/轨迹 | 复用任务 02 的 EvidenceView，不新增 Key、原始正文或删除入口 | 既有制品正文与轨迹 GET | Artifact/Reporting；公开白名单、权限和过期语义不变 | 手机钻取、轨迹与真实下载 |
+
+配置差异、矩阵汇总和指标文字都是已读取事实的展示，没有额外按钮或写请求。排行榜保持独立导航并继续使用后端既有可比性分组；Web 不引入 Judge 分。HTTP 没有制品删除接口，因此对比页不制造“删除/清理”按钮；保留清理仍是 owner 本机命令。
+
 ## 3. 文件树：任务 02 实际结构与后续候选
 
 ### 01 原型，不进入产品构建
@@ -107,7 +123,7 @@ runtime/prototype/ui-workbench-<date>-<scope>/ # 候选；Git 忽略的静态假
 
 本地静态 HTML 是用户指定形式；可离线打开，需本机预览时仅回环，不启用 Serve。原型不提交成生产功能；确认的交互结论进入后续行动/原型决策记录，生产代码按既有 React 结构重写。
 
-### 02 Web 实际结构；03 Web 报告重组仍是候选
+### 02–03 Web 实际结构
 
 ```text
 apps/web/src/features/
@@ -119,17 +135,19 @@ apps/web/src/features/
 │  ├─ submit.tsx                           # 修改：详情与生命周期动作的薄组合
 │  ├─ wizard/view.tsx                      # 已新增：选题、配置、复核、幂等提交
 │  ├─ listing/{labels,view,workspace}.tsx  # 已新增：筛选、游标、列表/详情 URL 组合
-│  ├─ reporting/                           # 任务 03 候选；任务 02 未创建
+│  ├─ reporting/                           # 任务 03：页面、矩阵、冻结配置和按需用量
 │  └─ lifecycle/recovery.tsx               # 修改仅动线：保留恢复和新 Job 语义
 ├─ catalog/{tasks,agents}.tsx               # 复用：目录管理，不增加秘密输入
 └─ identity/members.tsx                     # 复用：服务器权限照旧
 apps/web/src/lib/job-client.ts              # 修改：列表参数化/复用 request，保留 API 校验
+apps/web/src/lib/reporting/                  # 比较形状校验、GET 适配和最多 3 并发读取
 apps/web/tests/support/workbench.ts          # 已新增：经可见 A 侧栏进入既有验收页面
 apps/web/tests/workbench/                   # 已新增：桌面、手机、角色、导航、分页和韧性用例
 apps/web/tests/jobs/                        # 已有：审批、取消、恢复等回归入口
+apps/web/tests/reporting/                   # 任务 03：真实矩阵、混合状态、手机证据和权限
 ```
 
-当前 Web `jobs` 有 8 个直接文件；`workbench` 2 个文件，测试工作台目录 7 个文件。Web 任务 03 的 `reporting/` 仍是候选，不得从后端端点推断页面已经实现。后端比较路由现位于 `apps/backend/src/eval_platform/delivery/http/routes/jobs/reporting/`，使后端 `routes/jobs/` 直属文件维持 8 个；应用聚合位于 `application/reporting/matrix.py`。URL 读写目前散落在壳、列表组合、恢复和登出代码，是评审记录的 Shotgun Surgery 判断项；后续动导航时再收敛。
+当前 Web `jobs` 的 8 个直接文件未增加；任务 03 新文件进入 `jobs/reporting/` 深目录，比较适配进入既有 `lib/reporting/`，没有新增业务 Module。后端比较路由仍位于 `apps/backend/src/eval_platform/delivery/http/routes/jobs/reporting/`，应用聚合仍位于 `application/reporting/matrix.py`。URL 读写仍散落在壳、列表组合、恢复和登出代码，是既有 Shotgun Surgery 判断项；本任务只增加同一壳的 `reports` 值，不扩大路由重构。
 
 ### 04 目录与规模
 

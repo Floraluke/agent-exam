@@ -1,14 +1,14 @@
 # 所有者单机运行 Module
 
-> 状态：**2026-09-18 最小本地持久化 P1–P4 已完成；同日按用户最新课设决定新增 tailnet 内 PostgreSQL 管理员入口，owner 主机端口自测通过，组员 DBeaver 登录和未授权设备负向仍待验证。备份与恢复不属于课设范围。** 持久化证据见[实施行动](../../../actions/2026-09-17-minimal-local-persistence.md)，数据库直连变更见[组员连接行动](../../../actions/2026-09-18-team-database-connection-guide.md)。
+> 状态：**2026-09-18 最小本地持久化 P1–P4 已完成；2026-09-20 当前 tailnet PostgreSQL 管理员入口已核对为 `55432`。用户已决定增加物理局域网数据库直连，但本轮只改文档，该入口尚未实施或验证。备份与恢复不属于课设范围。** 持久化证据见[实施行动](../../../actions/2026-09-17-minimal-local-persistence.md)，最新数据库网络决定见[同步行动](../../../actions/2026-09-20-shared-database-lan-access-docs.md)。
 > 目标：让一个 owner 管理的单台电脑安全承载一个五人小组的私有协作入口、数据和真实执行。
 > 权威范围：进程/容器放置、信任边界、持久化门禁及已接受的数据丢失风险；产品字段和业务流程仍由其他专题文档维护。
 
 ## 1. 结论先行
 
-这种模式可行，适合当前“单机、低并发、owner 审批后才真实运行”的范围。组员使用浏览器、Tailscale、应用账号，并可按[组员 PostgreSQL 教程](../../../operations/TEAM_POSTGRESQL_CONNECTION.md)用 DBeaver 共用 `agentexam_admin`；PostgreSQL 数据本体、MinIO、Docker/Harbor、Worker、固定框架及模型凭据仍留在 owner 电脑。
+这种模式可行，适合当前“单机、低并发、owner 审批后才真实运行”的范围。Web 协作仍使用浏览器、Tailscale 和应用账号；数据库开发可按[组员 PostgreSQL 教程](../../../operations/TEAM_POSTGRESQL_CONNECTION.md)通过 Tailscale，或在物理局域网入口实施后通过同一可信局域网使用 Navicat，共用 `agentexam_admin`。PostgreSQL 数据本体、MinIO、Docker/Harbor、Worker、固定框架及模型凭据仍留在 owner 电脑。
 
-用户已发布并完成持久化目标 P1–P4；正式单机持久化已有实际证据。2026-09-18 已增加 `sss.tail03c757.ts.net:15432 → 127.0.0.1:55432` 的 tailnet 内 PostgreSQL 转发，主机端口自测成功；五人正式远程使用仍须完成组员 DBeaver 登录、原 M1 任务 14 的未授权设备负向等验收。真实模型 API 试跑仍须另获调用授权。备份与恢复已由用户明确移出课设交付。账号、Job/Run、目录快照及制品将成为团队需要长期保存的状态，但本版不承诺灾难后可找回。阶段依赖在[执行计划](../../../../.scratch/ui-catalog-providers/plan.md)维护；准备度见第 10 节。
+用户已发布并完成持久化目标 P1–P4；正式单机持久化已有实际证据。当前 Tailscale 转发实际为 `sss.tail03c757.ts.net:55432 → 127.0.0.1:55432`，主机端口自测成功。物理局域网直连已经用户确认，但 Compose 仍绑定回环，本轮未修改机器状态；五人正式使用仍须完成组员 Navicat 正向、tailnet 未获准设备负向、局域网允许/拒绝来源等验收。真实模型 API 试跑仍须另获调用授权。备份与恢复已由用户明确移出课设交付。账号、Job/Run、目录快照及制品将成为团队需要长期保存的状态，但本版不承诺灾难后可找回。阶段依赖在[执行计划](../../../../.scratch/ui-catalog-providers/plan.md)维护；准备度见第 10 节。
 
 正式对象存储采用 **MinIO AIStor Free 修复版**，保留本机/S3 Adapter，不切云。固定镜像已运行，服务端许可脱敏查询为 FREE、非 Trial、单节点、无到期并返回 success；旧 CE 的历史隔离测试证据不作为正式部署基线。镜像身份和来源见[依赖总表第 2.4 节](../../../dependencies/DEPENDENCIES.md#24-最小本地持久化的部署候选2026-09-17)。
 
@@ -33,7 +33,8 @@
 ```mermaid
 flowchart LR
   Members[owner + collaborators\n浏览器] -->|Tailnet 内 HTTPS| Serve[Tailscale Serve]
-  Members -->|Tailnet TCP 15432\n共享管理员| DbServe[Tailscale TCP Serve]
+  Members -->|Tailnet TCP 55432\n共享管理员| DbServe[Tailscale TCP Serve]
+  LanMembers[同一可信物理局域网组员] -. TCP 55432（待实施） .-> PG
   Serve -->|仅回环| Web[Next.js : loopback]
   DbServe -->|仅回环 55432| PG
   Web -->|同源 /api/v1| API[FastAPI : loopback]
@@ -47,15 +48,15 @@ flowchart LR
   Secrets[owner 私有认证/Key] -.仅运行时绑定.-> Worker
 ```
 
-Next.js HTTPS 和 PostgreSQL TCP `15432` 通过 Tailscale Serve 对获准设备可见；PostgreSQL 的 Docker 宿主发布仍保持回环 `127.0.0.1:55432`。FastAPI、MinIO、Docker API、Worker、模型代理和秘密目录不直接暴露给 tailnet、校园网或公网。Tailnet 负责“设备能否到入口”；Web 应用角色仍负责“用户能在页面做什么”，但五人共用的数据库超级管理员会绕过应用角色，这是用户为课设明确接受的简化边界。
+Next.js HTTPS 和 PostgreSQL TCP `55432` 通过 Tailscale Serve 对获准设备可见。PostgreSQL 的 Docker 宿主发布当前仍是回环 `127.0.0.1:55432`；已确认目标是在单独实施后把 TCP `55432` 暴露给同一可信物理局域网，并用 Windows 防火墙限制为专用网络／本地子网，不做路由器转发或公网发布。FastAPI、MinIO、Docker API、Worker、模型代理和秘密目录不直接暴露。Tailnet 和物理网络都只负责“设备能否到数据库入口”；Web 应用角色仍负责“用户能在页面做什么”，但五人共用的数据库超级管理员会绕过应用角色，这是用户为课设明确接受的简化边界。
 
 ## 3. 五人怎样协作
 
 1. owner 在本机显式初始化 schema、建立 owner 账号、登记可信任务/配置并发出邀请。
-2. 其余成员加入指定 tailnet，通过 HTTPS Web 兑换邀请并以 collaborator 登录。平台设计支持一个 owner 加若干 collaborator，不需要为“五个人”新增角色或数据库表。
-3. collaborator 通过 Web 选择受控题目/配置、创建 Job、查看结果；开发期间也可按教程直连 PostgreSQL 并共用 `agentexam_admin`。仍不能直连 MinIO bucket、容器或模型端点。
+2. 使用 Web 的成员加入指定 tailnet，通过 HTTPS Web 兑换邀请并以 collaborator 登录。平台设计支持一个 owner 加若干 collaborator，不需要为“五个人”新增角色或数据库表；无法安装 Tailscale 的成员不能因此绕过 Web 私有入口。
+3. collaborator 通过 Web 选择受控题目/配置、创建 Job、查看结果；开发期间可按教程经 Tailscale 直连 PostgreSQL，或在局域网入口实施后从同一可信物理局域网连接，共用 `agentexam_admin`。仍不能直连 MinIO bucket、容器或模型端点。
 4. owner 在 Web 检查冻结摘要并批准/拒绝。Worker 只领取已批准 Job，且一次只执行一个重型 Job。
-5. owner 按第 1.1 节手动开放平台；电脑关机、休眠、断网或 Tailscale 停止时，整个平台不可用。重新在线后按持久证据恢复，不自动续跑中断 Trial。
+5. owner 按第 1.1 节手动开放平台；电脑关机或休眠时全部入口不可用，Tailscale 停止时 Web 与 tailnet 数据库入口不可用，同一物理局域网数据库入口是否可用仍取决于容器、防火墙和本地网络。重新在线后按持久证据恢复，不自动续跑中断 Trial。
 
 ## 4. 数据与秘密分层
 
@@ -127,8 +128,8 @@ infra/                                                # 已确认并创建：项
 
 ## 7. 现实约束与尚未收敛的技术点
 
-- 当前 Worker 是 owner 主机进程，需要同时访问 PostgreSQL、MinIO、固定本地 framework 和 Docker Desktop。PG/MinIO 的 Docker 宿主发布仍只绑定回环地址；PostgreSQL 另由 Tailscale TCP Serve 把 tailnet 的 `15432` 转发到本机 `127.0.0.1:55432`，MinIO 不开放给组员。
-- 既有本机记录指出 Docker Engine `27.5.1` 存在回环发布安全风险，历史临时桥接也不是长期模板。正式上线前必须实测存储端口从 LAN/tailnet 不可达，并复核本机连接认证及数据/秘密目录权限。回环绑定只能限制网络入口，不能证明其他本机进程无法连接；部署时还需核查当时版本与实际隔离行为。
+- 当前 Worker 是 owner 主机进程，需要同时访问 PostgreSQL、MinIO、固定本地 framework 和 Docker Desktop。MinIO 继续只绑定回环；PostgreSQL 当前由 Tailscale TCP Serve 把 tailnet 的 `55432` 转发到本机 `127.0.0.1:55432`。物理局域网 PostgreSQL 发布尚未实施，不能由文档决定推断已经可达。
+- 物理局域网发布会主动扩大 PostgreSQL 暴露面。实施时必须只开放 TCP `55432`，用 Windows 防火墙限制为专用网络／本地子网或更窄来源，并做局域网正向、非允许来源负向和公网不可达验证。既有 Docker Engine `27.5.1` 的回环发布风险记录不能替代新拓扑实测；共享超级管理员意味着任何获得密码且能到达端口的设备都可修改全部表。
 - 把 Worker 放进容器并挂 Docker socket 会给它近似宿主 Docker 控制权，不作为默认捷径。当前推荐先保留 host-run Worker，再解决受验证的本机存储连接。
 - owner 电脑的内存历史值、当前磁盘余量和只读目录统计见本机环境第 2 节；新增题目镜像与正式数据前需要按实际目标盘预留增长空间，不能只按账号人数估计容量。
 - 手动启停、业务数据根目录和不做备份的风险接受均已落实，见第 1.1 节；不安装开机自启动服务。容量阈值仍是长期观察项，不阻止当前低数据量课设运行。
@@ -150,12 +151,12 @@ infra/                                                # 已确认并创建：项
 ## 9. 上线验收清单
 
 - [x] 正式 PG/MinIO 版本、镜像来源和数据目录已冻结；容量按课设低数据量观察。
-- [ ] PostgreSQL 仅从 owner 回环和获准 tailnet 的 `15432` 可达：owner 经 Tailscale 地址自测成功；组员 DBeaver 正向和未授权设备负向待验。MinIO 仍只在 owner 本机受信路径可达。
+- [ ] PostgreSQL 的 Tailscale `55432` 已由 owner 自测可达；组员 Navicat 正向和未获准 tailnet 设备负向待验。物理局域网 `55432` 已决定但尚未实施，实施后还需局域网正向、非允许来源负向和公网不可达验证。MinIO 仍只在 owner 本机受信路径可达。
 - [x] schema 初始化是显式操作，日常启动不建表；非空未知库拒绝初始化。
 - [x] 正常停止/启动和容器重建后，PG 记录、MinIO 对象引用、大小与摘要保持一致。
 - [x] 一次 Windows 整机重启已有可检查结果：项目未自动启动，正式启动后 5 类业务记录和 9 个对象全部读回。
 - [ ] 异常中断、存储不可用与磁盘阈值仍需按未来实际需求分别验收，不由正常重启结果代替。
-- [ ] Tailscale 只暴露 Web HTTPS 与 PostgreSQL `15432`；组员数据库正向、未授权设备负向、应用越权、VPN 开关和离线场景仍待补齐。
+- [ ] Tailscale 只暴露 Web HTTPS 与 PostgreSQL `55432`；物理局域网只新增 PostgreSQL `55432`，不新增 Web/FastAPI/MinIO/Docker/Worker 入口。组员数据库两路径正向、未授权或非允许来源负向、应用越权、VPN 开关和离线场景仍待补齐。
 - [x] 存储秘密不在 Git、镜像、argv、共享 env 或页面中，宿主源文件为 owner-only；本机 `.env` 被 Git 忽略且不得分享，模型凭据只记录路径、不复制正文。
 - [x] Worker 命令仍是单重型 Job、一次尝试、零自动重试；假 Worker 已验证停止后不领下一项，本轮未启动真实 Worker。
 - [x] owner 有可执行的初始化、启动、停止、状态和故障说明，且明确告知无备份风险；撤权仍由既有业务入口负责。

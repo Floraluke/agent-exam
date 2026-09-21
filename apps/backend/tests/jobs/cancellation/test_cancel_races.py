@@ -107,9 +107,7 @@ def test_postgres_cancel_claim_race_never_leaves_an_executable_trial(
         if worker_claim is not None:
             if cancel_result is not None:
                 with pytest.raises(JobLeaseConflict):
-                    repository.start_execution(
-                        worker_claim.lease, cancellation.clock()
-                    )
+                    repository.start_execution(worker_claim.lease, cancellation.clock())
             else:
                 repository.start_execution(worker_claim.lease, cancellation.clock())
 

@@ -17,8 +17,13 @@ export default function RunReportView({ report }: { report: RunReport }) {
       <p>补丁：{result.patch_exists ? "已产生" : "空补丁"}；
         {result.patch_successfully_applied ? "成功应用" : "未成功应用"}</p>
       <p>固定判卷版本：{result.harness_revision}</p>
-    </> : <p role="status">基础设施失败：
-      {report.run.failure_code ?? "结果证据不可用"}。本次没有形成确定性成绩。</p>}
+    </> : <>
+      <p role="status">本次没有形成确定性成绩，可能是执行环境故障、取消或尚未完成。</p>
+      <details><summary>技术详情</summary>
+        <p>错误码：<code>{report.run.failure_code ?? "无"}</code></p>
+        {report.run.failure_summary && <p>{report.run.failure_summary}</p>}
+      </details>
+    </>}
     <p>用量：输入 {shown(usage.n_input_tokens)} / 缓存 {shown(usage.n_cache_tokens)} /
       输出 {shown(usage.n_output_tokens)} tokens；成本 {shown(usage.cost_usd, " USD")}</p>
     <p>资源：墙钟 {shown(resources.wall_time_sec, " 秒")}；CPU

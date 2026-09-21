@@ -1,16 +1,16 @@
 # 远端协作者接入评测机
 
-> 文档状态：两类应用角色、所有者在线批准与私有网络原则已确认；2026-09-18 Web 私有 HTTPS 和 PostgreSQL 管理员 TCP 入口已在 owner 主机运行，数据库组员端 Navicat 实测待完成
+> 文档状态：两类应用角色、所有者在线批准与私有网络原则已确认；Web 私有 HTTPS 与 Tailscale PostgreSQL `55432` 已在 owner 主机运行。2026-09-20 用户决定增加物理局域网 PostgreSQL `55432`，但本轮只改文档，该入口尚未实施或验证
 >
-> 最后更新：2026-09-18
+> 最后更新：2026-09-20
 >
 > 权威范围：本文件只维护远端协作者怎样到达单机平台、校园网/VPN共存、最小网络暴露面、配置和诊断步骤。组员数据库连接的逐步操作由 [`TEAM_POSTGRESQL_CONNECTION.md`](./TEAM_POSTGRESQL_CONNECTION.md) 唯一维护；Job 权限与状态见 [`HTTP_API.md`](../interfaces/HTTP_API.md) 和 [`DATA_MODEL.md`](../architecture/DATA_MODEL.md)；Codex 与自研 Agent 的模型凭据边界见 [`CODEX_AUTHENTICATION.md`](../interfaces/CODEX_AUTHENTICATION.md)。
 
 ## 1. 先说结论
 
-采用路径是：**不用校园网公网 IP，不做路由器端口映射；所有人加入一个受控的 Tailscale 私有网络，把评测机 Web 通过 HTTPS、PostgreSQL 通过 TCP `15432` 分享给五名受信任课设成员。** MinIO、FastAPI、Docker、Worker 和模型凭据仍不开放。
+采用路径是：**不用校园网公网 IP，不做路由器端口映射；Web 继续只通过受控 Tailscale HTTPS 分享。PostgreSQL 统一使用 TCP `55432`，保留 Tailscale 私有入口，并增加仅供同一可信物理局域网使用的直连入口。** MinIO、FastAPI、Docker、Worker 和模型凭据仍不开放。
 
-2026-09-18 owner 主机实际运行的 Tailscale Serve 包含 HTTPS Web 入口和 `sss.tail03c757.ts.net:15432 → 127.0.0.1:55432` PostgreSQL TCP 转发；主机经 Tailscale 地址的端口检查为成功。数据库密码不进入本文档或 Git，五人共用现有 PostgreSQL 超级管理员 `agentexam_admin`。组员电脑上的 Navicat 完整登录、未授权设备负向及任务 14 其余场景仍须实测，不能由主机自测替代。
+2026-09-20 只读核对确认当前实际运行的 Tailscale Serve 为 `sss.tail03c757.ts.net:55432 → 127.0.0.1:55432`；主机经 Tailscale 地址的 TCP `55432` 检查成功，旧教程端口检查失败。物理局域网入口是已确认方向，但 Compose 仍绑定 `127.0.0.1:55432`，本轮没有修改 Compose、防火墙或容器，因此局域网直连尚不可用。数据库密码不进入本文档或 Git，五人共用现有 PostgreSQL 超级管理员 `agentexam_admin`。
 
 协作者打开页面并提交后，平台只创建 `AWAITING_OWNER_APPROVAL` Job。评测机所有者在页面检查任务、Agent、赛道和 Trial 数，明确批准后才变为 `QUEUED`。本机 Worker 只领取 `QUEUED`，所以“能连到页面”和“能花费所有者资源运行真实 Codex”是两件事。
 
@@ -22,7 +22,8 @@ flowchart LR
     W -->|同源转发| A[FastAPI\n127.0.0.1:8000 候选]
     A --> DB[(PostgreSQL)]
     A --> M[(MinIO)]
-    C -->|Tailscale TCP 15432\n共享管理员| DB
+    C -->|Tailscale TCP 55432\n共享管理员| DB
+    P[同一可信物理局域网组员] -. TCP 55432（待实施） .-> DB
     L[本机 Worker] --> DB
     L --> H[Harbor / Docker / Codex]
 
@@ -39,6 +40,8 @@ flowchart LR
 - Tailscale 先尝试设备直连；直连不成时可以使用加密中继。这样通常不需要学校或路由器给评测机开放入站端口。
 - 中继可能比直连慢，但远端链路主要传页面、JSON 和按需下载的结果。Docker、Codex、Harbor 与 SWE-Bench-Fork 的重型流量仍在评测机本地，不会搬到协作者电脑执行。
 - 不采用 Tailscale Funnel；Funnel 是公网暴露，与“只给项目组成员”的目标不符。
+- 部分组员无法下载 Tailscale 时，可以在与 owner 处于同一可信物理局域网期间使用数据库直连；它不替代远程 Web 的 Tailscale HTTPS，也不能跨不同网络使用。
+- 物理局域网不是身份系统。同一 Wi-Fi 上的其他设备也可能探测端口，因此实现时必须把 Windows 防火墙限制为“专用网络／本地子网”或更窄的组员地址，并继续使用强密码。
 
 ## 3. 启用前的安全前置条件
 
@@ -56,12 +59,12 @@ Tailscale 成员身份只负责网络准入，不能代替应用层授权。即�
 1. 从 Tailscale 官方渠道在 Windows 评测机安装客户端，以项目使用的管理账户登录并创建 tailnet。
 2. 给评测机取稳定名称，例如 `agentexam-host`。不要把它配置成 exit node（出口节点），也不要开启 subnet router（子网路由器）。
 3. 只邀请具体的项目成员账户；不要使用公开邀请链接。成员离组后从 tailnet 删除其用户和设备。
-4. 平台实现后，让 Next.js 只监听回环地址，FastAPI 只监听 `127.0.0.1:8000`；由 Next.js 同源转发 `/api/v1/**` 到 FastAPI。MinIO 只留在本机/Docker 私网；PostgreSQL 宿主端仍只绑定 `127.0.0.1:55432`，由 Tailscale Serve 单独转发到 tailnet 的 `15432`。
+4. 平台实现后，让 Next.js 只监听回环地址，FastAPI 只监听 `127.0.0.1:8000`；由 Next.js 同源转发 `/api/v1/**` 到 FastAPI。MinIO 只留在本机/Docker 私网。当前 PostgreSQL 宿主端仍绑定 `127.0.0.1:55432`，由 Tailscale Serve 转发到 tailnet 的 `55432`；物理局域网发布将在单独实施任务中完成。
 5. 先确认本机页面和 PostgreSQL 都可用，再在管理员 PowerShell 中执行当前 CLI 语法。当前 Web 实际回环端口以 `tailscale serve status` 为准；数据库命令固定如下：
 
 ```powershell
 tailscale serve --bg localhost:3000
-tailscale serve --bg --tcp=15432 tcp://127.0.0.1:55432
+tailscale serve --bg --tcp=55432 tcp://127.0.0.1:55432
 tailscale serve status
 ```
 
@@ -69,7 +72,7 @@ tailscale serve status
 
 ```powershell
 tailscale serve off
-tailscale serve --tcp=15432 off
+tailscale serve --tcp=55432 off
 ```
 
 `--bg` 会保存 Serve 配置并在 Tailscale 重启后恢复，但本机 Web/API/数据库没有启动时，URL 仍然不可用。
@@ -94,13 +97,13 @@ Tailscale 当前建议新配置使用 `grants`。下面只是需要替换邮箱�
     {
       "src": ["group:agentexam-submitters"],
       "dst": ["tag:agentexam-host"],
-      "ip": ["tcp:443", "tcp:15432"]
+      "ip": ["tcp:443", "tcp:55432"]
     }
   ]
 }
 ```
 
-给评测机分配 `tag:agentexam-host` 后，这条候选规则只允许列出的成员访问 HTTPS `443` 和 PostgreSQL 共享入口 `15432`。若 tailnet 还承载其他个人设备，不应保留默认的全成员互通规则，否则这条窄规则不会撤销更宽的授权；Tailscale 多条 grant 的权限是相加的。
+给评测机分配 `tag:agentexam-host` 后，这条候选规则只允许列出的成员访问 HTTPS `443` 和 PostgreSQL 共享入口 `55432`。若 tailnet 还承载其他个人设备，不应保留默认的全成员互通规则，否则这条窄规则不会撤销更宽的授权；Tailscale 多条 grant 的权限是相加的。
 
 最终策略必须在 tailnet 管理页面校验通过，并用一个获准账户和一个未获准账户做正反测试。所有者身份仍由 AgentExam 应用自己的登录和角色绑定决定，不从设备标签推断。
 
@@ -110,10 +113,24 @@ Tailscale 当前建议新配置使用 `grants`。下面只是需要替换邮箱�
 2. 确认客户端显示已连接到项目 tailnet。
 3. 先执行 `tailscale ping agentexam-host`，再打开所有者提供的 `https://...ts.net` 地址。
 4. 在 AgentExam 页面使用自己的应用账户登录、创建 Job；提交成功应看到 `AWAITING_OWNER_APPROVAL`，而不是 `QUEUED`。
-5. 需要开发期数据库管理的组员按[从零连接教程](./TEAM_POSTGRESQL_CONNECTION.md)使用 `sss.tail03c757.ts.net:15432`、数据库 `agentexam` 和 owner 私下交付的 `agentexam_admin` 密码；这是用户明确选择的五人课设共享超级管理员方案。
+5. 需要开发期数据库管理的组员按[从零连接教程](./TEAM_POSTGRESQL_CONNECTION.md)使用 `sss.tail03c757.ts.net:55432`、数据库 `agentexam` 和 owner 私下交付的 `agentexam_admin` 密码；这是用户明确选择的五人课设共享超级管理员方案。
 6. 协作者不安装、复制或填写所有者的 Codex `auth.json`、DeepSeek/Kimi Key，也不直连 Docker 或 MinIO。
 
 队友的“账号名字”分两层：Tailscale grant 需要他们实际用于加入 tailnet 的准确账户标识（通常是邮箱）；AgentExam 需要所有者创建/邀请的应用账户名。两者可以对应，但不能互相替代，也不能只凭一个显示昵称授予权限。
+
+### 4.4 物理局域网 PostgreSQL 直连目标（已决定，未实施）
+
+无法安装 Tailscale、且与 owner 电脑处于同一可信物理局域网的组员，后续使用 owner 当前局域网 IPv4 与 TCP `55432`。局域网 IPv4 可能由 DHCP 改变，只由 owner 当天私下提供，不固定写入 Git。
+
+本轮没有实施机器配置。后续独立实施至少需要：
+
+1. 把 Compose 中 PostgreSQL 的宿主发布从 `127.0.0.1:55432` 改成局域网可达的 `55432`，再重建该容器；不要同时开放 MinIO、FastAPI、Docker 或 Worker。
+2. 新增 Windows 入站规则，只允许“专用网络／本地子网”的 TCP `55432`；若能固定组员地址，应进一步缩小来源范围。
+3. 保持数据库强密码和 SCRAM 认证，不把密码写进命令历史、截图、Git 或公开群。
+4. 从一台组员电脑验证 `Test-NetConnection <owner局域网IPv4> -Port 55432` 和 Navicat 登录；同时从非同一局域网或不允许的网络验证拒绝。
+5. 确认路由器没有端口转发，公网地址的 `55432` 不可达。校园网／访客 Wi-Fi 若启用客户端隔离，即使连接同名 Wi-Fi 也可能不能互访。
+
+是否需要改 `postgresql.conf` 必须由容器内实际监听状态决定；当前证据只证明 Docker 宿主绑定阻止了局域网连接，不把截图中的通用建议直接写成必做步骤。
 
 ## 5. FlClash 会不会影响
 
@@ -211,7 +228,8 @@ tailscale ping agentexam-host
 |---|---:|---|
 | Next.js Web HTTPS | ✅，仅获准 tailnet 成员 | Tailscale grant + AgentExam 登录 |
 | FastAPI | ❌ 直接访问；✅ 仅经 Web 同源路径 | 绑定 `127.0.0.1`，不单独 Serve |
-| PostgreSQL `15432` | ✅，仅获准 tailnet 成员 | Tailscale TCP Serve → 本机 `127.0.0.1:55432`；五人共用 `agentexam_admin`，不对校园网/公网绑定 |
+| PostgreSQL `55432`（Tailscale） | ✅，仅获准 tailnet 成员 | Tailscale TCP Serve → 本机 `127.0.0.1:55432`；五人共用 `agentexam_admin` |
+| PostgreSQL `55432`（物理局域网） | 已决定，尚未实施 | 目标为 owner 当前局域网 IPv4；Windows 防火墙只允许专用网络／本地子网，不做路由器转发或公网发布 |
 | MinIO API/Console | ❌ | 仅后端访问；制品由受权 HTTP interface 流式返回 |
 | Docker daemon/socket | ❌ | 只由本机受控进程使用 |
 | Worker/Harbor | ❌ | 无远端监听；只轮询本机 PostgreSQL 中的 `QUEUED` |
@@ -236,7 +254,7 @@ Cloudflare Tunnel 也由评测机主动向外建立连接，通常不需要公�
 3. 远端提交后，Job 只处于 `AWAITING_OWNER_APPROVAL`；Worker 日志没有领取记录。
 4. 协作者调用批准/拒绝接口得到 `403`；评测机所有者批准后 Job 才为 `QUEUED`。
 5. 所有者拒绝后 Job 为 `REJECTED`，其 `PENDING` runs 为 `CANCELED`，Worker 永不领取。
-6. 获准组员能连接 PostgreSQL `15432`；未获准设备不能连接。远端扫描/连接 FastAPI 原始端口、MinIO、Docker 和 Worker仍应失败。
+6. 获准 tailnet 组员能连接 PostgreSQL `55432`，未获准 tailnet 设备不能连接；同一可信物理局域网组员能通过 owner 局域网 IPv4 的 `55432` 连接，非局域网来源不能连接。两条路径都须实测，不能以 owner 本机测试替代。
 7. 评测机 Web 或 Tailscale 停止后远端不可用；恢复后已有数据库状态仍存在。
 8. 没有公开注册；协作者不能管理成员/配置或清理制品；唯一所有者可在本机恢复身份且无需邮件服务。M1 不开放人工复核入口。
 9. 执行中取消后不再启动新 Trial，当前 Trial 最多运行到冻结超时；断网、VPN切换、Worker/Harbor 中断不会自动重试旧 Job。

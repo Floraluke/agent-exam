@@ -6,14 +6,15 @@ import AgentsPanel from "../catalog/agents";
 import TasksPanel from "../catalog/tasks";
 import MembersPanel from "../identity/members";
 import JobWorkspace from "../jobs/listing/workspace";
+import ComparisonWorkspace from "../jobs/reporting/comparison";
 import JobsPanel from "../jobs/submit";
 import LeaderboardView from "../leaderboard/view";
 import Dashboard from "./dashboard";
 
-type View = "home" | "jobs" | "new" | "tasks" | "agents" | "leaderboard" | "members";
+type View = "home" | "jobs" | "new" | "reports" | "tasks" | "agents" | "leaderboard" | "members";
 
 const views = new Set<View>([
-  "home", "jobs", "new", "tasks", "agents", "leaderboard", "members",
+  "home", "jobs", "new", "reports", "tasks", "agents", "leaderboard", "members",
 ]);
 
 function viewFromUrl(): View {
@@ -83,6 +84,8 @@ export default function WorkbenchShell({
           onClick={() => navigate("jobs")}>评测</button>
         <button aria-current={activeView === "new" ? "page" : undefined}
           onClick={() => navigate("new")}>新建评测</button>
+        <button aria-current={activeView === "reports" ? "page" : undefined}
+          onClick={() => navigate("reports")}>对比报告</button>
         <button aria-current={activeView === "tasks" ? "page" : undefined}
           onClick={() => navigate("tasks")}>任务目录</button>
         <button aria-current={activeView === "agents" ? "page" : undefined}
@@ -110,6 +113,7 @@ export default function WorkbenchShell({
       </section>}
       {activeView === "jobs" && <JobWorkspace key={routeVersion} actor={actor}
         newJob={() => navigate("new")} />}
+      {activeView === "reports" && <ComparisonWorkspace />}
       {activeView === "tasks" && <TasksPanel owner={owner} />}
       {activeView === "agents" && <AgentsPanel owner={owner} />}
       {activeView === "leaderboard" && <LeaderboardView />}

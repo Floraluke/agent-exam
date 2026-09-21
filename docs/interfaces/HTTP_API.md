@@ -1,8 +1,8 @@
 # Web 与后端 HTTP API 契约
 
-> 文档状态：Job/Run 资源边界已确认；HTTP 契约 v0.3。任务 01–13 已验收；已增加 continuous 受控选项与跨批次比较 GET，任务 03 的 Web 对比页尚未实现
+> 文档状态：Job/Run 资源边界已确认；HTTP 契约 v0.3。任务 01–13 已验收；continuous 受控选项与跨批次比较 GET 已注册，扩展任务 03 的 Web 对比页已接入现有只读合同
 >
-> 最后更新：2026-09-20（同步 continuous 受控选项与跨批次比较契约）
+> 最后更新：2026-09-21（同步扩展任务 03 Web 对比页对既有跨批次比较契约的复用）
 > 权威范围：本文件只维护 Next.js Web 与 FastAPI 交付层之间的 HTTP 契约。内部模块行为见 [`MODULE_CONTRACTS.md`](../architecture/MODULE_CONTRACTS.md)，存储字段见 [`DATA_MODEL.md`](../architecture/DATA_MODEL.md)。
 
 ## 规划增量与当前接口
@@ -39,7 +39,7 @@
 
 ### 2.1 当前前后端 API 清单（已注册、可由产品 UI 使用）
 
-本表以当前 FastAPI 路由装配和 `apps/web/src/lib` 调用代码为准，列出已经注册的 32 个 HTTP 端点，并明确尚未接入 Web 的端点。详细请求/响应形状仍由本文件后续对应章节维护，本表只维护“Web 从哪里调用、页面为什么调用、谁能调用”的追踪关系，避免复制 schema。
+本表以当前 FastAPI 路由装配和 `apps/web/src/lib` 调用代码为准，列出已经注册的 32 个 HTTP 端点及其 Web 接线。详细请求/响应形状仍由本文件后续对应章节维护，本表只维护“Web 从哪里调用、页面为什么调用、谁能调用”的追踪关系，避免复制 schema。
 
 硬规则：产品 UI 只有在本表存在对应端点时才可提供改变业务事实的按钮或交互；不得用前端假数据、假成功或占位动作模拟未完成能力。导航、菜单开关、URL 切换和向导前后步不改变业务事实，明确属于无 HTTP 请求的本地界面动作。
 
@@ -72,7 +72,7 @@
 | `POST /api/v1/jobs/{job_id}/retry` | `job-client.retryJob` | 从已显式收束的旧 Job 新建重试 Job | owner；要求幂等键；新 Job 重新待批准 |
 | `GET /api/v1/reports/jobs/{job_id}` | `job-client.jobReport` | Job 详情读取批次进度 | 与 Job 可见范围相同 |
 | `GET /api/v1/reports/runs/{run_id}` | `job-client.runReport` | 批次/详情读取单题运行报告 | 与来源 Job 可见范围相同 |
-| `GET /api/v1/reports/comparisons` | 尚未接入 Web | 后端已提供跨批次题目×配置矩阵；任务 03 页面与按钮未实现 | owner 可读全部；collaborator 仅本人创建的 Job |
+| `GET /api/v1/reports/comparisons` | `reporting/comparison-client.comparison` | 对比报告按所选可见 Job 读取题目×配置矩阵；页面另复用 Job 详情和 Run 报告，不在浏览器改写结论 | owner 可读全部；collaborator 仅本人创建的 Job |
 | `GET /api/v1/runs/{run_id}/artifacts` | `job-client.runArtifacts` | 安全证据读取制品元数据和保留状态 | 与来源 Job 可见范围相同 |
 | `GET /api/v1/runs/{run_id}/trajectory` | `job-client.runTrajectory` | 安全证据分页读取脱敏轨迹 | 与来源 Job 可见范围相同 |
 | `GET /api/v1/artifacts/{artifact_id}/content` | 报告页同源下载链接 | 下载公开补丁/测试摘要/公开轨迹正文 | 与来源 Job 可见范围相同；仅公开白名单类型 |
@@ -670,7 +670,7 @@ MVP 排行榜只接受 `evaluation_track=closed_book`。数据模型保留 `open
 
 `GET /api/v1/reports/comparisons?job_ids=<uuid>,<uuid>,...`
 
-该端点已经注册，用于把已有 Job 报告只读聚合成题目×配置矩阵；任务 03 的 Web 对比页面和按钮尚未实现，产品 UI 不得在接线前伪造交互或结果。
+该端点已经注册并由扩展任务 03 的“对比报告”页接入，用于把已有 Job 报告只读聚合成题目×配置矩阵。页面只允许选择 `GET /jobs?limit=20` 返回的当前可见首屏，不宣称按创建时间排序；刷新、选择和生成对比均不改变 Job。
 
 - query 必须且只能出现一次 `job_ids`；未知参数、重复参数、空选择或非法 UUID 返回 `400`。逗号分隔项会去首尾空白、规范化为小写 UUID，并按首次出现顺序去重；去重后最多 20 个 Job。
 - owner 可比较全部 official Job；collaborator 只能比较自己创建的 Job。任一 Job 不存在、无权访问或为 `internal_test` 时，整个请求返回 `404 JOB_NOT_FOUND`，不泄漏具体哪一项存在。
@@ -678,6 +678,8 @@ MVP 排行榜只接受 `evaluation_track=closed_book`。数据模型保留 `open
 - `cells[].outcome` 只允许 `resolved/unresolved/infrastructure_error/incomplete/missing`。`missing` 表示该列没有对应 Run，或 Run 已完成但报告不可用；其 `resolved` 和 `report_path` 必须为 `null`，不能冒充未通过或零。没有 Run 时 `run_id=null`，有 Run 但报告缺失时保留该 `run_id`。
 - `totals[]` 与列一一对应，包含五档计数以及整数 `decided`、`total`；`decided=resolved+unresolved+infrastructure_error+incomplete`，`total=decided+missing`。v1 不返回字符串覆盖率，也不包含计费或 Judge 分。
 - 无会话返回 `401`；数据库或报告读取不可用返回 `503 DEPENDENCY_UNAVAILABLE`。响应沿用 `Cache-Control: no-store` 与统一错误形状。
+- Web 在矩阵成功后以最多 3 个并发请求读取所选列的 `GET /jobs/{job_id}` 冻结快照；用量须由用户明确点击后，才以最多 3 个并发请求读取有 `report_path` 的 `GET /reports/runs/{run_id}`。矩阵缺失单元格及任一 Run 指标 `null` 都保持未知；只有每个组成单元格都有值才显示“总量”，否则显示“部分”或“未知”。
+- 单元格只有同时具有 `run_id` 与 `report_path` 时提供“查看单次证据”，随后复用第 10.1 节 Run 报告、第 9 节轨迹与公开制品下载；`missing` 没有伪造按钮。成本只显示报告中的 USD，墙钟明确为各 Run 用时之和而非整批墙钟。
 
 ## 11. Human Review API
 

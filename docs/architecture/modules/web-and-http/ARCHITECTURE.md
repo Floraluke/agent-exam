@@ -1,6 +1,6 @@
 # Web 与 HTTP Module
 
-> 当前状态：M1 身份、目录、Job、批准、取消/恢复、报告、证据和排行榜的 Next.js/FastAPI 路径已实现；跨批次比较后端 GET 已注册，任务 03 的 Web 对比页尚未实现。Tailscale 双机负向/VPN/离线验收仍未全部完成。
+> 当前状态：M1 身份、目录、Job、批准、取消/恢复、报告、证据和排行榜的 Next.js/FastAPI 路径已实现；扩展任务 03 已把跨批次比较 GET 接入 Web 对比页。Tailscale 双机负向/VPN/离线验收仍未全部完成。
 > 权威范围：浏览器、Next.js 和 FastAPI 怎样交接，以及当前页面/路由实现位置。
 
 ## 1. 职责与非职责
@@ -18,7 +18,7 @@ Web 向 owner 与 collaborator 提供同一个私有站点；FastAPI 把 HTTP �
 - FastAPI 返回稳定领域错误码；Web 将未知/畸形响应收敛为不可用，而不猜测成功。
 - 后端未注册 API 的业务能力不在产品 UI 中显示按钮或交互；导航、菜单、URL 和向导步骤等本地动作不得声称业务事实已改变。
 
-路由、DTO、Cookie、错误及当前 32 项已注册端点清单由[HTTP Interface](../../../interfaces/HTTP_API.md#21-当前前后端-api-清单已注册可由产品-ui-使用)维护；其中比较端点明确标记为尚未接入 Web。逐控件页面契约由[实现地图](../../../../.scratch/ui-catalog-providers/implementation-map.md#22-任务-02a-版逐控件契约清单)维护。
+路由、DTO、Cookie、错误及当前 32 项已注册端点清单由[HTTP Interface](../../../interfaces/HTTP_API.md#21-当前前后端-api-清单已注册可由产品-ui-使用)维护。任务 02/03 的逐控件页面契约由[实现地图](../../../../.scratch/ui-catalog-providers/implementation-map.md#21-任务-0203-的逐控件契约门槛)维护。
 
 ## 3. 当前 Implementation 文件树
 
@@ -50,13 +50,16 @@ apps/web/
   src/features/jobs/
     listing/                          # 服务端筛选、游标页栈、详情/列表 URL 组合
     wizard/                           # 三步选择、提交幂等和选项重读
+    reporting/                        # 对比页、矩阵、冻结配置和按需用量
     *.tsx                             # 批准、详情、取消、恢复、报告和证据 UI
   src/features/leaderboard/           # 基础排行榜 UI
   src/lib/api-client.ts               # 同源 fetch、错误和 actor 校验
+  src/lib/reporting/                   # 比较响应校验、有限并发详情/报告读取
   src/lib/*-client.ts                 # 各 HTTP 子域客户端
   src/lib/*-shapes.ts                 # 运行时响应形状校验
   tests/support/workbench.ts          # 既有验收通过可见导航进入 A 工作台页面
   tests/workbench/                    # 角色、导航、摘要、向导、列表、分页和手机验收
+  tests/reporting/                    # 对比、混合结果、手机钻取和权限验收
   tests/*.spec.ts                     # 既有身份、目录、Job、报告和排行回归
 ```
 
@@ -78,6 +81,8 @@ apps/web/
 
 A 工作台的数据流是：侧栏/移动菜单只修改 `view`；列表筛选把 `job_status`/`job_mine` 保存在 URL 并调用 `GET /jobs`；选择 Job 后增加不透明 `job` 并调用详情；三步向导只在浏览器保存未提交选择，最终通过 `POST /jobs` 创建并再次 `GET /jobs/{id}`。owner 决定、取消、恢复和重试成功后同样重读详情，不把乐观页面状态冒充服务器完成。
 
+对比页的数据流是：`view=reports` 先读取当前 actor 可见的 Job 首屏；用户选择后由比较端点返回权威五档矩阵，再以最多 3 个并发详情请求读取冻结配置。用量默认不请求；用户点击后只读取有报告路径的 Run，最多 3 个并发，并把缺失或 `null` 保持为未知。单元格钻取复用既有 Run 报告、轨迹和制品下载，不创建第二套证据规则。
+
 ## 5. 模式、依赖和深度
 
 FastAPI routes 是 HTTP Adapter，Next.js 客户端是浏览器侧 Adapter；真正的业务 Interface 位于 application Module，而非路由函数。Composition Root 一次装配用例与 PostgreSQL/MinIO Adapter，使路由保持翻译职责。
@@ -88,4 +93,4 @@ Web 依赖 HTTP Interface，不依赖后端源码目录或数据库 schema。所
 
 各 M1 任务的 HTTP/浏览器历史证据见对应行动文档；私有入口当前进展见[远程验收行动](../../../actions/2026-09-14-m1-private-remote-acceptance.md)。扩展任务 02 当时已通过 TypeScript、Next 生产构建、32 条全量浏览器回归、390/360 无页面溢出、双轴评审，以及当时文档 31 项与实时 OpenAPI 31 项零差异检查；这个历史数字不随之后新增端点重写。当前注册端点为 32 项。
 
-待完成包括扩展任务 03 的 Web 对比报告信息结构、客户端解析与逐控件接线，以及完整 Tailscale 双机负向/VPN/离线验收；后端 `GET /api/v1/reports/comparisons` 已存在，但没有页面或按钮。任务 02 没有新增接口、数据库表、Worker/模型或部署行为。当前远程接入规则见[远程接入](../../../operations/REMOTE_TEAM_ACCESS.md)，部署事实见[所有者单机运行](../owner-host-runtime/ARCHITECTURE.md)。
+扩展任务 03 的 Web 信息结构、客户端解析和逐控件接线已经实现；定向证据见[03 行动](../../../actions/2026-09-21-ui-comparison-report.md)。本次没有新增接口、数据库表、Worker/模型或部署行为。待完成仍包括完整 Tailscale 双机负向/VPN/离线验收及尚未发布的 04–08。当前远程接入规则见[远程接入](../../../operations/REMOTE_TEAM_ACCESS.md)，部署事实见[所有者单机运行](../owner-host-runtime/ARCHITECTURE.md)。
