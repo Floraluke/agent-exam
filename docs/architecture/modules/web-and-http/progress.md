@@ -1,6 +1,6 @@
 # Web 与 HTTP Module：进展与未决项
 
-> 状态：2026-09-21 重做（对齐 `main` 的 `fd369cc`）。本文件按时间**倒序**记录本 Module 的实际进展、环境验证结果与未决项；架构事实见[本模块架构](ARCHITECTURE.md)，接口权威见 [`HTTP_API.md`](../../../interfaces/HTTP_API.md)。
+> 状态：2026-09-21 已对齐合并后的 `main`（`c71d342`）。本文件按时间**倒序**记录本 Module 的实际进展、环境验证结果与未决项；架构事实见[本模块架构](ARCHITECTURE.md)，接口权威见 [`HTTP_API.md`](../../../interfaces/HTTP_API.md)。
 >
 > 记录纪律：失败、跳过和未验证一律如实写出，不把"配置存在"等同于"实测通过"；真实设备名、账号与私有网络地址不入 Git。
 
@@ -15,9 +15,9 @@
 | 任务 05 的两项呈现验证（受控文案的忠实呈现、未知错误码的失败关闭） | 等 E 的假提供方链落地 | [任务 05 行动](actions/05-necessary-error-presentation.md)第 4 节 |
 | 共享 PostgreSQL `15432` 正向、Tailscale 双机、VPN 两态、未获准设备负向 | 等 A 排查网络与授权 | 本文件"共享环境接入尝试"节 |
 | M1-14 的 HTTPS Web 与浏览器协作验收 | A 主责；依赖同一环境 | [M1-14 任务单](../../../../.scratch/m1-platform/issues/14-private-remote-acceptance.md) |
-| 任务 05 整体开工 | 等 A 给出 9 项拍板决定 | [任务 05 issue](../../../../.scratch/ui-catalog-providers/issues/05-fake-provider-secure-execution-chain.md) |
+| 任务 05 整体开工 | 9 项负责人决定已确认；仍等 A 给出实施指令与拓扑探针窗口 | [任务 05 issue](../../../../.scratch/ui-catalog-providers/issues/05-fake-provider-secure-execution-chain.md)与[负责人回执](../../../LLY/01-plan/TASK05_OWNER_ACTION_REQUIRED.md) |
 
-**二、未发布、按计划只能"准备测试设计"（不得先改产品代码）**
+**二、未实施或未获授权、按计划只能准备测试设计（不得先改产品代码）**
 
 | 事项 | B 的切片 | 计划许可 |
 |---|---|---|
@@ -35,7 +35,7 @@
 | B 侧尚未运行 `ruff` / `mypy` | 仅指后端文件；B 改过的 `browser_server.py` 已跑过 `ruff check` 与 `format`，其余后端文件不属 B |
 | 页面渲染面的哨兵扫描 | C 已覆盖 12 个 HTTP 读取面；网页面只在本轮动线可达的目录页做过，报告/证据/排行榜页未扫描 |
 
-**上线状态**：`main = origin/main = upstream/main = ae5e40b`；fork 上只保留 `main` 与必须存档的 `task03/comparison-api-spec`（其 PR 是关闭而非合并，提交不在 main 上，模块文档以纯文本引用它）。
+**当前主工作区状态（2026-09-21 本次交接核对）**：`main = origin/main = c71d342`；没有重新查询其他成员 fork 或 `upstream`，不得沿用更早的三端相等结论。已关闭的 `task03/comparison-api-spec` 仅作历史存档，其提交不需要再合入 `main`。
 
 ## 2026-09-21：任务 03/04/05 的 B 切片全部收口
 

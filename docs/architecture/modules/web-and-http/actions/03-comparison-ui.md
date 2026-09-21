@@ -1,6 +1,6 @@
 # 子行动 c：对比报告 UI —— 逐控件契约表
 
-> 状态：**进行中**（2026-09-21）。契约表已随 PR #7 合入 `main`（`98c6db2`）；实现分支 `feat/03-comparison-ui`。三项产品决策已确认，失败态与汇总呈现按草案默认（第 4 节）。
+> 状态：**已完成并合入 `main`**（2026-09-21）。契约、实现、手机布局、证据钻取与回归均已收口；当前任务状态为 `ready-for-human`，历史分支不再作为接续入口。
 >
 > 契约权威：[`HTTP_API.md`](../../../../interfaces/HTTP_API.md) §10.4（`main` 现行版）；逐控件契约门槛见[实现地图 2.1 节](../../../../../.scratch/ui-catalog-providers/implementation-map.md)；任务 03 总览见[总行动](03-report-catalog.md)。
 >
