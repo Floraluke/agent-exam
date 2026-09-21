@@ -63,9 +63,31 @@ def task_bundle(instance_id="example__repo-1", repo="example/repo"):
     )
 
 
+DEFAULT_AGENT_PRESETS = {
+    "verified-codex": (
+        "Synthetic Codex",
+        AgentConfiguration(
+            "test-preset",
+            "codex",
+            "test-version",
+            "openai_chatgpt",
+            "test-model",
+            "chatgpt_auth_json",
+            "private-test-reference",
+            {"reasoning_effort": "medium"},
+        ),
+    )
+}
+
+
 @contextmanager
 def catalog_api(
-    repository=None, artifacts=None, source=None, agents=None, presets=None
+    repository=None,
+    artifacts=None,
+    source=None,
+    agents=None,
+    presets=None,
+    agent_presets=None,
 ):
     clock = Clock()
     identities = MemoryMembershipRepository()
@@ -80,21 +102,7 @@ def catalog_api(
     )
     registry = AgentRegistry(
         agents or MemoryAgents(),
-        {
-            "verified-codex": (
-                "Synthetic Codex",
-                AgentConfiguration(
-                    "test-preset",
-                    "codex",
-                    "test-version",
-                    "openai_chatgpt",
-                    "test-model",
-                    "chatgpt_auth_json",
-                    "private-test-reference",
-                    {"reasoning_effort": "medium"},
-                ),
-            )
-        },
+        agent_presets or DEFAULT_AGENT_PRESETS,
     )
     app = create_app(
         identity,
