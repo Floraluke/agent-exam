@@ -4,6 +4,26 @@
 >
 > 记录纪律：失败、跳过和未验证一律如实写出，不把"配置存在"等同于"实测通过"；真实设备名、账号与私有网络地址不入 Git。
 
+## 2026-09-21：任务 05 的受控词汇对齐（E 请求；B 侧只改契约）
+
+E 已把任务 05 的提供方访问链合入 `main`（PR #24/#25，本地 `1888aa2` → `acbabbf` 共 22 个提交），请求 B 对齐两处契约。**B 先核实代码事实再改文档**，结论与差异如下：
+
+- **§10.2 受控失败码**：`provider_access/failures.py` 的 `_GROUPS` 与 `GENERIC_FAILURE` 确实是"四类受控码 + 兜底 `PROVIDER_ACCESS_FAILED`"，映射关系与中文短句**逐字核对一致**。已把五个码、各自归入的内部错误族、"内部错误码绝不回显、未映射落兜底"、"配置期专用码不入表"写入 §10.2。**并明确标注实现状态**：映射表与词汇表门禁已在 `main`，但 `provider_access` 包外**没有任何调用方**——代理链尚未接入运行主链路，所以这是**已冻结的契约词汇，不代表已生效**。
+- **受控提供方值**：E 的转述把 `authentication_type=provider_run_token` 也算作要公开的身份，**与代码不符**。`AgentSummary`/`AgentDetail`（`catalog_schemas.py`）只返回 `agent_type` 与 `model_provider`，不含 `authentication_type` 或凭据 profile；文档第 650 行本就规定"不返回 authentication/credential profile"。故 §4.2/§6 只公开 `model_provider` 的受控集合（`openai_chatgpt` / `internal_test_fake`），并写明按记录如实呈现、超出集合失败关闭（`UNCONTROLLED_PROVIDER` / `UNCONTROLLED_AGENT_TYPE`），以及**公开 `internal_test_fake` 是有意的**（让受控预设不可能被误当成真实供应商配置）。
+- **命名与粒度**：**沿用 E 的实现**（五码；额度与期限合并进 `PROVIDER_BUDGET_EXHAUSTED`，不拆分）。理由：它与已合入的库级 CHECK、`DATA_MODEL.md` 与 E 的映射表/门禁完全一致，拆分会同时改代码与用例，而对所有者没有可操作差别。
+- **顺带核对 E 报告的自身缺陷已修**：`catalog_schemas.py` 现经 `_controlled(...)` 输出 `agent_type`/`model_provider`，超出受控集合时抛 `UNCONTROLLED_*` 而不是回退默认值——原来的"给 `model_provider="deepseek"` 的记录却照旧回 `openai_chatgpt`"的假报告路径不再存在；`06f59ce fix(catalog): honour the agent_type filter instead of dropping it` 也在同一批。
+
+**B 侧由此新增的待办**：按此前约定，浏览器夹具（`apps/backend/tests/identity/browser_server.py`）需要加"**强制下一次响应出错**"的控制端点，用于"未知错误码失败关闭"的呈现验证；等代理链落地后与"受控文案忠实呈现"一起排期。
+
+## 2026-09-21：A 要求的"所有前端的脱离版 HTML 原型"（不入仓库）
+
+A 指示"把 web 里的前端代码弄成一个脱离的 HTML，根据 HTTP API 接口文档修改"，并明确范围是**所有前端**。已交付单文件 `standalone-发给A.html`（88.4 KB，双击即开、不连任何服务、合成数据），覆盖真实前端的 8 个视图面：工作台、评测列表与详情、三步提交向导、对比矩阵（含**每列用量/费用/耗时与总量/部分/未知三档覆盖**）、单次 Run 报告与证据、任务目录、配置目录、排行榜、成员与邀请。
+
+- **性质**：这是给 A 看动线的**提案原型**，不是第二套前端；`apps/web` 的真实实现仍是权威，A 的反馈要落到真实代码与 [`HTTP_API.md`](../../../interfaces/HTTP_API.md) 上，不在原型里定稿。
+- **实测**（本机系统 Chrome，无头；多文件版与单文件版各跑一遍，结果一致）：8 视图 × {1440, 390} 无脚本报错、无请求失败、无横向溢出；评测列表 → 详情 → 单次证据、矩阵指标开关与单元格下钻、角色切换（导航 8 → 7、批准按钮 0）全部点通。
+- **过程中修掉的真实缺陷**：`file://` 下 `pushState` 抛 `SecurityError`（交付物正是本地双击打开）、配置目录在 390px 溢出、矩阵 `totals` 与矩阵行自相矛盾（`job-4` 被错算成"总量"）、多数 Run 下钻是空页、邀请有效期 fixture 与文档冲突。逐条根因与处理见[行动记录](actions/06-full-web-standalone-prototype.md)。
+- **未验证**：只测了 Chrome；未逐控件遍历；未做无障碍审计；所有写操作都是本地反馈文字，**不代表真实接口已验证**。
+
 ## 2026-09-21：B 剩余工作清点（截至任务 03/04/05 的 B 切片全部合入）
 
 **结论：B 已没有"可立即开工的实现任务"。** 剩下的分三类，都不是"还没做"，而是被外部条件挡住或尚未发布：
@@ -149,6 +169,8 @@ B 手动尝试从本机接入 owner A 的共享评测环境，**未接通**：
 | 实时 OpenAPI 计数 | ✅ 已复核 | 用真实装配读 OpenAPI：**32 个端点，与 §2.1 的 32 条逐条集合比对差异 0**（2026-09-21，见上） |
 | OpenAPI 字段级 schema 对账 | ⬜ 未做 | 仅做过 §10.4 正文与实现的 20/20 静态字段对照 |
 | `ruff` / `mypy` | ⬜ 未在 B 侧运行 | 工具可用；fengyy 的记录称其干净，B 未复现 |
+| 受控集合以外记录的 HTTP 表现 | ❓ **待 E 决定** | `_controlled` 数据层"失败关闭"是对的（抛 `ValueError`，不回退默认值），但 HTTP 层只注册了 `AuthenticationRequired`/`CatalogError`/`JobError`/`RequestValidationError`/`IdentityUnavailable`/`HTTPException`，**没有 `ValueError` 处理器**，故当前表现为 500、不带受控错误码。是否包装成受控错误（例如沿用 503 `DEPENDENCY_UNAVAILABLE`）由 E 定；B 只在 §4.2 写了"失败关闭"，**未承诺状态码** |
+| 浏览器夹具"强制下一次响应出错"控制端点 | ⬜ 待排期 | 用于"未知错误码失败关闭"的呈现验证；按约定等代理链落地后与"受控文案忠实呈现"一起做 |
 | 与 D 的工作重复 | ✅ 已关闭 | D 于 2026-09-21 拍板：接受 `main` 为最终形态，`cdcb4cf`/`c5e036d` 不再合入，以 `7553ce0` 为准；"不收敛"决定作废；`xinyue-modules` 转历史存档。**收尾提交已核实**：`3930f24`（关闭提案）与其子提交 `775d7a1`（更正已归档提案）都在远端，`git ls-remote` 权威值为 `775d7a1d065632064de2c3d5f0636f7eb03a80c2`。另记一条拓扑事实：**D 的 `origin` 就是团队仓库本身**（只配了一个 remote、没有 fork），她的推送直达 `anphuchoang5-sys/agent-exam`，与 B 的 fork 提 PR 路径不同 |
 | 任务 03 的 Web 对比页 | ✅ 已完成 | 契约（PR #7）、后端（`7553ce0`）与 Web 页面（PR #8）均已合入 `main`；见[对比页行动](actions/03-comparison-ui.md) |
 | 任务 03 正式 issue | ❓ 待确认 | `.scratch` 下无 `03-*` 任务单，是否发布待 B 决定 |
