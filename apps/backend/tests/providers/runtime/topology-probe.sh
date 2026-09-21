@@ -50,8 +50,10 @@ WORKLOAD_IMAGE="${T05_WORKLOAD_IMAGE:-debian:bookworm-slim}"
 LISTENER_IMAGE="${T05_LISTENER_IMAGE:-redis:7-alpine}"
 ENTRY_PORT=6379          # the proxy's fixed entry the workload may reach
 RELAY_PORT=8080          # minimal forwarding stand-in, for the positive control only
-REDIS_UID=999            # "redis" in this image: uid=999 gid=1000
-REDIS_GID=1000
+# Resolved from the image at setup rather than hardcoded: the tmpfs must be owned by whoever
+# the listener runs as, and that id can differ between image variants.
+REDIS_UID=""
+REDIS_GID=""
 MARKER="agentexam-proxy-marker"
 # The marker is the relay script's own path: redis rewrites its process title, so a redis
 # argv would never be found. Bracketed so the scanning shell cannot match itself.
@@ -67,7 +69,6 @@ OTH="${NAME}_other"
 
 COMMON=(--label "${LABEL_TASK}" --label "${LABEL_SCOPE}"
   --cap-drop ALL --security-opt no-new-privileges)
-LISTENER=(--user redis "--tmpfs" "/data:uid=${REDIS_UID},gid=${REDIS_GID}")
 NETS=(--label "${LABEL_TASK}" --label "${LABEL_SCOPE}")
 
 : > "${TRANSCRIPT}"
@@ -76,6 +77,13 @@ trap t05_cleanup EXIT
 # --- setup ------------------------------------------------------------------------------
 echo "== setup =="
 t05_cleanup
+listener_ids="$(docker run --rm --entrypoint id "${LISTENER_IMAGE}" redis 2>/dev/null)"
+REDIS_UID="$(printf '%s' "${listener_ids}" | sed -n 's/.*uid=\([0-9][0-9]*\).*/\1/p')"
+REDIS_GID="$(printf '%s' "${listener_ids}" | sed -n 's/.*gid=\([0-9][0-9]*\).*/\1/p')"
+# Listeners run as the image's redis user so the official entrypoint skips its privilege
+# drop: with --cap-drop ALL that step fails ("setpriv: setresuid failed", exit 127) and the
+# container dies before it can listen. --cap-drop ALL itself is kept on every container.
+LISTENER=(--user redis "--tmpfs" "/data:uid=${REDIS_UID},gid=${REDIS_GID}")
 docker network create --internal "${NETS[@]}" "${INT}" >/dev/null
 docker network create "${NETS[@]}" "${EGR}" >/dev/null
 docker network create --internal "${NETS[@]}" "${OTH}" >/dev/null
@@ -85,9 +93,6 @@ docker run -d --name "${WORKLOAD}" "${COMMON[@]}" \
 if [ -n "${SUFFIX}" ]; then
   docker network connect "${EGR}" "${WORKLOAD}" >/dev/null   # the deliberate leak
 fi
-# Listeners run as the image's redis user so the official entrypoint skips its privilege
-# drop: with --cap-drop ALL that step fails ("setpriv: setresuid failed", exit 127) and the
-# container dies before it can listen. --cap-drop ALL itself is kept on every container.
 PROXY_CMD='redis-server --port '"${ENTRY_PORT}"' --save "" --appendonly no \
 --dbfilename '"${MARKER}"'.rdb --loglevel warning & \
 printf "#!/bin/sh\nexec nc '"${UPSTREAM}"' '"${ENTRY_PORT}"'\n" > '"${RELAY_SCRIPT}"'; \
@@ -128,7 +133,9 @@ t05_record 4 "proxy -> fake upstream ${UPSTREAM_IP}:${ENTRY_PORT}" "$(t05_redis_
 
 t05_record 5 "workload mounts" "$(docker inspect -f '{{json .Mounts}}' "${WORKLOAD}")"
 t05_record 5 "proxy mounts" "$(docker inspect -f '{{json .Mounts}}' "${PROXY}")"
-t05_record 5 "published ports (all four)" \
+# Docker versions render an empty binding map differently ({} or null), so the verdict counts
+# the marker a real published port always carries instead of matching one rendering.
+t05_record 5 "published port bindings (all four)" \
   "$(docker inspect -f '{{.Name}} {{json .HostConfig.PortBindings}}' "${WORKLOAD}" "${PROXY}" "${UPSTREAM}" "${OTHER}" | tr '\n' ' ')"
 t05_record 5 "docker.sock mount sources (proxy)" \
   "$(docker inspect -f '{{range .Mounts}}{{.Source}}{{"\n"}}{{end}}' "${PROXY}" | grep -c 'docker.sock')"

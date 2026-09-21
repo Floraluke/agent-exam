@@ -57,6 +57,7 @@ t05_health_gate() {
   for name in PROXY_IP OTHER_IP UPSTREAM_IP PROXY_EGRESS_IP; do
     [ -n "${!name}" ] || problems+=("empty address for ${name}")
   done
+  [ -n "${REDIS_UID:-}" ] && [ -n "${REDIS_GID:-}" ] || problems+=("listener user id unresolved")
   [ "$(t05_redis_ping "${PROXY}" 127.0.0.1 "${ENTRY_PORT}")" = "PONG" ] || problems+=("proxy entry not answering")
   [ "$(t05_redis_ping "${UPSTREAM}" 127.0.0.1 "${ENTRY_PORT}")" = "PONG" ] || problems+=("upstream not answering")
   [ "$(t05_redis_ping "${OTHER}" 127.0.0.1 "${ENTRY_PORT}")" = "PONG" ] || problems+=("other trial not answering")
