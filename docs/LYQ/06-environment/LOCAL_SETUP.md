@@ -18,6 +18,8 @@
 | 测试库 | `agentexam_identity_test` | 角色 `LOGIN + CREATEDB`；测试夹具会在此库中创建随机临时库并在跑完后删除，**日常数据不要写这里** |
 | 开发库 | `agentexam_dev` | 角色仅 `LOGIN`，无超级用户/建库/建角色权限 |
 | 安装包留档 | `D:\agentexam-env\…binaries.zip` | 320,461,864 字节，可删 |
+| 固定数据集 | `runtime/cache/swe-gym-lite/61231f2c…/train-0000.parquet` | SWE-Gym Lite 快照，931,193 字节 / sha256 `f3a7cd93…` 已核验；`/runtime/` 已 gitignore |
+| 三个固定框架源码 | `framework/{swe-gym,swe-bench-fork,harbor}` | 2026-09-21 按[依赖总表 §7](../../dependencies/DEPENDENCIES.md)恢复到固定提交（`--detach`），HEAD 与 origin 已核对、工作树干净。**只恢复源码，未安装依赖** |
 
 ## 2. 为什么这么选
 
@@ -62,24 +64,26 @@ AGENTEXAM_TEST_DATABASE_URL="postgresql://agentexam_identity_test@127.0.0.1:5543
 **mypy 的坑**：直接跑 `mypy`（按 `pyproject.toml` 的 `packages = ["eval_platform"]`）会报
 `Package 'eval_platform' cannot be type checked due to missing py.typed marker`。原因是 editable 安装让 mypy 把它当成第三方包。改成 `mypy src/eval_platform`（显式路径）即可：实测 `Success: no issues found in 166 source files`。
 
-## 4. 当前基线（2026-09-20 实测）
+## 4. 当前基线（2026-09-21 实测）
 
 | 范围 | 结果 |
 |---|---|
-| `tests/catalog` | **33 passed, 7 skipped**（7 个为需 MinIO 的集成用例，按设计跳过） |
-| 全量 `pytest -q` | **452 passed, 36 skipped, 2 failed**，119.75s |
-| 2 个失败 | `tests/contract/test_execution_network.py` 两项，原因是缺 `framework/harbor`（该目录不进 Git，只在组长机器上）。属既有环境失败，与 D 记录的基线同类 |
+| `tests/catalog` | **37 passed, 7 skipped**（7 个为需 MinIO 的集成用例，按设计跳过） |
+| `tests/catalog/qualification` | **5 passed**（固定候选身份机制） |
+| 全量 `pytest -q` | **469 passed, 35 skipped, 1 failed**（`framework/` 恢复源码后失败数由 2 降到 1） |
+| 1 个失败 | `tests/contract/test_execution_network.py::test_bootstrap_imports_fixed_harbor_not_the_adjacent_adapter_package`，需要 `framework/harbor/.venv/Scripts/python.exe`（Harbor 的**依赖环境**）。同文件的另一项在源码恢复后已通过 |
 | `ruff check .` | **All checks passed!** |
 | `ruff format --check .` | 2026-09-21 重放到上游 `fd369cc` 后复核：**仍有 2 个文件不合格**（`tests/jobs/cancellation/test_cancel_races.py`、`tests/jobs/reporting/test_matrix_rehearsal.py`），均为他人文件；原先 5 个中的 3 个已随上游 `7553ce0` 修好 |
 | `mypy src/eval_platform` | **Success: no issues found in 166 source files** |
 
 ## 5. 仍然做不到的事（不要在本机浪费时间）
 
-- 容器类验证：需要 Docker Desktop + 题目镜像，本机没有，也不在开发机范围。
-- 固定数据快照类验证：需要 `framework/`、固定 Parquet 快照，只在组长机器上。
+- 容器类验证：需要 Docker Desktop（当前未运行）+ 题目镜像（未拉）。
+- Harbor 的依赖环境：`framework/harbor` 源码已在位，但 venv 未建——文档记载 Windows 上 `uv sync --locked --extra huggingface --no-dev` 曾耗时 **275 分 06 秒**（`litellm` 源码构建，需 VS 2022 C++ 环境），且明确要求「不要无理由重建」。
+- SWE-Bench-Fork 的隔离依赖环境：文档记载载体是 **Ubuntu WSL2 的 Python 3.12.3**（`framework/swe-bench-fork/.venv`），与后端 Windows venv 不同。
 - 真实模型调用与真实凭据：需单独授权，且与本机环境无关。
 - 共享 PostgreSQL（`sss.tail03c757.ts.net:15432`）：本机 Tailscale 在正确的 tailnet 内但看不到任何其他设备（netmap `Peers = 0`），问题在 host 侧，见 [ISSUE-06](../04-issues/KNOWN_ISSUES.md)。
-- 只在组长机器上或由 E 执行的门禁：五道候选题的参考/空/错误补丁资格验证（任务 04 的判卷半边）。
+- 门禁所需的三样（Docker、五个题目镜像、Fork 的 Linux 依赖环境）本机尚不具备，因此五道候选题的三补丁资格验证仍需要组长机器或由 E 执行；**Harbor 不在门禁的前置里**（门禁只走固定 Fork 判卷，不跑 agent）。
 
 ## 6. 清理方式
 

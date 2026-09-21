@@ -5,6 +5,14 @@
 
 ## 2026-09-21
 
+### 恢复三个固定框架源码（组长让"把 harbor 也下了"）
+
+- 按[依赖总表 §7](../../dependencies/DEPENDENCIES.md)的文档命令，把三个框架恢复到指定提交（`--detach`，不跟随可移动分支）：`framework/swe-gym` @ `b681068c…`、`framework/swe-bench-fork` @ `242429c1…`、`framework/harbor` @ `6af8d6e3…`。
+- 按 §8 核验：三个 `origin` 与总表一致、`rev-parse HEAD` 等于固定哈希、`status --porcelain` 无输出；另核 `framework/swe-bench-fork/swebench/__init__.py` 仍声明 `2.0.13`。`/framework/` 已在 `.gitignore`，不进仓库。
+- **只恢复源码，未安装依赖**：Harbor 的 `uv sync --locked --extra huggingface --no-dev` 在 Windows 上曾耗时 **275 分 06 秒**（`litellm` 源码构建，需 VS 2022 C++ 环境），文档明确要求"不要无理由重建"；Fork 的隔离依赖环境载体是 **Ubuntu WSL2 的 Python 3.12.3**（`framework/swe-bench-fork/.venv`），与后端 Windows venv 不同。
+- 全量复验：**469 passed / 35 skipped / 1 failed**——源码恢复后原先两个契约失败**过了一个**（`test_sidecar_exports_traceable_dns_adaptation_and_never_overwrites`）；剩下的 `test_bootstrap_imports_fixed_harbor_not_the_adjacent_adapter_package` 需要 `framework/harbor/.venv/Scripts/python.exe`（Harbor 依赖环境）。
+- 结论：**04 的三补丁门禁不需要 Harbor**——门禁只走固定 Fork 判卷、不跑 agent；Harbor 是 05–07 跑真实 agent 才需要的前置。
+
 ### 同步上游并重放到新基线（fd369cc），全量复验
 
 - 上游在我这条 PR 打开期间前进了：`beed93f → fd369cc`（B 的 `7553ce0 fix: harden comparison reports and preset upgrade` + 合并提交；同期 E 的 `lly/dev` 也更新到我这里）。其中对比报告模块被**重命名/搬家**：`delivery/http/routes/jobs/report_comparisons.py` → `delivery/http/routes/jobs/reporting/comparisons.py`。
