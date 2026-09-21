@@ -2,8 +2,9 @@
 
 ## 1. 审查结论
 
-- 审查基线：`main` / `c71d342041e45c63dad91883b6d4bb33289b0ec3`。
-- 结论：**有条件通过，建议在扩大 Agent 能力前先修复 P1 项**。本轮没有发现已经由现有测试复现的阻断级故障，也没有发现明显的跨层反向依赖、前端危险 HTML 注入或 `shell=True` 命令执行；但比较页面存在可由请求乱序触发的陈旧结果回写，HTTP 500 路径会吞掉内部异常证据，当前权威文档与实现多处不一致。
+- 原始全量审查基线：`main` / `c71d342041e45c63dad91883b6d4bb33289b0ec3`。
+- 拉取后增量固定点：本地检查点 `859f1316a3204822f01c8f6a12a41eb7e2a7e6d4` 到合并提交 `3676d7412065e335e2c88ef586cc0fb3ad69af0a`，比较命令为 `git diff 859f131...3676d74`。
+- 结论：**要求修改**。原始 P1 问题仍在；远端增量又出现错误 `Host` 可被转发、provider/auth 没有在领域和数据库层成对约束，以及任务 05 提前把真实 DeepSeek/Kimi 上游加入可构造请求的范围。任务 05 的策略层和受控目录切片已经前进，但不能据此声称正式全链完成。
 - 本轮只审查并测量，没有修改业务代码或测试代码。唯一项目规则变更是按用户授权在 `AGENTS.md` 写入历史档案边界；本报告及对应行动文档是审查产物。
 - 工作量均为一名熟悉项目的工程师在现有测试基础上的净工时估算，不包含需求等待、外部服务申请、真实模型额度或部署窗口。
 
@@ -28,9 +29,35 @@
 | PowerShell 模块 | 3 | 438 |
 | Shell | 1 | 26 |
 
+拉取后重新盘点：后端生产 Python 为 175 个文件 / 15,178 行，后端测试为 142 个文件 / 17,549 行；Web 生产 TypeScript 为 17 个文件 / 1,612 行、TSX 为 26 个文件 / 1,972 行，Web 测试 TypeScript 为 23 个文件 / 1,809 行；基础设施 Python 为 8 个文件 / 911 行。原始表保留的是拉取前快照。
+
 检查维度包括模块边界、正确性、异步竞态、异常处理、安全、性能、可维护性、测试充分性，以及代码—权威文档一致性。`docs/actions/` 已结束行动文档和 `docs/research/` 已完成研究文档仅作为历史证据读取，不按当前实现反向改写。
 
-审查期间另一个任务持续修改 `HANDOFF.md`、部分规划/架构/行动/进度文档和 `.scratch/ui-catalog-providers/`。这些文件不是稳定快照，本报告冻结它们，不对其当前内容作最终一致性判断；核心代码的 `HEAD` 在审查期间未变化。
+原始审查期间另一个任务持续修改 `HANDOFF.md`、部分规划/架构/行动/进度文档和 `.scratch/ui-catalog-providers/`，因此当时冻结这些文件。它们现已通过远端合并进入 `3676d74`，本次增量诊断重新纳入代码与当前状态文档；已结束行动文档仍只作历史证据，不因新规则反向改写。
+
+## Standards
+
+固定比较：`git diff 859f131...3676d74`。
+
+**硬违规**
+
+- `docs/actions/2026-09-21-d-ruff-format-and-q7-clarification.md:78`、`docs/actions/2026-09-21-task05-owner-machine-runbook.md:109` 向状态已完成的行动文档追加新事实，违反 `AGENTS.md:27` 的“结束后历史档案只读”。这些改动来自远端既成提交；本轮记录违规但不再修改历史正文。
+- `HANDOFF.md:7,18,39` 对策略层/T1 同时存在“已落地”和“未实现、未运行”的相反描述；`docs/architecture/ARCHITECTURE.md:316,325` 及 `docs/architecture/MODULE_CONTRACTS.md:18` 仍把已经新增的 `provider_access/` 写成候选或不存在，违反当前权威文档同步及架构文件树规则。
+
+**判断项**
+
+- `apps/backend/src/eval_platform/adapters/execution/provider_access/request_policy.py:61-80` 使用 `ValueError("REQUEST_*")` 传递领域错误，`failures.py:21-105` 再复制字符串映射；拼写或遗漏会静默落入通用错误。这是 **Primitive Obsession**（原始类型偏执）的判断项，建议使用共享受控枚举及类型化异常。
+
+## Spec
+
+规格源：任务 05 issue、父规格 stories 19/21/22/23、执行计划第 7 节、验证规范第 4 节、阶段 1 设计冻结及实施计划。
+
+- **实现错误：**验证规范要求错误 `Host` 在出站前拒绝（`.scratch/ui-catalog-providers/verification.md:77`），但 `request_policy.py:84-93` 只剥离认证头，`transport.py:96-108` 会继续转发 `Host` / `X-Forwarded-Host`。
+- **实现错误：**任务单要求 provider/auth 成对校验（`.scratch/ui-catalog-providers/issues/05-fake-provider-secure-execution-chain.md:124`），但 `domain/agent.py:41-56` 不校验身份对，`schema.sql:114-120` 又使用两个独立 CHECK，可构造 `internal_test_fake + chatgpt_auth_json`。
+- **计划内未完成：**S2、`service.py`、S9–S11、T2、完整工具循环和生命周期仍在任务单 96–101、136 行及实施计划 68–77 行明确标为待办；不能按任务 05 全量验收，但本增量没有宣称这些已经完成。
+- **范围扩张：**任务 05 明定真实 DeepSeek/Kimi 留给 06/07（任务单 105 行），`secrets.py:28-34` 却注册真实上游，并被 `binding.py:70`、`transport.py:91-108` 用于请求构造；本阶段应收窄至 `internal_test_fake`。
+
+双轴摘要：Standards 为 2 组硬违规、1 个判断项，最严重项是当前权威文档自相矛盾；Spec 为 2 个实现错误、1 个范围扩张、1 组计划内未完成，最严重项是可控请求头和身份对约束没有失败关闭。两轴不合并排名。
 
 ## 3. 问题总览
 
@@ -46,6 +73,9 @@
 | CR-08 | P2 | 任务适配器及复杂度热点 | 一个动态语言源文件超过 200 行，数个安全/状态函数复杂度偏高 | 用测试锁定行为后提取策略、验证器或状态表，不改变外部接口 | 8–16 小时（热点） |
 | CR-09 | P3 | 测试依赖兼容性 | FastAPI/Starlette TestClient 与 AnyIO 出现弃用警告 | 核对官方兼容范围后固定兼容版本或升级调用方式 | 1–3 小时 |
 | CR-10 | P3 | Web/HTTP 安全响应头 | Web 仅关闭 `X-Powered-By`，统一安全响应头策略尚未形成 | 结合实际 HTTPS 反代补 CSP、frame、referrer、permissions 等策略及浏览器测试 | 2–4 小时 |
+| CR-11 | P1 | Provider access / 出站请求 | 客户端 `Host`、`X-Forwarded-Host` 等路由头可进入固定上游请求 | 将出站头改为最小允许集合，拒绝或剥离路由/代理头并补负例 | 1–2 小时 |
+| CR-12 | P1 | Agent 身份 / PostgreSQL | provider 与 authentication 只分别限值，没有成对约束 | 在领域对象和数据库使用同一身份对不变量，显式迁移旧约束 | 2–4 小时 |
+| CR-13 | P2 | 任务 05 范围 | 策略层提前注册真实 DeepSeek/Kimi 上游 | 本阶段只保留 `internal_test_fake`；真实提供方映射留到任务 06/07 | 1–2 小时 |
 
 以上估算彼此可能重叠，不能简单相加。CR-07 是后续扩展目标的独立规模，不属于本轮修复工时。
 
@@ -148,6 +178,30 @@
 - 影响：React 默认转义和现有 CSRF/HTTPS Cookie 测试已经降低主要风险，但部署层缺乏纵深防护和可审计的统一策略。
 - 修复方向：先确认生产域名、代理终止点及资源来源，再在唯一边界配置 `Content-Security-Policy`、`frame-ancestors`、`Referrer-Policy`、`Permissions-Policy`；HSTS 只在确认全域 HTTPS 后启用。增加响应头和关键页面浏览器测试。
 - 预计工时：2–4 小时。
+
+### CR-11：出站头没有失败关闭
+
+- 问题定位：`apps/backend/src/eval_platform/adapters/execution/provider_access/request_policy.py:84-93` 仅删除客户端认证头；`transport.py:96-108` 将其余客户端头整体转发。`Host`、`X-Forwarded-Host`、`Forwarded` 等路由/代理语义因此可越过请求策略。
+- 模块定位：Execution Adapter → provider access → request policy / transport。
+- 影响：目的 URL 虽固定，但上游或中间代理可能按 Host/forwarded 头解释路由；实现不满足验证规范的错误 Host 出站前拒绝要求。
+- 修复方向：使用最小出站头允许集合，平台自行生成 Content-Type/Authorization；客户端 Host、代理转发头、连接级头和认证头一律不进入出站请求。增加对大小写、空白和多类路由头的负例。
+- 预计工时：1–2 小时。
+
+### CR-12：受控身份没有形成领域和数据库不变量
+
+- 问题定位：`domain/agent.py` 只声明 `CONTROLLED_IDENTITIES`，`AgentConfiguration` 本身不验证；`schema.sql` 和 `upgrade_api_constraints()` 分别约束 provider/auth 集合，未约束合法组合。
+- 模块定位：Domain → Agent Configuration；Persistence → catalog schema / migration。
+- 影响：绕过 `AgentRegistry` 的存储或旧数据可形成不受控组合；Repository 只检查指纹，仍会把该记录加载为合法配置。
+- 修复方向：领域构造器拒绝非受控身份对；数据库建立一个命名的组合 CHECK；显式迁移只接受已知旧/当前形状并复核。真实 PostgreSQL 测试插入交叉组合并断言拒绝。
+- 预计工时：2–4 小时。
+
+### CR-13：任务 05 提前放开真实上游
+
+- 问题定位：`provider_access/secrets.py:28-34` 的 `REGISTERED_UPSTREAMS` 同时包含 DeepSeek、Kimi 和假提供方；binding/transport 直接以该映射作为允许列表。
+- 模块定位：Execution Adapter → provider access → private profile / binding / transport。
+- 影响：虽然尚未接入 Worker，策略层已经具备构造真实供应商请求的能力，超出任务 05“只放开受控假提供方”的已确认方案，也放大未来误接线风险。
+- 修复方向：任务 05 的运行允许表只保留 `internal_test_fake` 和 `.invalid` 上游；未来 06/07 经独立规格、账户与真实调用授权后再引入真实映射。
+- 预计工时：1–2 小时。
 
 ## 5. 实测结果
 
