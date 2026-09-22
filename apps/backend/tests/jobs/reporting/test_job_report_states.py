@@ -78,6 +78,60 @@ def test_comparison_matrix_accepts_a_batch_without_results():
         assert body["totals"][0]["missing"] == 0
 
 
+def test_canceled_batch_report_stays_readable():
+    """2026-09-22 的实际故障：批次取消后查报告曾 500 INTERNAL_ERROR。"""
+
+    with job_api(result_scope="official") as api:
+        assert api.login().status_code == 200
+        created = _create(api, "state-canceled-0001")
+        job_id = created["job_id"]
+
+        canceled = api.client.post(
+            f"/api/v1/jobs/{job_id}/cancel",
+            json={"reason": "契约回归"},
+            headers={**WRITE_HEADERS, "Idempotency-Key": "state-cancel-key"},
+        )
+        assert canceled.status_code in {200, 202}
+
+        response = _report(api, job_id)
+        assert response.status_code == 200
+        body = response.json()
+        assert body["status"] == "CANCELED"
+        assert body["stage_message"]
+        assert body["runs"][0]["outcome"] == "incomplete"
+        assert body["runs"][0]["resolved"] is None
+
+
+def test_cancel_requested_batch_report_stays_readable():
+    with job_api(result_scope="official") as api:
+        assert api.login().status_code == 200
+        created = _create(api, "state-cancel-requested-0001")
+        job_id = created["job_id"]
+
+        approved = api.client.post(
+            f"/api/v1/jobs/{job_id}/approve",
+            json={},
+            headers={**WRITE_HEADERS, "Idempotency-Key": "state-cancel-req-approve"},
+        )
+        assert approved.status_code == 200
+        claimed = api.repository.claim("state-cancel-worker", api.clock())
+        assert claimed is not None
+        api.repository.start_execution(claimed.lease, api.clock())
+
+        requested = api.client.post(
+            f"/api/v1/jobs/{job_id}/cancel",
+            json={"reason": "契约回归"},
+            headers={**WRITE_HEADERS, "Idempotency-Key": "state-cancel-req-key"},
+        )
+        assert requested.status_code in {200, 202}
+
+        response = _report(api, job_id)
+        assert response.status_code == 200
+        body = response.json()
+        assert body["status"] == "CANCEL_REQUESTED"
+        assert body["stage_message"]
+
+
 def test_internal_test_batch_stays_hidden():
     with job_api() as api:
         assert api.login().status_code == 200
