@@ -113,6 +113,7 @@ export type JobDetail = JobSummary & {
   lease_expires_at: string | null;
   task_snapshots: Array<{
     task_id: string; instance_id: string; problem_statement: string;
+    dataset_id: string; dataset_revision: string; split: string; repo: string;
   }>;
   agent_snapshots: Array<{
     agent_configuration_id: string; display_name: string;

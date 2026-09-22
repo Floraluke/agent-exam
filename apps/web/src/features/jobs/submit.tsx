@@ -28,6 +28,7 @@ export default function JobsPanel({
   const [batchReport, setBatchReport] = useState<JobReport | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const decisionAttempt = useRef<{
     job: string; kind: "approve" | "reject"; reason: string; key: string;
   } | null>(null);
@@ -36,6 +37,16 @@ export default function JobsPanel({
   const explain = useCallback((value: unknown) => {
     setError(value instanceof ApiError ? value.message : "暂时无法读取评测批次。");
   }, []);
+  // 动作已被服务端受理，但随后的重读失败：页面只能停在旧状态，必须显式说明，
+  // 不能让用户以为操作没生效、也不能声称一个页面并未确认成功的结果。
+  // 返回错误值本身，让调用方照常显示出既有的重读失败文案，不吞掉原错误。
+  async function rereadAfterAction(jobId: string): Promise<unknown | null> {
+    try { setCurrent(await jobDetail(jobId)); return null; }
+    catch (value) {
+      setNotice("刷新失败，当前显示的可能不是最新状态，请手动刷新。");
+      return value;
+    }
+  }
   const restore = useCallback(async () => {
     setBusy(true); setError("");
     try {
@@ -53,6 +64,8 @@ export default function JobsPanel({
     setBusy(true); setError("");
     try {
       setCurrent(await jobDetail(current.job_id));
+      // 成功重读后，"可能不是最新状态"的提示必须消失，否则它会一直误导用户。
+      setNotice("");
       if (batchReport) setBatchReport(await jobReport(current.job_id));
       setReport(null);
     } catch (value) { explain(value); }
@@ -76,7 +89,7 @@ export default function JobsPanel({
   }
   async function decide(kind: "approve" | "reject", reason: string) {
     if (!current) return;
-    setBusy(true); setError("");
+    setBusy(true); setError(""); setNotice("");
     const previous = decisionAttempt.current;
     const attempt = previous && previous.job === current.job_id &&
       previous.kind === kind && previous.reason === reason ? previous :
@@ -84,27 +97,31 @@ export default function JobsPanel({
     decisionAttempt.current = attempt;
     try {
       await decideJob(current.job_id, kind, reason, attempt.key);
-      setCurrent(await jobDetail(current.job_id)); decisionAttempt.current = null;
+      const failed = await rereadAfterAction(current.job_id);
+      if (failed === null) decisionAttempt.current = null; else explain(failed);
     } catch (value) {
       if (value instanceof ApiError && value.code === "JOB_STATE_CONFLICT") {
-        try { setCurrent(await jobDetail(current.job_id)); } catch { /* keep error */ }
+        // 冲突后重读服务器事实；重读也失败时保留冲突文案，另加过期提示。
+        await rereadAfterAction(current.job_id);
       }
       explain(value);
     } finally { setBusy(false); }
   }
   async function cancel(reason: string) {
     if (!current) return;
-    setBusy(true); setError("");
+    setBusy(true); setError(""); setNotice("");
     const previous = cancelAttempt.current;
     const attempt = previous && previous.job === current.job_id && previous.reason === reason
       ? previous : { job: current.job_id, reason, key: crypto.randomUUID() };
     cancelAttempt.current = attempt;
     try {
       await cancelJob(current.job_id, reason, attempt.key);
-      setCurrent(await jobDetail(current.job_id)); cancelAttempt.current = null;
+      const failed = await rereadAfterAction(current.job_id);
+      if (failed === null) cancelAttempt.current = null; else explain(failed);
     } catch (value) {
       if (value instanceof ApiError && value.code === "JOB_STATE_CONFLICT") {
-        try { setCurrent(await jobDetail(current.job_id)); } catch { /* keep error */ }
+        // 冲突后重读服务器事实；重读也失败时保留冲突文案，另加过期提示。
+        await rereadAfterAction(current.job_id);
       }
       explain(value);
     } finally { setBusy(false); }
@@ -115,6 +132,7 @@ export default function JobsPanel({
       setCurrent(job); setReport(null); setBatchReport(null); onCreated?.(job);
     }} />}
     {error && <p role="alert" className="error">{error}</p>}
+    {notice && <p role="status" className="error">{notice}</p>}
     {current && <>
       <JobDetails job={current} />
       <RecoveryPanel job={current} owner={owner} onChanged={setCurrent} />

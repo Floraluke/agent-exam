@@ -36,6 +36,8 @@ from eval_platform.application.reporting import JobReporting, LeaderboardReporti
 from eval_platform.application.task_catalog import TaskCatalog
 from eval_platform.delivery.http.app import create_app
 from eval_platform.delivery.http.config import HttpConfig
+from eval_platform.delivery.http.errors import error_response
+from eval_platform.delivery.http.security import secure_response
 from eval_platform.delivery.job_presets import submission_policy
 from eval_platform.delivery.worker.main import WorkerShell
 from eval_platform.domain.agent import AgentConfiguration
@@ -216,6 +218,36 @@ def expire_and_clean_artifacts():
         "deleted": result.deleted,
         "recovered": result.recovered,
     }
+
+
+# 故障注入：让下一条匹配的 HTTP 响应以给定稳定错误码收束，取走即清空（一次生效）。
+# 未调用端点时行为完全不变：队列为空即直接透传，不改变任何既有响应。
+injected_responses: list[dict[str, str]] = []
+
+
+@app.middleware("http")
+async def inject_response_failure(request, call_next):
+    for index, injection in enumerate(injected_responses):
+        if request.method != injection["method"]:
+            continue
+        if not request.url.path.endswith(injection["path_suffix"]):
+            continue
+        injected_responses.pop(index)
+        # 复用真实错误信封与安全头，使注入故障与真实故障在形状上不可区分。
+        return secure_response(
+            error_response(
+                int(injection["status"]),
+                injection["code"],
+                injection.get("message") or "合成的服务端故障",
+            )
+        )
+    return await call_next(request)
+
+
+@app.post("/__test__/http/fail-next-response")
+def fail_next_response(payload: dict[str, str]):
+    injected_responses.append(payload)
+    return {"armed": True}
 
 
 forced_failure: list[tuple[str, str]] = []

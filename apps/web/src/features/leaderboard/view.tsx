@@ -2,12 +2,20 @@
 
 import { useState, type FormEvent } from "react";
 import { ApiError } from "../../lib/api-client";
-import { leaderboard, type LeaderboardFilters } from "../../lib/leaderboard/client";
+import {
+  filtersFromQuery, leaderboard, type LeaderboardFilters,
+} from "../../lib/leaderboard/client";
 import type { LeaderboardRow, MetricValue } from "../../lib/leaderboard/shapes";
 
 const empty: LeaderboardFilters = {
   datasetId: "", datasetRevision: "", split: "", repo: "", toolProfileId: "",
 };
+
+// 预填只读 URL 参数：这是默认值，不是授权，也不自动发起查询。
+function initialFilters(): LeaderboardFilters {
+  if (typeof window === "undefined") return empty;
+  return filtersFromQuery(new URL(window.location.href).searchParams);
+}
 
 function metric(label: string, item: MetricValue, selected: number, suffix = "") {
   const value = item.value === null ? "unknown" : `${item.value}${suffix}`;
@@ -77,7 +85,7 @@ function Result({ row }: { row: LeaderboardRow }) {
 }
 
 export default function LeaderboardView() {
-  const [filters, setFilters] = useState(empty);
+  const [filters, setFilters] = useState(initialFilters);
   const [applied, setApplied] = useState(empty);
   const [rows, setRows] = useState<LeaderboardRow[]>([]);
   const [next, setNext] = useState<string | null>(null);

@@ -68,6 +68,11 @@ export function parseJobDetail(value: unknown): JobDetail {
         task_id: text(task, "task_id"),
         instance_id: text(task, "instance_id"),
         problem_statement: text(task, "problem_statement"),
+        // 冻结的比较条件：响应本就有，排行榜预填靠它们，不在前端拼接或猜测。
+        dataset_id: text(task, "dataset_id"),
+        dataset_revision: text(task, "dataset_revision"),
+        split: text(task, "split"),
+        repo: text(task, "repo"),
       };
     }),
     agent_snapshots: item.agent_snapshots.map((value) => {
