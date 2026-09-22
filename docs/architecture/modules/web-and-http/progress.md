@@ -210,7 +210,7 @@ B 手动尝试从本机接入 owner A 的共享评测环境，**未接通**：
 | 本机 Docker / 任务 05 T1 | ✅ 已完成 | 2026-09-22：Docker 27.5.1；正常拓扑 `status=verified`，反向对照 `status=negative-control-ok`，容器/网络/卷残留均为 0。固定 Harbor T2 仍未由此通过 |
 | 本机在**当前 main** 上重跑 | ✅ 已完成 | 2026-09-22（`01feba4`）：后端默认 **510 passed / 102 skipped**，分支覆盖率 86.38%；仓库根统一入口 **521 passed / 112 skipped**。环境门控项仍按 skipped 记录；完整证据见[诊断报告 §8.2](../../../reviews/2026-09-21-core-code-diagnostic-report.md#82-最终实测) |
 | 实时 OpenAPI 计数 | ✅ 已复核 | 用真实装配读 OpenAPI：**32 个端点，与 §2.1 的 32 条逐条集合比对差异 0**（2026-09-21，见上） |
-| OpenAPI 字段级 schema 对账 | ⬜ 未做 | 仅做过 §10.4 正文与实现的 20/20 静态字段对照 |
+| OpenAPI 字段级 schema 对账 | ✅ **已完成（2026-09-22）** | 用 `create_runtime_app()` 读实时 OpenAPI（29 个路径、59 个 schema），与 §4.1–§4.3、§9.2、§10.1–§10.4 的示例/正文逐字段比对。**逐字段一致**：§4.1、§4.2（8/8）、§4.3（19/19）、§10.1（11 顶层 + 11 个 Run 字段）、§9.2、轨迹（9/9）。**修复三处契约缺口**：§4.3 示例缺 6 个字段（实现与 §7 示例本就有，属文档内部不一致）、§10.2 从未定义过程指标字段名（示例是空对象）、§10.4 未写 `cells[].failure_code`。**未逐字段核对**：Job 详情（73）、`job-options`、排行榜（67）、制品索引（18）——无示例，只能人工看正文。只比字段名与层级，不比类型/可空性/枚举。见[行动 13](actions/delivery/13-openapi-field-reconciliation.md) |
 | `ruff` / `mypy` | ✅ 当前统一入口通过 | Ruff lint 与 321 文件格式检查通过；修正 src 布局配置后，无参数 Mypy 对 177 个源文件通过，不再需要路径绕行 |
 | 受控集合以外记录的 HTTP 表现 | ❓ **待 E 决定** | `_controlled` 数据层"失败关闭"是对的（抛 `ValueError`，不回退默认值），但 HTTP 层只注册了 `AuthenticationRequired`/`CatalogError`/`JobError`/`RequestValidationError`/`IdentityUnavailable`/`HTTPException`，**没有 `ValueError` 处理器**，故当前表现为 500、不带受控错误码。是否包装成受控错误（例如沿用 503 `DEPENDENCY_UNAVAILABLE`）由 E 定；B 只在 §4.2 写了"失败关闭"，**未承诺状态码** |
 | 未完成批次的批次报告 | ✅ 已由当前实现关闭 | 等待批准、排队和运行中批次均返回 200，并用 `pending_runs` / `incomplete` 表达未完成；`tests/jobs/execution/batch/test_http_stages.py` 覆盖持久化阶段。具体契约见[非终态报告行动](actions/10-job-report-nonterminal-contract.md) |
@@ -218,4 +218,4 @@ B 手动尝试从本机接入 owner A 的共享评测环境，**未接通**：
 | 浏览器夹具"强制下一次响应出错"控制端点 | ⬜ 待排期 | 用于"未知错误码失败关闭"的呈现验证；按约定等代理链落地后与"受控文案忠实呈现"一起做 |
 | 与 D 的工作重复 | ✅ 已关闭 | D 于 2026-09-21 拍板：接受 `main` 为最终形态，`cdcb4cf`/`c5e036d` 不再合入，以 `7553ce0` 为准；"不收敛"决定作废；`xinyue-modules` 转历史存档。**收尾提交已核实**：`3930f24`（关闭提案）与其子提交 `775d7a1`（更正已归档提案）都在远端，`git ls-remote` 权威值为 `775d7a1d065632064de2c3d5f0636f7eb03a80c2`。另记一条拓扑事实：**D 的 `origin` 就是团队仓库本身**（只配了一个 remote、没有 fork），她的推送直达 `anphuchoang5-sys/agent-exam`，与 B 的 fork 提 PR 路径不同 |
 | 任务 03 的 Web 对比页 | ✅ 已完成 | 契约（PR #7）、后端（`7553ce0`）与 Web 页面（PR #8）均已合入 `main`；见[对比页行动](actions/03-comparison-ui.md) |
-| 任务 03 正式 issue | ❓ 待确认 | `.scratch` 下无 `03-*` 任务单，是否发布待 B 决定 |
+| 任务 03 正式 issue | ✅ **不补发（2026-09-22，用户决定）** | 任务 03 已完成、证据链完整（契约 PR #7、后端 `7553ce0`、Web 页面 PR #8、行动记录）；补一张回溯任务单只会多一份需要维护的文档 |
