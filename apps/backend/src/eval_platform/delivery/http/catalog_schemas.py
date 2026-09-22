@@ -3,7 +3,11 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from eval_platform.domain.agent import CONTROLLED_AGENT_TYPES, CONTROLLED_PROVIDERS
-from eval_platform.domain.catalog import CatalogTask, RegisteredAgent
+from eval_platform.domain.catalog import (
+    CatalogTask,
+    CatalogUnavailable,
+    RegisteredAgent,
+)
 
 
 def _controlled(value: str, allowed: tuple[str, ...], code: str) -> Any:
@@ -11,10 +15,12 @@ def _controlled(value: str, allowed: tuple[str, ...], code: str) -> Any:
 
     The controlled sets live in the domain; a value outside them means a record
     escaped the registry and the CHECK constraint, so failing closed is the only
-    safe answer.
+    safe answer. The code stays inside the process: the error handler maps this
+    to 503 DEPENDENCY_UNAVAILABLE, the contract's answer for a damaged catalog
+    record, which reports the failure without echoing the value or the code.
     """
     if value not in allowed:
-        raise ValueError(code)
+        raise CatalogUnavailable(code)
     return value
 
 

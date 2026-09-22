@@ -135,10 +135,85 @@ E 侧已有准备产物：[阶段 1 代理测试设计](../../../docs/LLY/01-pla
 - **请 B 在 `HTTP_API.md` 第 10.2 节把四个受控码列入枚举**（当前为候选）：`PROVIDER_CREDENTIAL_UNAVAILABLE`、`PROVIDER_ACCESS_DENIED`、`PROVIDER_REQUEST_REJECTED`、`PROVIDER_BUDGET_EXHAUSTED`，以及通用兜底 `PROVIDER_ACCESS_FAILED`。若 B 更倾向别的命名或粒度（例如额度与期限拆成两个码），E 按契约改映射表与用例即可。
 - 边界：映射表当前**尚无调用方**——接线在 `service.py`（其网络形态待 T2 结论），因此本片只保证"映射存在且受门禁保护"，不声称任何失败链路已端到端可用。
 
-2026-09-22 核心诊断修复后对账
+2026-09-21 本机部分实施完毕（S6a–S6e，`service.py` 与接线）
+
+按 [`docs/LLY/01-plan/STAGE1_PROXY_SERVICE_PLAN.md`](../../../docs/LLY/01-plan/STAGE1_PROXY_SERVICE_PLAN.md) 实施五片，实测与证据见[本机实施行动](../../../docs/actions/2026-09-21-task05-local-implementation.md)：
+
+- **S6a 入口、鉴权、策略、凭据**：`decide()` 按六步失败关闭顺序执行（形状 → 鉴权 → 策略 → 凭据 → 预留 → 出站描述），任一步失败都给固定内部码 + 受控文案，且**不动账本、不出站**。
+- **S6b 额度与结算**：`stream.py` 只解释终止事件（有界缓冲，畸形帧一律当"没有 usage"）；`runner.py` **无论流怎么结束都只结算一次**——没有终止事件、被切断、超时、客户端中途离开，一律**按整笔预留全额计费并关闭该 Run**。
+- **S6c 出站与流透传**：`egress.py` 是全项目唯一开 socket 的地方（一次连接、一次尝试、不跟随重定向、上游状态映射为固定码）；`http.py` 用受控文案应答、字节原样透传，**客户端消失也会结算**。
+- **S6d 收束**：`closure.py` 撤销令牌 + 关闭账本，首个原因不被改写；"新代理 + 同一账本"继承已花费额度，**重启不是重新发额度**。
+- **S6e 秘密外表面**：五条错误路径的对外文案与响应头、进程 stdout/stderr、环境与 argv、运行目录落盘文件，**全部零哨兵命中**；经代理发出的凭据是代理自己的假值，做题侧令牌从未到达上游。
+
+证据方式（不用日志文本推断）：假上游自己的请求记录证明"经代理发出"（1 次请求、模型名与凭据来自绑定）与"被拒时只有一次尝试"；客户端收到的字节与上游逐字节一致。**区分力实测七处**（改实现让它失败、还原后通过）。最终实测：**默认回归 587 passed / 105 skipped / 2 failed**（失败项仍是缺 `framework/harbor` 的 ISSUE-04）、`pytest tests/providers` **165 passed / 1 skipped**、静态检查全绿。
+
+**仍未完成，且都等 T2**：S9（worker 按 Run 选绑定）、S10（`net/` 与网络接线）、S11（集成层：容器拓扑、直连拒绝、宿主隔离、假 Key 探查、精确清理）——这些必须在固定 Harbor 上回答，属负责人机器。S2 的 TOML 字段名与事件词表也要在那台机器上用固定 CLI 对账。
+
+**请负责人/用户定夺一件安全取舍**：`build_outbound` 会转发除认证头以外的客户端头。`Host` / `Accept-Encoding` / `Content-Length` / `Transfer-Encoding` / `Connection` 现由传输层接管（否则会出现两个 Host、或压缩流破坏终止事件解析），但 `X-Forwarded-Host` 一类仍会到达注册上游（**目的地本身不受影响**，已断言）。是否收紧为白名单（只留 `Content-Type` 等）需明确。
+
+2026-09-22 关闭 B 指出的缺陷：超受控集合的存量记录不再返回 500（E 侧小片已实施）
+
+- **来源**：B 在[受控词汇对齐行动](../../../docs/architecture/modules/web-and-http/actions/05b-t05-controlled-vocabulary-alignment.md)第 6 节把一处新问题留给 E 决定——`catalog_schemas.py` 的 `_controlled()` 抛裸 `ValueError`，而 `app.py` 只注册了 6 个异常处理器、没有 `ValueError` 的，因此该路径当时表现成 500、不带受控错误码。
+- **修法（E 的实现选择，零契约变更）**：改为抛既有域错误 `CatalogUnavailable`，由 `errors.py` 既有处理器映射为 **503 `DEPENDENCY_UNAVAILABLE`**——`HTTP_API.md` §5 已把"目录对象缺失/损坏"归为 503，故未新增错误码、未改契约。内部码 `UNCONTROLLED_AGENT_TYPE` / `UNCONTROLLED_PROVIDER` 只留在进程内，不回显。
+- **可观察行为（给 B）**：该路径对客户端是 **503 + `DEPENDENCY_UNAVAILABLE`**，正文不含内部码，也不含记录自身的 provider / agent 取值。§4.2 现只把 `UNCONTROLLED_*` 记为失败关闭标记、未写状态码，B 可自行决定是否补一句；本片未改 B 的文档。
+- **验证**：新增 `tests/catalog/agent_identity/test_uncontrolled_records.py`（4 条用例）；**区分力实测**（把实现退回 `raise ValueError(code)` 后 4 条全部失败，还原后通过）；`pytest tests/catalog` 46 passed / 29 skipped、默认回归 **591 passed / 105 skipped / 2 failed**（+4，失败项仍是缺 `framework/harbor` 的 ISSUE-04）、`ruff`/`format`/`mypy` 全绿。过程见[行动记录](../../../docs/actions/2026-09-22-t05-uncontrolled-identity-http-error.md)。
+- **另记 B 对我方转述的一处修正**：HTTP 响应只含 `agent_type` 与 `model_provider`，**不含** `authentication_type` 与凭据 profile（契约本就规定不返回认证方式与凭据引用）；E 侧此前把它算作"要公开的身份"，属转述不准确，已按代码更正。
+- 本片不改变本任务其余停点：**S9/S10/S11 仍等 T2**（T2 需在负责人机器执行，探针已入库、窗口可用，只差一句书面授权）。
+
+2026-09-22 负责人机器复测 T1、Harbor 源码结论与 T2 授权增补
+
+- **T1 已在负责人机器复测通过**：在 `lly/dev`（`ffb2c74`）上运行两条探针命令，正常 **28 PASS / 退出 0 / `status=verified`**，反向对照 **4 条预期 FAIL / `status=negative-control-ok`**；每次 4 容器 3 网络均带双标签、无卷创建，清理复核为空。探针本身也经其收紧：预检拒绝同名资源与未缓存镜像（不自动拉取）、清理改为"名称 + 任务标签 + 本轮 scope"三重匹配、UID 查询容器纳入标签，**断言与 verdict 未改**（E 已逐行核对）。记录见[负责人 T2 复测记录](../../../docs/actions/2026-09-22-task05-owner-t2.md)。
+- **Harbor 侧车附加的源码结论**：**允许按服务绕过默认侧车附加**——任务 Compose 或 `extra_docker_compose` 中显式声明 `networks`/`network_mode` 的服务被排除在生成的侧车覆盖文件外（`docker.py:433-449`、`466-473`）；入口为 `JobConfig.environment` → `Trial EnvironmentConfig.extra_docker_compose` → `DockerEnvironment`。**该结论不等于 T2 已运行，也不等于防绕过成立**。
+- **T2 因此仍未运行**，原因是两处授权冲突：Harbor 构造期会创建**无名称无标签**的内核探针容器；其常规拆除路径可能执行 `down --rmi local --volumes`（超出"只按名称与标签删除、不删镜像"）。**用户 2026-09-22 明确授权增补**，范围与硬边界写在[组长机器预案附三](../../../docs/actions/2026-09-21-task05-owner-machine-runbook.md)：允许那个 `--rm` 短命探针容器（但不得挂载 Docker 套接字/发布端口/写宿主路径，若包含即停并报告）；允许常规拆除但**只可删除该次 Trial 自己的 compose 项目资源**，不得删除拉取的固定镜像或其他项目的卷，且须在执行前后记录并复核镜像/卷清单。
+- **建议的最小 T2 形态**（不接 Codex CLI、不接真实模型）：用 `extra_docker_compose` 给 `services.main` 声明显式网络，定义 `internal`（`internal: true`）与 `egress`，另起受控 `proxy` 与 `fake-upstream`，把**七条断言作为该次 Trial 的命令**在真实 Harbor 环境里跑，证据取 Trial stdout 与事后 `docker inspect`。
+- 任务 05 的拓扑验收**仍未通过**；本轮也没有把 T1 结果外推为 T2 通过。
+
+2026-09-22 负责人机器 T2 首次执行：**未测得**（工具链失败，非拓扑结论）
+
+- **实际结果**：在 `runtime/lly-dev-verify` worktree 的 `lly/dev` 上跑固定 Harbor 最小环境，Harbor 创建了 `internal`/`egress` 两张网络与五个容器，但**自带侧车 `agentexam-t05-topology-harbor-docker-egress-control-sidecar-1` 在 `up --wait` 时退出（码 127）**，因此**七组 Trial 命令一条也未执行**，运行期 inspect 也未取得。负责人按停止条件停手，未调整侧车、未重试。拆除前后镜像 90/卷 16 无增删，按项目名与标签复核残留为 0；首次预检因 Alipine 摘要抄错而提前失败（已修正后重跑一次）。
+- **分类（重要，避免误记）**：这是**工具链失败**，不是"拓扑无法落实"。与 T1 首次失败同一形状（当时监听端容器启动即退出 127）。**七条断言尚未在 Harbor 上被测量**，因此第 2 项验收既不能记为通过、也不能记为"拓扑不成立"；任务**停在 T2**，不得据此进入 06/07。
+- **仓库内已有的强线索（供诊断，非结论）**：本仓库早就知道**固定 Harbor 自带侧车在这台机器上需要 DNS 适配**——M0 已查明上游 `bin/network-policy` 不放行 Docker Desktop 的转发解析器 `192.168.65.7:53`，导致两个批准域名解析失败；`adapters/execution/network.py` 因此有 `export_sidecar()`（加 DNS 守卫 + 一条 `192.168.65.7 udp dport 53 accept`），并**只通过 `adapters/execution/harbor_entry.py` 的 `_EGRESS_CONTROL_SIDECAR_CONTEXT_PATH` 生效**。负责人这次用的是**自写的最小探针**（`.tmp/t05-harbor-minimal/.../probe.py`），**可能没有走这条链**，于是 Harbor 用的是未适配的侧车上下文。退出码 127 通常表示**容器内命令找不到**（如入口脚本 exec 失败），而我们的 DNS 守卫失败会给退出码 1 并打印 `HARBOR_DOCKER_DNS_CONFIG_UNSUPPORTED`，与 127 不符——**具体原因仍未证实，需取侧车日志**。
+- 另注：即使 `main` 用显式 `networks` 绕开侧车覆盖（源码结论），Harbor 的 compose 里**仍然含侧车服务**且 `up --wait` 会等它——所以侧车至少要能起来，这是 T2 的前置。
+- **待办**：① 负责人侧加取侧车日志与镜像/入口信息（诊断，不新增资源）；② 负责人的行动文档目前只在其 worktree 中（`docs/actions/2026-09-22-task05-harbor-minimal-t2.md`），**尚未提交**，需其提交后本仓库才能引用；③ T2 判定维持"未测得"，等待下一次执行结果。
+  - **（2026-09-22 同日更新）**：②已关闭——负责人已提交，本仓库现有 [`docs/actions/2026-09-22-task05-harbor-minimal-t2.md`](../../../docs/actions/2026-09-22-task05-harbor-minimal-t2.md) 与 [`docs/actions/2026-09-22-task05-sidecar-127-diagnosis.md`](../../../docs/actions/2026-09-22-task05-sidecar-127-diagnosis.md)（提交 `c40ea2e`），上文摘要即取自这两份原件。
+
+2026-09-22 回复 B 的三问（落地时间、超集合记录的 HTTP 表现、夹具控制端点）
+
+1. **落地时间：由 T2 的结论触发，不是日期；本轮 T2 尚未测得。** 已核实：链路零件（S1–S8、S6a–S6e）已实现并在 `main`，但**未接运行主链路**——`provider_access` 包外只有一个导入方（`codex/provider_config.py:28` 引 `REGISTERED_UPSTREAMS`），`render_provider_config` **零调用方**；`delivery/worker/runtime.py:66` 仍无条件 `validate_auth_file`，`:26` 的 `MODEL_HOSTS` 仍写死 ChatGPT 两个域名并只构造一个 adapter。因此**今天没有任何真实 provider 失败能写到 Run 的 `failure_code`/`failure_summary`**。
+   - 触发链（顺序固定）：① T2 侧车退出码 127 的诊断 → 七条断言在固定 Harbor 上被测到；② S9/S10/S11；③ 链路接入。另有一项会先做、与本问题无关：把 `origin/main` 的加固改造合入本分支并让 `server/` 适配新接缝（合并后全套实测数字须重测）。
+   - E 的承诺：链路接入后**同一工作窗口内通知 B**（附提交哈希与"如何复现一条真实受控失败"）；若结论是"固定 Harbor 不允许替换侧车"或诊断表明不可行，**立即告知 B**，不让其空等。
+   - **两项呈现验证不必等这条链**：它们验的是 Web 层对"给定码/给定文案"的行为，不是链路可用性。夹具造一条带受控 `failure_summary` 的 Run、再造一条未知码的 Run 即可；`tests/identity/browser_server.py:194` 已有 `POST /__test__/jobs/interrupt-next` 这类控制端点先例。真实链路 → 真实 DB 行 → 页面的端到端证据建议排在任务 08 的矩阵里。
+2. **"超受控集合记录的 HTTP 表现"：已定并已实现，不再是待定项。** 提交 `3a5a9b8`：选 **503 `DEPENDENCY_UNAVAILABLE`**（`HTTP_API.md` §5 已把"对象缺失/损坏或依赖故障"归为 503），**零契约变更、无新错误码**；内部码 `UNCONTROLLED_*` 只留进程内。4 条新用例 + 区分力实测（退回旧实现全部失败）。
+   - 留给 B 决定（可选，一句即可）：§4.2 现只把 `UNCONTROLLED_*` 记为失败关闭标记、未写状态码；是否补一句"客户端可观察为 503 `DEPENDENCY_UNAVAILABLE`"由 B 定，E 不改 B 的文档。E 建议补——B 的"未知错误码失败关闭"验证会走到这个分支。
+3. **夹具"强制下一次响应出错"的控制端点不依赖 E**，B 现在即可实现。E 的唯一请求：造例覆盖两类码——链路将来会发出的（`PROVIDER_*` 五个）与永不会发出的未知码；并确认页面**不回显**原始内部码或文本（§10.2"内容安全由写入方负责、Web 层不猜测"的呈现侧对照）。
+4. 顺带记一处 E 侧同类隐患（当前不在 HTTP 路径上）：`codex/provider_config.py:62-72` 也抛裸 `ValueError("PROVIDER_CONFIG_*")`，目前零调用方；S10 接线时一并收口为受控失败。
+
+2026-09-22 T2 诊断结果：**侧车入口文件 ENOENT（工具链/环境问题，仍非拓扑结论）**
+
+- **实测证据**（负责人只读取证，`up --detach` 返回 0 后立刻取证）：`docker logs` 原文为 `[FATAL tini (7)] exec /opt/egress-sidecar/entrypoint.sh failed: No such file or directory`；容器 `Exited (127)`；`image=harbor-prebuilt:harbor-docker-egress-control-sidecar--f57c86fb4906508e`、`entrypoint=["/opt/egress-sidecar/entrypoint.sh"]`、`error=` 空、非 OOM；该镜像 `RepoDigests=[]`（**本机构建、非拉取**）。
+- **归类**：**环境/工具链失败**，不是七组断言失败。断言仍未测量，第 2 项验收既不能记通过也不能记"拓扑不成立"。
+- **根因判断（强假设，且有本仓库早已记录的机制）**：`docs/dependencies/DEPENDENCIES.md:314` 明确写过——"侧车由固定提交的五个文件构建，复用 Harbor 原生内容哈希命名及构建缓存，**Windows 检出中的 CRLF 会使脚本解释器无效**"，而 `network.py` 之所以用 `git show <revision>:<path>` 取原始 blob，正是为了绕开这一点。负责人本次的 `probe.py` **没有**设置 `_EGRESS_CONTROL_SIDECAR_CONTEXT_PATH`、也未调用 `export_sidecar()`，因此 Harbor 用的是**它自己默认的侧车上下文**（即固定 Harbor 的 Windows 工作树检出），若该检出为 CRLF，`entrypoint.sh` 的 shebang 变成 `#!/bin/sh
+`，内核找不到解释器 → 正是 `No such file or directory` → tini 报错 → 退出 127。**该假设仍需一次只读确认**（见下），未确认前不写成已定位。
+- **重要澄清（对产品路径有利）**：产品路径 **Worker → `HarborExecutionAdapter` → `harbor_command()` → `harbor_entry.py`** 一定会先 `export_sidecar()` 并把导出上下文交给 Harbor（`harbor_entry.py:177`、`:186`），因此**这个 CRLF 陷阱不影响产品路径**，只影响绕过该入口的手写探针。同一导出还携带**已在 M0 授权的 DNS 适配**（放行 Docker Desktop 转发解析器 `192.168.65.7:53`），没有它即使侧车起来，域名解析也会失败。
+- **对下一轮 T2 的更正**：本仓库此前的"最小 T2 形态"建议（由 E 写）是**手写 probe**，实测证明这条建议会绕过仓库必需的侧车适配。下一轮应改为**经产品入口跑最小 job config**（同 `harbor_entry.py`），或至少在独立探针里显式设置 `_EGRESS_CONTROL_SIDECAR_CONTEXT_PATH` 指向 `export_sidecar()` 导出的上下文。已同步修正[组长机器预案附三](../../../docs/actions/2026-09-21-task05-owner-machine-runbook.md)。
+- **待办**：① 负责人侧一次只读确认（工作树与镜像内 `entrypoint.sh` 的实际行尾）；② 负责人的两份行动文档（`2026-09-22-task05-harbor-minimal-t2.md`、`2026-09-22-task05-sidecar-127-diagnosis.md`）**只存在于其本机 worktree，用户 2026-09-22 明确不上传、不再等待**——本仓库只保留摘要与关键原文引用，不指向不存在路径；③ T2 维持"未测得"。
+  - **（2026-09-22 同日更新，取代本条 ②）**：两份行动文档**已由负责人提交并进入 `lly/dev`**（提交 `c40ea2e`），现位于 `docs/actions/`，原文可引用；"不指向不存在路径"的限制不再适用。①③不变。
+2026-09-22 核心诊断修复后对账（来自 `origin/main` 的加固分支，合并时保留）
 
 - S3–S8 的纯策略切片已经过本轮安全加固：客户端 `Host`、`Forwarded`、`X-Forwarded-*` 与认证头在出站前拒绝；预算用量缺失或超过预留失败关闭；私有文件打开后再次核对文件描述符身份，降低路径替换竞态；受控失败词汇仍只有五个公开 `PROVIDER_*` 码。
 - 领域 `CONTROLLED_IDENTITIES` 和 PostgreSQL 成对 CHECK 共同限制 `openai_chatgpt/chatgpt_auth_json` 与 `internal_test_fake/provider_run_token`；生产 `create_catalog` 不注册假预设。旧库升级由 `python -m eval_platform.delivery.catalog upgrade-api-constraints` 显式执行，只接受已知旧/目标形状，未知定义拒绝。
 - `provider_access/` 当前实际为 8 个源文件；`tests/providers/policy/` 为 6 个测试模块，另有 `tests/providers/runtime/` 的 T1 探针。HTTP 契约已经列出五个受控失败码并说明它们尚无生产调用路径，原“等待 B 契约确认”关闭。
 - 本轮隔离真实 PostgreSQL 已验证身份对与迁移；策略回归、Ruff、Mypy 和复杂度门禁已通过。最终全量结果由[核心修复行动](../../../docs/actions/2026-09-21-core-diagnostic-remediation.md)维护，不用本节覆盖历史数字。
 - 仍未完成：S2、代理 `service.py`、S9–S11、Worker/Harbor Composition Root、T2、完整 Responses/工具/patch/Fork 循环、崩溃与跨重启生命周期。任务 05 的九项验收因此继续保持未勾选；没有读取真实 Key、调用真实 DeepSeek/Kimi 或充值。
+
+> **合并时的状态标注（2026-09-22）**：上一段"仍未完成：S2、代理 `service.py`…"是**加固分支当时的自述**，其中 **S2 与 `service.py`（S6a–S6e）已由本分支同日条目记为完成**（S2 的 TOML 字段名与事件词表仍待固定 CLI 对账），该两项在此已过期；**S9–S11、Composition Root、T2 与跨重启生命周期仍成立**，见上方"仍未完成，且都等 T2"。
+>
+> 该分支对策略层的加固**已随本次合并进入本分支**，本任务单里两条相关的旧悬置项因此关闭：① 上文"请负责人/用户定夺一件安全取舍（`build_outbound` 是否收紧为客户端头白名单）"——加固分支按 CR-11 已实现为**白名单：只放行 `accept`/`accept-encoding`/`user-agent`，路由与转发头在出站前失败关闭**；② `secrets.py` 的 `REGISTERED_UPSTREAMS` 按 CR-13 收窄为**只保留受控假上游**，真实 DeepSeek/Kimi 回到 06/07 范围。
+
+2026-09-22 合并落地与 `server/` 适配（E 侧已完成，摘要）
+
+- **合并提交 `b8bbc0b`**（合并基点 `4f2c606`，main 侧 `858d30a`）。过程、冲突解决与全部实测数字见[合并与适配行动](../../../docs/actions/2026-09-22-merge-main-hardening-into-lly-dev.md)。
+- **两处与"取 main 侧即可"不符的实测事实**：① main 的 `failures.py` **不是**超集——本分支的 `PROVIDER_UPSTREAM_FAILED` 与六个 `TRANSPORT_*` 码只在本分支，按"取 main 侧"会让六个上游失败码全部落到兜底 500；已改为手工并集。② main 的词表守卫用 `glob` 不递归，**不覆盖 `server/`**；已恢复 `rglob`，并实测证明 main 版会放过注入到 `server/egress.py` 的未审查码。
+- **`server/` 的四处适配**：错误码改按 `ProviderAccessError` 读 `.code`（不再 `str(error)`）；**入站先剥连接自有头**（`Host`/`Connection`/`Transfer-Encoding` 等，否则真实 HTTP 客户端一律被白名单拒绝）；**头白名单提前到额度预留之前**（合并后发现 `server/` 的真实缺陷：带一个非白名单头会在取走预留后才被拒，而该预留永不结算→白耗该 Run 额度）；`egress` 删除自持的转发列表，统一用 main 的两个常量。另补回 `codex/provider_config.py` 被 CR-13 静默弄失效的"真实提供方主机"守卫。
+- **实测（最终代码）**：`pytest tests/providers` **170 passed / 1 skipped**、默认回归 **610 passed / 106 skipped / 2 failed**、开 PG 全量 **664 passed / 52 skipped / 2 failed**（失败项始终只有缺 `framework/harbor` 的 ISSUE-04 那 2 项）；`ruff`/`format`(348 文件)/`mypy src`(186 源文件) 全绿。
+- **两条仍需 B 或后续切片处理的**：① `PROVIDER_UPSTREAM_FAILED` **仍未列入 `HTTP_API.md` §10.2**（该节只有 5 个受控码），而 `server/` 已按 502 使用它——沿用本任务单早先"待 B 列入枚举"的请求；② main 把 `accept-encoding` 归入**转发**集合，`egress` 不再强制 `identity`（隔离探针实测客户端送 `gzip` 上游即收到 `gzip`）；若真实上游压缩 SSE，终止事件扫描会按未知用量结算（**失败关闭、绝不少计费，但会多计费并提前关闭该 Run**），建议 S11 用真实上游复核。

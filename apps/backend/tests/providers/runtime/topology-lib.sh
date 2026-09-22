@@ -78,14 +78,45 @@ t05_health_gate() {
   return 1
 }
 
-# --- cleanup ----------------------------------------------------------------------------
-# Only the named resources are removed; there is never a global prune.
+# --- resource guard and cleanup ----------------------------------------------------------
+# Refuse collisions instead of deleting resources left by another run or another owner.
+t05_preflight_resources() {
+  local problems=() container network image
+  docker info >/dev/null 2>&1 || problems+=("Docker daemon unavailable")
+  for image in "${WORKLOAD_IMAGE}" "${LISTENER_IMAGE}"; do
+    docker image inspect "${image}" >/dev/null 2>&1 || problems+=("image not cached: ${image}")
+  done
+  for container in "${WORKLOAD}" "${PROXY}" "${UPSTREAM}" "${OTHER}"; do
+    docker container inspect "${container}" >/dev/null 2>&1 && problems+=("container name already in use: ${container}")
+  done
+  for network in "${INT}" "${EGR}" "${OTH}"; do
+    docker network inspect "${network}" >/dev/null 2>&1 && problems+=("network name already in use: ${network}")
+  done
+  [ "${#problems[@]}" -eq 0 ] && return 0
+  {
+    echo "harness-failed: ${#problems[@]} preflight problem(s); no assertion was measured"
+    printf 'problem: %s\n' "${problems[@]}"
+  } > "${DIAG}"
+  cat "${DIAG}"
+  echo "status=harness-failed  (see ${DIAG})"
+  return 1
+}
+
+t05_owned_container() {
+  [ "$(docker container inspect -f '{{index .Config.Labels "agentexam.task"}}|{{index .Config.Labels "agentexam.scope"}}' "$1" 2>/dev/null)" = "05|${SCOPE}" ]
+}
+
+t05_owned_network() {
+  [ "$(docker network inspect -f '{{index .Labels "agentexam.task"}}|{{index .Labels "agentexam.scope"}}' "$1" 2>/dev/null)" = "05|${SCOPE}" ]
+}
+
+# Only this run's named and doubly labelled resources are removed; never global prune.
 t05_cleanup() {
   local container network
   for container in "${WORKLOAD}" "${PROXY}" "${UPSTREAM}" "${OTHER}"; do
-    docker rm -f "${container}" >/dev/null 2>&1
+    t05_owned_container "${container}" && docker rm -f "${container}" >/dev/null 2>&1
   done
   for network in "${INT}" "${EGR}" "${OTH}"; do
-    docker network rm "${network}" >/dev/null 2>&1
+    t05_owned_network "${network}" && docker network rm "${network}" >/dev/null 2>&1
   done
 }
