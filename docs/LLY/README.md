@@ -34,6 +34,7 @@
 ## 当前状态
 
 - **第三块（`service.py` 与接线）已按该计划实施完毕**：[`01-plan/STAGE1_PROXY_SERVICE_PLAN.md`](01-plan/STAGE1_PROXY_SERVICE_PLAN.md)（分片 S6a–S6e 全绿；S10/S11 等 T2）
+- **阶段 1 跨机执行计划（T2 → S9 → S10 → S11）**：[`01-plan/STAGE1_T2_S9_S10_S11_PLAN.md`](01-plan/STAGE1_T2_S9_S10_S11_PLAN.md)（把负责人电脑当作第二台开发机：逐片实施步骤、两机协作与推送合并口径、每片必须回传的验收文件、A 机核对清单、停止条件）
 - 阶段 1 实施方案：[`01-plan/STAGE1_IMPLEMENTATION_PLAN.md`](01-plan/STAGE1_IMPLEMENTATION_PLAN.md)（文件树、S1–S11 分片、逐片验证与机器归属、待授权清单；**S2–S8、T1 与 S6a–S6e 已实施；S9–S11 等 T2**）
 - 计划书：[`01-plan/PLAN.md`](01-plan/PLAN.md)
 - 阶段 1 测试设计：[`01-plan/STAGE1_PROXY_TEST_DESIGN.md`](01-plan/STAGE1_PROXY_TEST_DESIGN.md)（准备性设计；用例归属已在 `tests/providers/` 落地，集成层等 T2）
