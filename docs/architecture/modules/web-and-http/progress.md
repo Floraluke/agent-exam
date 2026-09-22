@@ -95,7 +95,7 @@ A 指示"把 web 里的前端代码弄成一个脱离的 HTML，根据 HTTP API 
 | ~~第三个配置（凑"六题×三配置"）~~ | ✅ **已关闭（2026-09-21，C 答复）**：**不加**、维持六题 + 两配置。理由：① 任务 08 的冻结矩阵本就是"六题×两个新 API 配置 = 12 个 Run"，与现状正好对上；② 第三配置唯一能多验的"3 个恰好允许、4 个拒绝"边界已在 HTTP 层覆盖（`tests/jobs/scale/test_continuous_preset_bounds_sixty_runs_and_three_configurations`）；③ 等 05–07 落地 DeepSeek/Kimi 预设后再看是否需要，不预支。**不为它拆夹具文件、不再涨行数** |
 | 真后端上的"六题可选"核对 | ✅ **已改期到任务 08（2026-09-21，C 答复）**：浏览器侧继续用合成后端；真后端核对由 C 提供 preset id 与门禁证据（白名单六条在 `adapters/tasks/catalog.py` 的 `FIXED_TASK_IMAGES`），**联合验收放到 08 的正式部署窗口**，不再作为 B 的当前待办 |
 | 五档文案一致性 | ✅ **已核对（2026-09-21，D 答复）**：口径按 B 定的五个词，D 已把后端报告渲染器统一到同一套（`5373bf6`），并修掉她发现的后端旧用词；B 侧同步修掉两处前端残留（`report.tsx` 的"基础设施失败"、`comparison.tsx` 的"未通过"）与两处注释 |
-| B 侧尚未运行 `ruff` / `mypy` | 仅指后端文件；B 改过的 `browser_server.py` 已跑过 `ruff check` 与 `format`，其余后端文件不属 B |
+| B 侧尚未运行 `ruff` / `mypy` | ✅ **已运行（2026-09-22）** | `ruff check` 与 `format --check` 对 `tests/identity/browser_server.py` 全过；`mypy` 按**项目范围**（`MYPYPATH=src mypy src/eval_platform`）为 175 个源文件零问题。注意：按配置裸跑 `mypy` 在本机不可用（`packages = ["eval_platform"]` 解析到未安装 `py.typed` 的包），而拿单个测试文件当入口会连带检查范围外的夹具（268 个未标注类错误），那是噪声不是结论 |
 | 页面渲染面的哨兵扫描 | ✅ **已补齐（2026-09-22）** | 核对代码后发现原表述有一半已过期：**证据页早已覆盖**（`job-evidence.spec.ts` 两次扫描都打在单次运行报告/安全证据上）；本轮补上**批次报告（批次进度）**与**排行榜**两处，排行榜先断言 `.leaderboard-row` 真有行再扫（避免空转），查询字段取自任务目录而非硬编码。局限：只扫页面可见文本，哨兵是固定清单，新增敏感字段需手动加入。见[行动 12](actions/delivery/12-web-page-sentinel-sweep.md) |
 
 **上线状态**：`main = origin/main = upstream/main = ae5e40b`；fork 上只保留 `main` 与必须存档的 `task03/comparison-api-spec`（其 PR 是关闭而非合并，提交不在 main 上，模块文档以纯文本引用它）。
