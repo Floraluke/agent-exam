@@ -1,6 +1,20 @@
+import { leaderboardHref } from "../../lib/leaderboard/client";
 import type { JobDetail } from "../../lib/contracts";
 
+// 只有全部题目快照的冻结条件一致时，才存在单一可比的比较条件；
+// 跨数据集或跨 split 的批次没有这样的条件，此时不提供排行榜入口。
+function frozenScope(job: JobDetail) {
+  const first = job.task_snapshots[0];
+  if (!first) return null;
+  const same = job.task_snapshots.every((item) =>
+    item.dataset_id === first.dataset_id &&
+    item.dataset_revision === first.dataset_revision &&
+    item.split === first.split && item.repo === first.repo);
+  return same ? first : null;
+}
+
 export default function JobDetails({ job }: { job: JobDetail }) {
+  const scope = frozenScope(job);
   const title = {
     AWAITING_OWNER_APPROVAL: "等待所有者批准",
     QUEUED: "已批准，等待执行",
@@ -45,6 +59,10 @@ export default function JobDetails({ job }: { job: JobDetail }) {
       {job.tool_profile_snapshot.arbitrary_commands ? "允许" : "禁止"}）</p>
     <p>冻结版本：Harbor {job.harbor_revision}；SWE-Gym {job.swe_gym_revision}；
       SWE-Bench-Fork {job.swe_bench_fork_revision}</p>
+    {scope && <p><a href={leaderboardHref({
+      datasetId: scope.dataset_id, datasetRevision: scope.dataset_revision,
+      split: scope.split, repo: scope.repo, toolProfileId: job.tool_profile_id,
+    })}>按此条件查排行榜</a>（打开表单并预填这批冻结条件；仍需自行点查询）</p>}
     {job.owner_decided_at && <>
       <p>决定者：{job.owner_decided_by}</p>
       <p>决定时间：{new Date(job.owner_decided_at).toLocaleString("zh-CN")}</p>
