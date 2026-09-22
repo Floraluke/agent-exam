@@ -74,7 +74,7 @@ A 指示"把 web 里的前端代码弄成一个脱离的 HTML，根据 HTTP API 
 
 | 事项 | 等谁 | 依据 |
 |---|---|---|
-| 任务 05 的两项呈现验证（受控文案的忠实呈现、未知错误码的失败关闭） | ✅ **前置已解除，待 B 实施（2026-09-22，E 答复）** | E 明确：这两项验的是 **Web 层对“给定码 + 给定文案”的行为**，**不依赖链路可用性**——夹具里造一条带受控 `failure_summary` 的 Run、再造一条未知码的 Run 即可；`tests/identity/browser_server.py` 已有 `POST /__test__/jobs/interrupt-next` 一类控制端点先例。**真实链路 → 真实 DB 行 → 页面的端到端证据放到任务 08 的矩阵里**（不在本切片）。E 的请求：造例覆盖两类码——链路将来会发出的五类 `PROVIDER_*`，与永不会发出的未知码；并确认页面不回显原始内部码或文本 |
+| 任务 05 的两项呈现验证（受控文案的忠实呈现、未知错误码的失败关闭） | ✅ **已完成（2026-09-22）** | E 纠正了前置（只验 Web 层对给定码与文案的行为，**不依赖链路**）。夹具新增 `POST /__test__/jobs/fail-next-run`（未调用时行为不变），用例 `apps/web/tests/jobs/failure-presentation.spec.ts` 6 条覆盖五类 `PROVIDER_*` + 未知码；**单独 6 passed、全量 exit 0（26 spec / 52 passed / 0 failed）**；负控证明断言非空转（改文案/注入内部码都会失败，页面确实原样回显内部码）。真实链路端到端证据按 E 建议放任务 08。见[行动 05](actions/05-necessary-error-presentation.md) |
 | 共享 PostgreSQL `15432` 正向、Tailscale 双机、VPN 两态、未获准设备负向 | 等 A 排查网络与授权 | 本文件"共享环境接入尝试"节 |
 | M1-14 的 HTTPS Web 与浏览器协作验收 | A 主责；依赖同一环境 | [M1-14 任务单](../../../../.scratch/m1-platform/issues/14-private-remote-acceptance.md) |
 | 任务 05 整体开工 | 9 项负责人决定已确认；仍等 A 给出实施指令与拓扑探针窗口 | [任务 05 issue](../../../../.scratch/ui-catalog-providers/issues/05-fake-provider-secure-execution-chain.md)与[负责人回执](../../../LLY/01-plan/TASK05_OWNER_ACTION_REQUIRED.md) |
@@ -215,7 +215,7 @@ B 手动尝试从本机接入 owner A 的共享评测环境，**未接通**：
 | 受控集合以外记录的 HTTP 表现 | ❓ **待 E 决定** | `_controlled` 数据层"失败关闭"是对的（抛 `ValueError`，不回退默认值），但 HTTP 层只注册了 `AuthenticationRequired`/`CatalogError`/`JobError`/`RequestValidationError`/`IdentityUnavailable`/`HTTPException`，**没有 `ValueError` 处理器**，故当前表现为 500、不带受控错误码。是否包装成受控错误（例如沿用 503 `DEPENDENCY_UNAVAILABLE`）由 E 定；B 只在 §4.2 写了"失败关闭"，**未承诺状态码** |
 | 未完成批次的批次报告 | ✅ 已由当前实现关闭 | 等待批准、排队和运行中批次均返回 200，并用 `pending_runs` / `incomplete` 表达未完成；`tests/jobs/execution/batch/test_http_stages.py` 覆盖持久化阶段。具体契约见[非终态报告行动](actions/10-job-report-nonterminal-contract.md) |
 | 取消相关批次的批次报告返回 500 | ✅ **已定位并修复（缺陷）** | `_JOB_MESSAGES` 原缺 `CANCELED`/`CANCEL_REQUESTED`，索引抛未捕获 `KeyError`；仅测 AWAITING/QUEUED/PREPARING 无法发现。`0eeeb16` 补齐文案和中性兜底，并新增完整性测试；B 独立复跑“取消 → 查报告”为 200。此前 B 将其判为录制噪声是误判，详见[非终态报告行动](actions/10-job-report-nonterminal-contract.md) |
-| 浏览器夹具"强制下一次响应出错"控制端点 | ✅ **前置已解除，待 B 实施（2026-09-22，E 答复）** | 不再依赖代理链：那两项验证只验 Web 层对给定码与给定文案的行为；时间点由 B 定。造例需覆盖五类 `PROVIDER_*` 与永不会发出的未知码，并确认页面不回显内部码或文本 |
+| 浏览器夹具故障注入控制端点 | ✅ **已完成（2026-09-22）** | 端点 `POST /__test__/jobs/fail-next-run`：指定下一条真正执行的 Run 的 `failure_code`/`failure_summary`，**未调用时行为不变**（同一进程内下一个 Run 仍 COMPLETED/resolved）。注入点在 Run 失败码的唯一落库处 `job_repository.fail`，取走即清空 |
 | 与 D 的工作重复 | ✅ 已关闭 | D 于 2026-09-21 拍板：接受 `main` 为最终形态，`cdcb4cf`/`c5e036d` 不再合入，以 `7553ce0` 为准；"不收敛"决定作废；`xinyue-modules` 转历史存档。**收尾提交已核实**：`3930f24`（关闭提案）与其子提交 `775d7a1`（更正已归档提案）都在远端，`git ls-remote` 权威值为 `775d7a1d065632064de2c3d5f0636f7eb03a80c2`。另记一条拓扑事实：**D 的 `origin` 就是团队仓库本身**（只配了一个 remote、没有 fork），她的推送直达 `anphuchoang5-sys/agent-exam`，与 B 的 fork 提 PR 路径不同 |
 | 任务 03 的 Web 对比页 | ✅ 已完成 | 契约（PR #7）、后端（`7553ce0`）与 Web 页面（PR #8）均已合入 `main`；见[对比页行动](actions/03-comparison-ui.md) |
 | 任务 03 正式 issue | ✅ **不补发（2026-09-22，用户决定）** | 任务 03 已完成、证据链完整（契约 PR #7、后端 `7553ce0`、Web 页面 PR #8、行动记录）；补一张回溯任务单只会多一份需要维护的文档 |
