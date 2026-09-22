@@ -3,6 +3,12 @@
 B 在任务 05 的契约对齐行动里指出 `_controlled` 抛裸 `ValueError`、而 `app.py`
 没有 `ValueError` 处理器，因此这条路径当时表现成 500。本文件钉住修复后的两件事：
 域层拒绝伪装身份，HTTP 层给出契约第 5 节的 503 受控响应。
+
+**2026-09-22 合并 `origin/main` 后的适配**：main 的 CR-12 把身份约束升级为
+**provider + authentication 成对**，`AgentConfiguration.__post_init__` 因此
+拒绝这类身份对（`AGENT_IDENTITY_NOT_CONTROLLED`）。所以"存量记录"再也无法
+经领域构造器造出——本文件改为**绕过构造器**直接装配实例，这正是这类记录今天
+唯一可能的形态（只可能来自早于成对 CHECK 的库行）。断言未改。
 """
 
 from __future__ import annotations
@@ -21,21 +27,35 @@ DAMAGED_ID = "11111111-1111-1111-1111-111111111111"
 
 
 def _damaged(provider: str = "openai_chatgpt", agent_name: str = "codex"):
-    """A record that reached storage before the registry and the CHECK existed."""
-    return RegisteredAgent(
-        AgentConfiguration(
-            DAMAGED_ID,
-            agent_name,
-            "0.153.0",
-            provider,
-            "some-model",
-            "chatgpt_auth_json",
-            "private-reference",
-            {"reasoning_effort": "medium"},
-        ),
-        "Damaged record",
-        datetime.now(UTC),
+    """A record that reached storage before the registry and the paired CHECK existed.
+
+    Assembled straight onto a fresh instance because `AgentConfiguration` now refuses
+    the pair; the field set is copied from a valid configuration of the same shape.
+    """
+
+    template = AgentConfiguration(
+        DAMAGED_ID,
+        "codex",
+        "0.153.0",
+        "openai_chatgpt",
+        "some-model",
+        "chatgpt_auth_json",
+        "private-reference",
+        {"reasoning_effort": "medium"},
     )
+    configuration = object.__new__(AgentConfiguration)
+    for name, value in {
+        "configuration_id": template.configuration_id,
+        "agent_name": agent_name,
+        "agent_version": template.agent_version,
+        "model_provider": provider,
+        "model_name": template.model_name,
+        "authentication_type": template.authentication_type,
+        "credential_configuration_id": template.credential_configuration_id,
+        "critical_config": template.critical_config,
+    }.items():
+        object.__setattr__(configuration, name, value)
+    return RegisteredAgent(configuration, "Damaged record", datetime.now(UTC))
 
 
 class DamagedAgents(MemoryAgents):

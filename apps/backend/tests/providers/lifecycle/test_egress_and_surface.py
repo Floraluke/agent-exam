@@ -138,7 +138,12 @@ def test_a_clean_early_end_is_not_a_successful_answer(upstream, tmp_path):
 
 
 def test_transport_headers_belong_to_the_transport(upstream, tmp_path):
-    """The client's framing and routing headers must not reach the upstream."""
+    """The client's framing headers never travel; the library supplies exactly one each.
+
+    `Host` names this proxy and `Content-Length` describes the inbound body, so the
+    pipeline drops them: a second `Host` would let a client pick a virtual host on the
+    upstream and a stale length would corrupt the framing.
+    """
 
     harness = make_harness(tmp_path)
     admission = harness.decide(
@@ -146,9 +151,11 @@ def test_transport_headers_belong_to_the_transport(upstream, tmp_path):
             "Host": "evil.example.com",
             "Content-Length": "9999",
             "Accept-Encoding": "gzip",
-            "X-Trace": "keep",
         }
     )
+    sent = {name.lower() for name in admission.outbound.send_headers()}
+    assert "host" not in sent and "content-length" not in sent
+
     relay = RunRunner(harness.ledger, sender=sender_for(upstream)).relay(admission)
     b"".join(relay)
 
@@ -156,7 +163,6 @@ def test_transport_headers_belong_to_the_transport(upstream, tmp_path):
     assert names.count("Host") == 1
     assert names.count("Content-Length") == 1
     assert names.count("Accept-Encoding") == 1
-    assert "X-Trace" in names
 
 
 def post(url: str, body: bytes, token: str = CLIENT_TOKEN) -> bytes:

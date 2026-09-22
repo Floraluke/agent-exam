@@ -23,6 +23,9 @@ from eval_platform.adapters.execution.provider_access.budget import (
     BudgetLedger,
     RunBudget,
 )
+from eval_platform.adapters.execution.provider_access.failures import (
+    ProviderAccessError,
+)
 from eval_platform.adapters.execution.provider_access.server import (
     Admission,
     ProviderProxyService,
@@ -75,11 +78,11 @@ def platform_verified(path: Path) -> None:
 
 
 def owner_unverifiable(path: Path) -> None:
-    raise ValueError("PRIVATE_ACCESS_UNVERIFIABLE")
+    raise ProviderAccessError("PRIVATE_ACCESS_UNVERIFIABLE")
 
 
 def permissions_too_wide(path: Path) -> None:
-    raise ValueError("PRIVATE_FILE_PERMISSIONS_TOO_WIDE")
+    raise ProviderAccessError("PRIVATE_FILE_PERMISSIONS_TOO_WIDE")
 
 
 @dataclass
@@ -190,8 +193,12 @@ def sender_for(upstream, *, timeout: float = 5.0):
 
 
 @contextmanager
-def served_proxy(upstream, tmp_path: Path, *, timeout: float = 5.0):
-    """A running proxy surface around one run, closed when the block exits."""
+def served_proxy(upstream, tmp_path: Path, *, timeout: float = 5.0, port: int = 0):
+    """A running proxy surface around one run, closed when the block exits.
+
+    `port=0` lets the OS pick, which is what tests want; serve_proxy.py passes a
+    fixed one so a human can point curl at it.
+    """
 
     harness = make_harness(tmp_path)
     outcomes: list[RunOutcome] = []
@@ -199,7 +206,7 @@ def served_proxy(upstream, tmp_path: Path, *, timeout: float = 5.0):
         harness.service,
         RunRunner(harness.ledger, sender=sender_for(upstream, timeout=timeout)),
         host="127.0.0.1",
-        port=0,
+        port=port,
         on_outcome=outcomes.append,
     )
     thread = threading.Thread(target=server.serve_forever, daemon=True)

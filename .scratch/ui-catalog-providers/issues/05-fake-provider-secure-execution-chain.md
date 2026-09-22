@@ -207,3 +207,11 @@ E 侧已有准备产物：[阶段 1 代理测试设计](../../../docs/LLY/01-pla
 > **合并时的状态标注（2026-09-22）**：上一段"仍未完成：S2、代理 `service.py`…"是**加固分支当时的自述**，其中 **S2 与 `service.py`（S6a–S6e）已由本分支同日条目记为完成**（S2 的 TOML 字段名与事件词表仍待固定 CLI 对账），该两项在此已过期；**S9–S11、Composition Root、T2 与跨重启生命周期仍成立**，见上方"仍未完成，且都等 T2"。
 >
 > 该分支对策略层的加固**已随本次合并进入本分支**，本任务单里两条相关的旧悬置项因此关闭：① 上文"请负责人/用户定夺一件安全取舍（`build_outbound` 是否收紧为客户端头白名单）"——加固分支按 CR-11 已实现为**白名单：只放行 `accept`/`accept-encoding`/`user-agent`，路由与转发头在出站前失败关闭**；② `secrets.py` 的 `REGISTERED_UPSTREAMS` 按 CR-13 收窄为**只保留受控假上游**，真实 DeepSeek/Kimi 回到 06/07 范围。
+
+2026-09-22 合并落地与 `server/` 适配（E 侧已完成，摘要）
+
+- **合并提交 `b8bbc0b`**（合并基点 `4f2c606`，main 侧 `858d30a`）。过程、冲突解决与全部实测数字见[合并与适配行动](../../../docs/actions/2026-09-22-merge-main-hardening-into-lly-dev.md)。
+- **两处与"取 main 侧即可"不符的实测事实**：① main 的 `failures.py` **不是**超集——本分支的 `PROVIDER_UPSTREAM_FAILED` 与六个 `TRANSPORT_*` 码只在本分支，按"取 main 侧"会让六个上游失败码全部落到兜底 500；已改为手工并集。② main 的词表守卫用 `glob` 不递归，**不覆盖 `server/`**；已恢复 `rglob`，并实测证明 main 版会放过注入到 `server/egress.py` 的未审查码。
+- **`server/` 的四处适配**：错误码改按 `ProviderAccessError` 读 `.code`（不再 `str(error)`）；**入站先剥连接自有头**（`Host`/`Connection`/`Transfer-Encoding` 等，否则真实 HTTP 客户端一律被白名单拒绝）；**头白名单提前到额度预留之前**（合并后发现 `server/` 的真实缺陷：带一个非白名单头会在取走预留后才被拒，而该预留永不结算→白耗该 Run 额度）；`egress` 删除自持的转发列表，统一用 main 的两个常量。另补回 `codex/provider_config.py` 被 CR-13 静默弄失效的"真实提供方主机"守卫。
+- **实测（最终代码）**：`pytest tests/providers` **170 passed / 1 skipped**、默认回归 **610 passed / 106 skipped / 2 failed**、开 PG 全量 **664 passed / 52 skipped / 2 failed**（失败项始终只有缺 `framework/harbor` 的 ISSUE-04 那 2 项）；`ruff`/`format`(348 文件)/`mypy src`(186 源文件) 全绿。
+- **两条仍需 B 或后续切片处理的**：① `PROVIDER_UPSTREAM_FAILED` **仍未列入 `HTTP_API.md` §10.2**（该节只有 5 个受控码），而 `server/` 已按 502 使用它——沿用本任务单早先"待 B 列入枚举"的请求；② main 把 `accept-encoding` 归入**转发**集合，`egress` 不再强制 `identity`（隔离探针实测客户端送 `gzip` 上游即收到 `gzip`）；若真实上游压缩 SSE，终止事件扫描会按未知用量结算（**失败关闭、绝不少计费，但会多计费并提前关闭该 Run**），建议 S11 用真实上游复核。

@@ -37,6 +37,12 @@ _BASE_URL = re.compile(
 WIRE_API = "responses"
 RETRY_KEYS = ("request_max_retries", "stream_max_retries")
 RETRY_VALUE = 0
+# The container may reach only the proxy, so its CLI entry must never be a
+# provider-side endpoint. `REGISTERED_UPSTREAMS` holds the proxy's own
+# destinations, but it is narrowed to the controlled fake provider, so it can
+# no longer answer "is this a real vendor?"; the real hosts are named here until
+# tasks 06/07 register them.
+REAL_PROVIDER_HOSTS = frozenset({"api.deepseek.com", "api.moonshot.cn"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,8 +73,10 @@ def render_provider_config(
         # The entry must be a host the isolated trial network resolves, never loopback:
         # loopback inside the task container would mean the CLI talking to itself.
         raise ValueError("PROVIDER_CONFIG_ENTRY_INVALID")
-    if base_url in set(REGISTERED_UPSTREAMS.values()):
-        # A real provider base URL belongs on the trusted proxy side only.
+    if base_url in set(REGISTERED_UPSTREAMS.values()) or (
+        match.group("host") in REAL_PROVIDER_HOSTS
+    ):
+        # A provider-side endpoint belongs on the trusted proxy side only.
         raise ValueError("PROVIDER_CONFIG_ENTRY_IS_UPSTREAM")
     lines = [
         "# Rendered for this Run. The token value is never written here.",

@@ -234,6 +234,9 @@ def test_a_refusal_keeps_the_ledger_untouched(tmp_path, upstream):
         lambda: harness.decide(authorization=False),
         lambda: harness.decide(body=request_body(model="kimi-k3")),
         lambda: harness.decide(body=request_body(tools=[{"type": "web_search"}])),
+        # A refused client header must not take a hold either: this one used to be
+        # decided after the reservation, and a hold nothing ever settles is lost budget.
+        lambda: harness.decide(headers={"X-Forwarded-Host": "evil.example.com"}),
     ):
         with pytest.raises(ProviderRejection):
             attempt()
@@ -278,15 +281,27 @@ def test_admission_swaps_the_client_credential_for_the_trusted_one(tmp_path):
 
 def test_the_destination_is_never_taken_from_the_request(tmp_path):
     harness = make_harness(tmp_path)
-    admission = harness.decide(
-        headers={
-            "Host": "evil.example.com",
-            "X-Forwarded-Host": "evil.example.com",
-            "Location": "http://evil.example.com/responses",
-        }
-    )
+    # `Host` names this proxy, so the pipeline owns it and it never travels onward.
+    admission = harness.decide(headers={"Host": "evil.example.com"})
     assert admission.outbound.url == f"{INTERNAL_TEST_UPSTREAM}/responses"
     assert "evil.example.com" not in admission.outbound.url
+    assert "host" not in {name.lower() for name in admission.outbound.send_headers()}
+
+
+def test_a_routing_header_is_refused_where_it_used_to_be_forwarded(tmp_path):
+    """Distinguishes the old header handling from the whitelist.
+
+    Before the hardening, only the authentication headers were stripped and every other
+    client header travelled to the upstream, so `X-Forwarded-Host` reached it. Now the
+    policy forwards only its whitelisted set and refuses the rest before egress.
+    """
+
+    harness = make_harness(tmp_path)
+    for name in ("X-Forwarded-Host", "Forwarded", "Location", "X-Trace"):
+        with pytest.raises(ProviderRejection) as refusal:
+            harness.decide(headers={name: "evil.example.com"})
+        assert refusal.value.internal_code == "REQUEST_HEADER_NOT_ALLOWED"
+        assert refusal.value.failure_code == "PROVIDER_REQUEST_REJECTED"
 
 
 def test_no_secret_reaches_a_representation_or_a_client_header(tmp_path):

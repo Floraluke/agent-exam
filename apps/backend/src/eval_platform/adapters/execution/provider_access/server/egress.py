@@ -5,11 +5,10 @@ socket facts — one connection, one attempt, a read timeout — and turns whate
 upstream answers into a fixed code instead of a second call. No byte of the answer is
 logged, kept or reinterpreted: the body is handed to the caller unchanged.
 
-Five headers belong to the transport and are dropped if a client sent them. `Host`: the
-destination is the registered URL, so a second Host would let a client pick a virtual
-host on the upstream. `Accept-Encoding`: the relay must read the stream plainly.
-`Content-Length` and `Transfer-Encoding`: the framing is the library's. `Connection`:
-the connection is ours. The client's other headers still travel, as S7 decided.
+This module does not decide which client headers travel. `service` drops the headers the
+proxy's own inbound connection owns and `request_policy` forwards only its whitelisted
+set, so `OutboundRequest.headers` is already the minimal business set and nothing here
+can collide with the `Host`, `Content-Length` and `Accept-Encoding` the library adds.
 
 The connector is injectable because the proxy-to-upstream leg must be TLS while the fake
 upstream is plain HTTP: the integration slice supplies the wrapper, and no path here
@@ -33,15 +32,6 @@ OK_STATUS = 200
 REDIRECT_STATUSES = frozenset(range(300, 400))
 UNAUTHORIZED_STATUSES = frozenset({401, 403})
 RATE_LIMITED_STATUS = 429
-TRANSPORT_OWNED_HEADERS = frozenset(
-    {
-        "host",
-        "accept-encoding",
-        "content-length",
-        "transfer-encoding",
-        "connection",
-    }
-)
 
 Connector = Callable[[str, int, float], http.client.HTTPConnection]
 
@@ -90,11 +80,7 @@ def open_stream(
 def _answer(
     connection: http.client.HTTPConnection, request: OutboundRequest, path: str
 ) -> http.client.HTTPResponse:
-    headers = {
-        name: value
-        for name, value in request.send_headers().items()
-        if name.strip().lower() not in TRANSPORT_OWNED_HEADERS
-    }
+    headers = dict(request.send_headers())
     try:
         # `request` rather than hand-written headers: it supplies the Content-Length,
         # Host and Accept-Encoding nobody else may set, so framing cannot drift.

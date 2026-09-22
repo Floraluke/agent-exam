@@ -7,6 +7,16 @@
 
 ### 已完成
 
+- **合并 `origin/main` 并让 `provider_access/server/` 适配加固接缝（本日最后一件事，已完成）**。合并提交 **`b8bbc0b`**（合并基点 `4f2c606`，main 侧 `858d30a`），6 处冲突全部解决。过程与完整证据见[合并与适配行动](../../actions/2026-09-22-merge-main-hardening-into-lly-dev.md)。要点：
+  - **与任务描述不符的两处实测事实（重要）**：① main 侧的 `failures.py` **不是**"同一份文件的超集"——本分支的 `_UPSTREAM_FAILED` 组（`PROVIDER_UPSTREAM_FAILED` ＋ 六个 `TRANSPORT_*` 码）与另外 4 个码是 main 从未有过的，按"取 main 侧"会静默删掉它们，后果是六个上游失败码全部落到兜底的 500。已改为**手工并集**。② main 侧的词表守卫用 `glob("*.py")`（不递归），本分支用 `rglob`；实测把一个未审查码注入 `server/egress.py`，**rglob 版守卫失败并指名，glob 版 7 项全通过**——即以 main 版为准会让整个 `server/` 子包逃出防漂移门禁。已恢复递归遍历。
+  - **`server/` 适配四件事**：① 五处 `except ValueError` ＋ `str(error)` 改为按 `ProviderAccessError` 捕获并读 `.code`；② **入站先剥连接自有头**（`Host`／`Connection`／`Transfer-Encoding` 等）——main 的白名单会拒绝未列出的客户端头，而任何真实客户端都必发 `Host`，不剥就会拒绝一切真实请求（实测去掉后 **7 条用例失败**）；`X-Forwarded-Host`／`Forwarded`／`Proxy-Connection` 故意不剥，仍由策略层拒绝；③ **头白名单提前到预留之前**——合并后发现一处**真实缺陷**：白名单原本在 `build_outbound`（第 6 步）才求值，在 `reserve`（第 5 步）之后，于是"带一个非白名单头"的请求会在取走预留后才被拒绝，而该预留因为不会创建 relay **永远不会结算**，等于凭一个请求头白耗该 Run 的额度；④ `egress.py` 删除自持的 `TRANSPORT_OWNED_HEADERS`，转发/忽略统一由 main 的 `FORWARDED_CLIENT_HEADERS`／`IGNORED_CLIENT_HEADERS` 决定。
+  - **补回一处被 main 静默弄失效的守卫**：CR-13 把 `REGISTERED_UPSTREAMS` 收窄到只剩受控假上游，于是 `codex/provider_config.py` 里"拒绝任何登记过的真实上游地址"那条**静默失效**，`https://api.deepseek.com` 从"被拒绝"变成"被接受"（即 CLI 可绕过代理直连真实供应商的入口）。已按真实提供方主机名补 `REAL_PROVIDER_HOSTS`。**该文件只在 `lly/dev` 上，属于合并才暴露的跨分支耦合**。
+  - **区分力实测六处**（改实现让它失败、还原后通过，每处都用 `cmp` 确认字节级还原）：M1 白名单退回只剥认证头 → 2 条失败；M2 去掉入站剥离 → 7 条失败；M3 白名单退回预留之后 → 账本被白耗的用例失败；M4 去掉真实主机守卫 → 配置渲染用例失败；M5 去掉上游失败组（即"取 main 侧"）→ 3 条失败含词表守卫；M6 注入未审查码 → rglob 失败、glob 通过。新增区分新旧行为的用例 `test_a_routing_header_is_refused_where_it_used_to_be_forwarded`。
+  - **实测数字（最终代码）**：`pytest tests/providers -q` **170 passed / 1 skipped**（+5）；默认回归 **610 passed / 106 skipped / 2 failed**；开 PG 全量 **664 passed / 52 skipped / 2 failed**；三次的失败项都只有缺 `framework/harbor` 的 ISSUE-04 那 2 项。`ruff check` 通过、`ruff format --check` 348 文件、`mypy src` 186 源文件无问题；全量覆盖率 **86%**（main 新增的 80% 门禁通过）。
+  - **工具链变化（`uv sync` 后）**：`pytest` 9.0.2→9.0.3、`pyarrow` 22.0.0→23.0.1，新增 `pytest-cov`／`pip-audit` 等；**`apps/backend` 的 pytest 配置新增 `--cov` 与 `fail_under = 80`**，因此**只跑子集时会多出一条覆盖率 FAIL**（`pytest tests/providers -q` 报 `Required test coverage of 80.0% not reached. Total coverage: 31.21%`）——这是子集运行的配置后果，不是用例失败，调试子集用 `--no-cov`（未改任何检查配置）。
+  - **两条如实记录的遗留**：① **`Accept-Encoding` 语义后果**——main 把 `accept-encoding` 归入转发集合，`egress` 不再强制 `identity`；隔离探针实测客户端送 `gzip` 时上游就收到 `gzip`。若真实上游按 gzip 压缩 SSE，终止事件扫描会找不到 usage，按整笔预留计费并关闭该 Run（**失败关闭、绝不少计费，但会多计费**）。按"不自己再写一份转发策略"的要求未覆盖 main 的决定，建议 S11 用真实上游复核。② `PROVIDER_UPSTREAM_FAILED` 仍**未列入 `HTTP_API.md` §10.2**（该节只有 5 个受控码），属合并前既有的待办，本次未新增也未关闭。
+  - **边界**：未碰 `tests/providers/runtime/` 探针与 T2 文档；未做 T2／S10／S11；未合并进 `main`。另发现一处**别人留下的未跟踪脚本** `tests/providers/lifecycle/serve_proxy.py`（非我创建、未提交、未改动；它用 `curl` 演示，而 `curl` 必发 `Host`，因此**只在本分支的入站剥离存在时才可用**）。
+  - **S2 与 `service.py` 的完成状态在本日更早条目里**（见下），main 那节的自述已相应加注。
 - **拉取远端并合并**：`origin/main` 由 `1888aa2` 前进到 `4f2c606`（B 的 5 个提交、9 个文件，全部属 Web 与 HTTP 侧），`lly/dev` 合并该增量后 HEAD 为 `606a3da`，无冲突。合并后实测：`ruff check` 通过、`ruff format --check` 341 文件、`mypy` 184 源文件无问题、默认回归 **587 passed / 105 skipped / 2 failed**（92.09 秒，失败项仍是缺 `framework/harbor` 的 ISSUE-04）、`pytest tests/providers` **165 passed / 1 skipped**——与合并前基线逐项一致，无回归。本机领先 `origin/lly/dev` 14 个提交，其中只有 `57a18f5`、`64d5f0b` 与本次合并提交是本机新产生的；**未推送**。
 - **B 已完成两处契约对齐，05 的"待 B 确认"一项关闭**（[B 的对齐行动](../../architecture/modules/web-and-http/actions/05b-t05-controlled-vocabulary-alignment.md)）：`HTTP_API.md` §10.2 列入五个受控 `PROVIDER_*` 码、归入的内部错误族与"内部码绝不回显"规则（与 `provider_access/failures.py` 逐字一致）；§4.2 把 `agent_type`/`model_provider` 记为受控集合、按记录如实呈现、超出集合失败关闭，并说明公开 `internal_test_fake` 是有意的；§6.2 补受控预设 `internal-test-provider-proxy`（与 `catalog_presets.py` 逐字一致）。**B 另修正我方一处转述**：`authentication_type=provider_run_token` **不在** HTTP 响应中，响应只含 `agent_type` 与 `model_provider`——契约本就规定不返回认证方式与凭据 profile，我方此前把它算作要公开的身份，属转述不准确。
 - **修掉 B 指出的真实缺陷：超受控集合的存量记录会返回 500**。根因是 `catalog_schemas.py` 的 `_controlled()` 抛裸 `ValueError`，而 `app.py` 只注册了 6 个异常处理器、没有 `ValueError` 的；仓库读取路径（`AgentRegistry.get/list`）不重校验身份，只有 `register()` 校验，因此越过注册表与库级 CHECK 的存量记录会走到响应构造。**修法**：改为抛既有域错误 `CatalogUnavailable`，由 `errors.py` 既有处理器映射为 **503 `DEPENDENCY_UNAVAILABLE`**——`HTTP_API.md` §5 已把"目录对象缺失/损坏"归为 503，故**零契约变更、无新错误码**；内部码 `UNCONTROLLED_AGENT_TYPE`/`UNCONTROLLED_PROVIDER` 只留在进程内、不回显。
@@ -18,8 +28,8 @@
 - **Harbor 侧车附加：源码结论为"允许按服务绕过"**（显式 `networks`/`network_mode` 的服务不加入生成的侧车覆盖文件，`docker.py:433-449`；入口 `JobConfig.environment` → `extra_docker_compose`）。**但 T2 仍未运行**：Harbor 构造期会起无名称无标签的内核探针容器，常规拆除可能 `down --rmi local --volumes`，都超出原授权。
 - **用户 2026-09-22 授权增补**：允许那个 `--rm` 短命探针容器（不得挂载 Docker 套接字/发布端口/写宿主路径）；允许常规拆除但只可删除该次 Trial 自己的 compose 项目资源、不得删拉取的固定镜像或其他项目的卷。范围与硬边界见[组长机器预案附三](../../actions/2026-09-21-task05-owner-machine-runbook.md)，含建议的最小 T2 形态（把七条断言作为 Trial 命令跑，不接 CLI 与真实模型）。
 
-- **待办：把 `origin/main` 合并进 `lly/dev`（下一件事，未做）**。`origin/main`（`e6a7138`）比本分支多 24 个提交，其中一批来自 CI 分支的**对我们模块的加固改造**：新增 `provider_access/private_file.py`（抗竞态读私有文件）、`failures.py` 引入 `ProviderAccessError` 并在词表加入 `PRIVATE_FILE_CHANGED`、重写 `request_policy.py`/`secrets.py`/`transport.py`，另加 `mypy.ini`/`pytest.ini` 与较大的 `uv.lock` 更新。
-  - 试合并（`git merge-tree`，未落盘）显示 **6 个冲突文件**：任务单、`failures.py`、`test_controlled_failures.py`、`PLAN.md`、`STAGE1_PROXY_TEST_DESIGN.md`、`PROGRESS_LOG.md`。其中 `failures.py` 与对应测试是**同一版本的两种演进**（main 侧是本分支那版的超集），采用 main 侧即可；docs 几处需手工合并保留双方条目。
+- **待办：把 `origin/main` 合并进 `lly/dev`（下一件事，未做）**。**（2026-09-22 同日更新：已完成，见上方"合并 `origin/main` 并让 `provider_access/server/` 适配加固接缝"条目；下方为该待办当时的分析与后续被实测推翻的假设，保留原文。）** `origin/main`（`e6a7138`）比本分支多 24 个提交，其中一批来自 CI 分支的**对我们模块的加固改造**：新增 `provider_access/private_file.py`（抗竞态读私有文件）、`failures.py` 引入 `ProviderAccessError` 并在词表加入 `PRIVATE_FILE_CHANGED`、重写 `request_policy.py`/`secrets.py`/`transport.py`，另加 `mypy.ini`/`pytest.ini` 与较大的 `uv.lock` 更新。
+  - 试合并（`git merge-tree`，未落盘）显示 **6 个冲突文件**：任务单、`failures.py`、`test_controlled_failures.py`、`PLAN.md`、`STAGE1_PROXY_TEST_DESIGN.md`、`PROGRESS_LOG.md`。其中 `failures.py` 与对应测试是**同一版本的两种演进**（main 侧是本分支那版的超集），采用 main 侧即可；docs 几处需手工合并保留双方条目。**（实测更正：该句"main 侧是超集"不成立，两处代码文件都必须手工取并集，见上方条目。）**
   - **真正的工作量不在冲突**：main 重写了 `secrets`/`request_policy`/`transport` 的接口，而 `server/`（只在 `lly/dev` 上）依赖它们——合并后必须让 `server/` 适配新接缝并跑全套（含 PG 开关；合并后还要 `uv sync`，因为依赖锁与 `mypy.ini`/`pytest.ini` 都变了）。合并前的实测数字（`tests/providers` 165 passed / 1 skipped、默认回归 591/105/2）在合并后必须重测，不能沿用。
   - **转发 T2 消息不依赖这一步**：负责人的 T2 只跑 `tests/providers/runtime/` 探针，而 main 未改动该目录。
 
@@ -33,10 +43,12 @@
 
 ### 当前停点
 
-- **任务 05 本机侧已实施完毕**（S2–S8、T1 与 `service.py` 的 S6a–S6e），剩余全部等 T2：**S9（worker 按 Run 选绑定）、S10（`net/` 与网络接线）、S11（集成层）**。
+- **任务 05 本机侧已实施完毕**（S2–S8、T1 与 `service.py` 的 S6a–S6e），**并已合并 `origin/main` 的加固改造、`server/` 适配完毕、全套重跑通过**（合并提交 `b8bbc0b`，见本日第一条）。剩余全部等 T2：**S9（worker 按 Run 选绑定）、S10（`net/` 与网络接线）、S11（集成层）**。
 - **T2 的状态（2026-09-22 更新）**：T1 已在负责人机器复测通过；Harbor 源码结论为"允许按服务绕过侧车附加"；授权增补已给出并**已实际执行一次，但未测得**——自带侧车退出 127 且未执行任何 Trial 命令。下一步是**只读确认侧车入口的行尾**（工作树与镜像内各一次），再决定下一轮 T2 走产品入口。
-- 推送状态：本机与 `origin/lly/dev` 一致（上一条"领先 14 个提交"的说法已被本轮推送取代）。
-- 与 B 的往来状态（2026-09-22 更新）：B 已完成两处契约对齐（§10.2 五个受控码、§4.2 受控集合与 `internal_test_fake`，见当日条目），**"仍等 B"的旧说法作废**。当前挂在 B 侧的是：① 可选——在 §4.2 补一句超集合记录的状态码（503 `DEPENDENCY_UNAVAILABLE`）；② 夹具"强制下一次响应出错"的控制端点与两项呈现验证（**不依赖 E 的链路**，见当日回复条目）。
+- **待推送**：本轮合并提交 `b8bbc0b` 与后续适配提交将推送到 `origin/lly/dev`（推送前本机领先）。上一条"与 `origin/lly/dev` 一致"是上一轮的状态。
+- **与 B 的往来状态（2026-09-22 更新）**：B 已完成两处契约对齐（§10.2 五个受控码、§4.2 受控集合与 `internal_test_fake`，见当日条目），**"仍等 B"的旧说法作废**。当前挂在 B 侧的是：① 可选——在 §4.2 补一句超集合记录的状态码（503 `DEPENDENCY_UNAVAILABLE`）；② 夹具"强制下一次响应出错"的控制端点与两项呈现验证（**不依赖 E 的链路**，见当日回复条目）；③ **新增待告知 B 一条**：`PROVIDER_UPSTREAM_FAILED` 仍未列入 §10.2（该节只有 5 个受控码），而 `server/` 已按 502 使用它，属本分支的候选码待列入。
+- **交给 S11 的两条**：① 用真实上游复核 `Accept-Encoding` 转发后的流压缩与用量结算（见本日第一条遗留）；② `provider_config.py` 的裸 `ValueError("PROVIDER_CONFIG_*")` 在接线时一并收口为受控失败（合并前已记的旧待办）。
+
 ### 核心诊断修复后对账（来自 `origin/main` 的加固分支，合并时保留）
 
 > 本节是**对方分支当时的自述**，合并进本分支后逐字保留；其中与本分支当日条目冲突的部分见节末标注。

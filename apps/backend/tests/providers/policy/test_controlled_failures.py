@@ -46,14 +46,28 @@ SENTINELS = (
     ".toml",
 )
 
-# Not error codes: HTTP verbs and platform file-open flag names.
-_NON_CODES = frozenset({"POST", "GET", "PUT", "DELETE", "O_BINARY", "O_NOFOLLOW"})
+# Not internal codes: HTTP verbs the policy compares against, platform file-open flag
+# names, public constant names a package `__all__` re-exports, and the published codes
+# themselves -- a module that maps an internal code to its user-facing pair necessarily
+# mentions the pair.
+_NON_CODES = (
+    frozenset(
+        {"POST", "GET", "PUT", "DELETE", "HEAD", "PATCH", "OPTIONS", "MAX_BODY_BYTES"}
+    )
+    | {"O_BINARY", "O_NOFOLLOW"}
+    | {code for code, _ in failures.MAPPED_CODES.values()}
+    | {failures.GENERIC_FAILURE[0]}
+)
 
 
 def _codes_in_package() -> set[str]:
-    """Every upper-case code literal the proxy modules can raise."""
+    """Every upper-case code literal the proxy modules can raise.
+
+    The walk is recursive on purpose: a code added under a subpackage (the proxy
+    process side lives in `server/`) must not be able to escape this guard.
+    """
     found: set[str] = set()
-    for path in sorted(PACKAGE.glob("*.py")):
+    for path in sorted(PACKAGE.rglob("*.py")):
         if path.name == "failures.py":
             continue
         found.update(_LITERAL.findall(path.read_text(encoding="utf-8")))

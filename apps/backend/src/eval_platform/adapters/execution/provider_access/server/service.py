@@ -2,11 +2,9 @@
 
 The order is the security property. Shape, token, policy, credential and hold are all
 settled before an outbound request exists, so every refusal happens while nothing has
-been sent and the ledger is untouched.
-
-Only the owner-private file is read; nothing here opens a socket. The sender is
-deliberately absent: the trial's network shape is still the fixed-Harbor question (T2),
-so this returns a ready-to-send description and the caller owns the connection.
+been sent and the ledger is untouched. Only the owner-private file is read and nothing
+here opens a socket; the caller owns the connection, because the trial's network shape
+is still the fixed-Harbor question (T2).
 """
 
 from __future__ import annotations
@@ -24,11 +22,15 @@ from eval_platform.adapters.execution.provider_access.budget import (
     BudgetLedger,
     Reservation,
 )
+from eval_platform.adapters.execution.provider_access.failures import (
+    ProviderAccessError,
+)
 from eval_platform.adapters.execution.provider_access.request_policy import (
     METHOD,
     PATH,
     RequestPolicy,
     check_request,
+    strip_client_auth,
 )
 from eval_platform.adapters.execution.provider_access.secrets import (
     PrivateProfile,
@@ -39,14 +41,13 @@ from eval_platform.adapters.execution.provider_access.server.contracts import (
     Admission,
     ProviderRejection,
     ProxyIdentity,
+    bearer_token,
+    without_connection_headers,
 )
 from eval_platform.adapters.execution.provider_access.transport import (
     OutboundRequest,
     build_outbound,
 )
-
-AUTHORIZATION = "authorization"
-BEARER_PREFIX = "bearer "
 
 
 class ProviderProxyService:
@@ -77,6 +78,7 @@ class ProviderProxyService:
     ) -> Admission:
         """Decide one request; return what may be sent, or raise ProviderRejection."""
 
+        headers = without_connection_headers(headers)
         body = self._shape(method, path, raw_body)
         binding = self._authenticate(headers)
         if self._ledger.closed_reason is not None:
@@ -84,10 +86,12 @@ class ProviderProxyService:
         ceiling = self._ledger.remaining_output_tokens
         if ceiling <= 0:
             raise ProviderRejection("BUDGET_OUTPUT_EXCEEDED")
-        checked = self._apply_policy(binding, method, path, body, ceiling=ceiling)
+        checked, forwarded = self._apply_policy(
+            binding, method, path, body, headers, ceiling=ceiling
+        )
         profile = self._trusted_profile(binding)
         reservation = self._reserve(checked, ceiling)
-        outbound = self._outbound(binding, checked, headers, profile)
+        outbound = self._outbound(binding, checked, forwarded, profile)
         return Admission(binding, reservation, outbound)
 
     def _shape(self, method: str, path: str, raw_body: bytes) -> Mapping[str, Any]:
@@ -112,10 +116,10 @@ class ProviderProxyService:
 
         try:
             return self._registry.resolve(
-                _bearer_token(headers), run_id=self._identity.run_id
+                bearer_token(headers), run_id=self._identity.run_id
             )
-        except ValueError as error:
-            raise ProviderRejection(str(error)) from None
+        except ProviderAccessError as error:
+            raise ProviderRejection(error.code) from None
 
     def _apply_policy(
         self,
@@ -123,10 +127,16 @@ class ProviderProxyService:
         method: str,
         path: str,
         body: Mapping[str, Any],
+        headers: Mapping[str, str],
         *,
         ceiling: int,
-    ) -> Mapping[str, Any]:
-        """Step 3: the bound model, the tool list and the run's remaining output."""
+    ) -> tuple[Mapping[str, Any], Mapping[str, str]]:
+        """Step 3: the bound model, the tool list, the run's output and the headers.
+
+        The header whitelist is evaluated here, *before* the hold, because it used to be
+        caught in `build_outbound` (step 6) — after the reservation — and a hold that
+        never becomes a relay is never settled, so the run silently lost that budget.
+        """
 
         policy = RequestPolicy(
             model=binding.model,
@@ -134,9 +144,10 @@ class ProviderProxyService:
             allowed_tools=self._identity.allowed_tools,
         )
         try:
-            return check_request(policy, method=method, path=path, body=body)
-        except ValueError as error:
-            raise ProviderRejection(str(error)) from None
+            checked = check_request(policy, method=method, path=path, body=body)
+            return checked, strip_client_auth(headers)
+        except ProviderAccessError as error:
+            raise ProviderRejection(error.code) from None
 
     def _trusted_profile(self, binding: RunBinding) -> PrivateProfile:
         """Step 4: read the one profile this run may use, with its owner proof."""
@@ -147,8 +158,8 @@ class ProviderProxyService:
                 self._identity.profile_id,
                 verify_access=self._verify_access,
             )
-        except ValueError as error:
-            raise ProviderRejection(str(error)) from None
+        except ProviderAccessError as error:
+            raise ProviderRejection(error.code) from None
         if profile.provider != binding.provider or profile.model != binding.model:
             # A profile's secret may only ever reach its own provider: a mismatched
             # selection would hand one vendor's key to another vendor's endpoint.
@@ -166,8 +177,8 @@ class ProviderProxyService:
                 dict(checked),
                 max_output_tokens=ceiling if requested is None else requested,
             )
-        except ValueError as error:
-            raise ProviderRejection(str(error)) from None
+        except ProviderAccessError as error:
+            raise ProviderRejection(error.code) from None
 
     def _outbound(
         self,
@@ -185,16 +196,5 @@ class ProviderProxyService:
                 client_headers=headers,
                 secret=profile.secret,
             )
-        except ValueError as error:
-            raise ProviderRejection(str(error)) from None
-
-
-def _bearer_token(headers: Mapping[str, str]) -> str:
-    """The presented token, or an empty string that resolves to 'unknown'."""
-
-    for name, value in headers.items():
-        if name.strip().lower() != AUTHORIZATION:
-            continue
-        if value.lower().startswith(BEARER_PREFIX):
-            return value[len(BEARER_PREFIX) :].strip()
-    return ""
+        except ProviderAccessError as error:
+            raise ProviderRejection(error.code) from None
