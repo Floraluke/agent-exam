@@ -46,7 +46,7 @@
 - **任务 05 本机侧已实施完毕**（S2–S8、T1 与 `service.py` 的 S6a–S6e），**并已合并 `origin/main` 的加固改造、`server/` 适配完毕、全套重跑通过**（合并提交 `b8bbc0b`，见本日第一条）。剩余全部等 T2：**S9（worker 按 Run 选绑定）、S10（`net/` 与网络接线）、S11（集成层）**。
 - **T2 的状态（2026-09-22 更新）**：T1 已在负责人机器复测通过；Harbor 源码结论为"允许按服务绕过侧车附加"；授权增补已给出并**已实际执行一次，但未测得**——自带侧车退出 127 且未执行任何 Trial 命令。下一步是**只读确认侧车入口的行尾**（工作树与镜像内各一次），再决定下一轮 T2 走产品入口。
 - **待推送**：本轮合并提交 `b8bbc0b` 与后续适配提交将推送到 `origin/lly/dev`（推送前本机领先）。上一条"与 `origin/lly/dev` 一致"是上一轮的状态。
-- **与 B 的往来状态（2026-09-22 更新）**：B 已完成两处契约对齐（§10.2 五个受控码、§4.2 受控集合与 `internal_test_fake`，见当日条目），**"仍等 B"的旧说法作废**。当前挂在 B 侧的是：① 可选——在 §4.2 补一句超集合记录的状态码（503 `DEPENDENCY_UNAVAILABLE`）；② 夹具"强制下一次响应出错"的控制端点与两项呈现验证（**不依赖 E 的链路**，见当日回复条目）；③ **新增待告知 B 一条**：`PROVIDER_UPSTREAM_FAILED` 仍未列入 §10.2（该节只有 5 个受控码），而 `server/` 已按 502 使用它，属本分支的候选码待列入。
+- **与 B 的往来状态（2026-09-22 更新两次）**：B 已完成两处契约对齐（§10.2 五个受控码、§4.2 受控集合与 `internal_test_fake`），**"仍等 B"的旧说法作废**。**第二轮更新**：本日再次合并 `origin/main` 的 `858d30a`→`4c31c66`，带入 B 的夹具控制端点与两项呈现验证——**②那一项因此关闭**（B 的记录明确"E 说明其前置不成立"这一判断已被采纳，见 `docs/architecture/modules/web-and-http/actions/05-necessary-error-presentation.md` 第 54 行与 `delivery/14-fixture-failure-injection-and-presentation-verifications.md`）。当前挂在 B 侧只剩：① 可选——在 §4.2 补一句超集合记录的状态码（503 `DEPENDENCY_UNAVAILABLE`）；② **`PROVIDER_UPSTREAM_FAILED` 仍未列入 §10.2**（该节只有 5 个受控码），而 `server/` 已按 502 使用它，属本分支的候选码待列入。
 - **交给 S11 的两条**：① 用真实上游复核 `Accept-Encoding` 转发后的流压缩与用量结算（见本日第一条遗留）；② `provider_config.py` 的裸 `ValueError("PROVIDER_CONFIG_*")` 在接线时一并收口为受控失败（合并前已记的旧待办）。
 
 ### 核心诊断修复后对账（来自 `origin/main` 的加固分支，合并时保留）

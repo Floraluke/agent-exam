@@ -115,6 +115,11 @@ docs/LLY/01-plan/PLAN.md、STAGE1_PROXY_TEST_DESIGN.md、docs/LLY/03-progress/PR
 ### 冲突解决与合并提交
 
 - 合并提交 **`b8bbc0b`**（`git merge origin/main`，合并基点 `4f2c606`，main 侧 `858d30a`）。
+- **推送被拒后追加的两次集成**：推送时 `origin/lly/dev` 已有负责人新提交、`origin/main` 也由 `858d30a` 前进到 `4c31c66`
+  （B 的夹具控制端点与两项呈现验证，共 5 个提交）。两次 `git merge` 均**无冲突**（`3a5ea66`、`52a6b47`），
+  内容为文档、`tests/identity/browser_server.py` 夹具与一份 Web playwright 用例，**未触及 `provider_access/`**，
+  因此不需要新的适配。集成后**全套重跑，数字与本表逐项一致**（providers 170/1、默认 610/106/2、开 PG 664/52/2、
+  statics 全绿），即本次集成为零回归。
 - 6 处冲突的解决方向与结果：
   1. `provider_access/failures.py`：**未按"取 main 侧"执行**，改做**手工并集**。见下"与任务描述不符的实测事实"。
   2. `tests/providers/policy/test_controlled_failures.py`：同上，手工并集（恢复 `rglob` 与更宽的 `_NON_CODES`）。

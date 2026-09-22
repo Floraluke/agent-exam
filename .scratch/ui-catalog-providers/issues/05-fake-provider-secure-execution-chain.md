@@ -175,6 +175,7 @@ E 侧已有准备产物：[阶段 1 代理测试设计](../../../docs/LLY/01-pla
 - **仓库内已有的强线索（供诊断，非结论）**：本仓库早就知道**固定 Harbor 自带侧车在这台机器上需要 DNS 适配**——M0 已查明上游 `bin/network-policy` 不放行 Docker Desktop 的转发解析器 `192.168.65.7:53`，导致两个批准域名解析失败；`adapters/execution/network.py` 因此有 `export_sidecar()`（加 DNS 守卫 + 一条 `192.168.65.7 udp dport 53 accept`），并**只通过 `adapters/execution/harbor_entry.py` 的 `_EGRESS_CONTROL_SIDECAR_CONTEXT_PATH` 生效**。负责人这次用的是**自写的最小探针**（`.tmp/t05-harbor-minimal/.../probe.py`），**可能没有走这条链**，于是 Harbor 用的是未适配的侧车上下文。退出码 127 通常表示**容器内命令找不到**（如入口脚本 exec 失败），而我们的 DNS 守卫失败会给退出码 1 并打印 `HARBOR_DOCKER_DNS_CONFIG_UNSUPPORTED`，与 127 不符——**具体原因仍未证实，需取侧车日志**。
 - 另注：即使 `main` 用显式 `networks` 绕开侧车覆盖（源码结论），Harbor 的 compose 里**仍然含侧车服务**且 `up --wait` 会等它——所以侧车至少要能起来，这是 T2 的前置。
 - **待办**：① 负责人侧加取侧车日志与镜像/入口信息（诊断，不新增资源）；② 负责人的行动文档目前只在其 worktree 中（`docs/actions/2026-09-22-task05-harbor-minimal-t2.md`），**尚未提交**，需其提交后本仓库才能引用；③ T2 判定维持"未测得"，等待下一次执行结果。
+  - **（2026-09-22 同日更新）**：②已关闭——负责人已提交，本仓库现有 [`docs/actions/2026-09-22-task05-harbor-minimal-t2.md`](../../../docs/actions/2026-09-22-task05-harbor-minimal-t2.md) 与 [`docs/actions/2026-09-22-task05-sidecar-127-diagnosis.md`](../../../docs/actions/2026-09-22-task05-sidecar-127-diagnosis.md)（提交 `c40ea2e`），上文摘要即取自这两份原件。
 
 2026-09-22 回复 B 的三问（落地时间、超集合记录的 HTTP 表现、夹具控制端点）
 
@@ -196,6 +197,7 @@ E 侧已有准备产物：[阶段 1 代理测试设计](../../../docs/LLY/01-pla
 - **重要澄清（对产品路径有利）**：产品路径 **Worker → `HarborExecutionAdapter` → `harbor_command()` → `harbor_entry.py`** 一定会先 `export_sidecar()` 并把导出上下文交给 Harbor（`harbor_entry.py:177`、`:186`），因此**这个 CRLF 陷阱不影响产品路径**，只影响绕过该入口的手写探针。同一导出还携带**已在 M0 授权的 DNS 适配**（放行 Docker Desktop 转发解析器 `192.168.65.7:53`），没有它即使侧车起来，域名解析也会失败。
 - **对下一轮 T2 的更正**：本仓库此前的"最小 T2 形态"建议（由 E 写）是**手写 probe**，实测证明这条建议会绕过仓库必需的侧车适配。下一轮应改为**经产品入口跑最小 job config**（同 `harbor_entry.py`），或至少在独立探针里显式设置 `_EGRESS_CONTROL_SIDECAR_CONTEXT_PATH` 指向 `export_sidecar()` 导出的上下文。已同步修正[组长机器预案附三](../../../docs/actions/2026-09-21-task05-owner-machine-runbook.md)。
 - **待办**：① 负责人侧一次只读确认（工作树与镜像内 `entrypoint.sh` 的实际行尾）；② 负责人的两份行动文档（`2026-09-22-task05-harbor-minimal-t2.md`、`2026-09-22-task05-sidecar-127-diagnosis.md`）**只存在于其本机 worktree，用户 2026-09-22 明确不上传、不再等待**——本仓库只保留摘要与关键原文引用，不指向不存在路径；③ T2 维持"未测得"。
+  - **（2026-09-22 同日更新，取代本条 ②）**：两份行动文档**已由负责人提交并进入 `lly/dev`**（提交 `c40ea2e`），现位于 `docs/actions/`，原文可引用；"不指向不存在路径"的限制不再适用。①③不变。
 2026-09-22 核心诊断修复后对账（来自 `origin/main` 的加固分支，合并时保留）
 
 - S3–S8 的纯策略切片已经过本轮安全加固：客户端 `Host`、`Forwarded`、`X-Forwarded-*` 与认证头在出站前拒绝；预算用量缺失或超过预留失败关闭；私有文件打开后再次核对文件描述符身份，降低路径替换竞态；受控失败词汇仍只有五个公开 `PROVIDER_*` 码。
