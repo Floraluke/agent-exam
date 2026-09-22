@@ -37,7 +37,7 @@
 - 阶段 1 实施方案：[`01-plan/STAGE1_IMPLEMENTATION_PLAN.md`](01-plan/STAGE1_IMPLEMENTATION_PLAN.md)（文件树、S1–S11 分片、逐片验证与机器归属、待授权清单；**S2–S8、T1 与 S6a–S6e 已实施；S9–S11 等 T2**）
 - 计划书：[`01-plan/PLAN.md`](01-plan/PLAN.md)
 - 阶段 1 测试设计：[`01-plan/STAGE1_PROXY_TEST_DESIGN.md`](01-plan/STAGE1_PROXY_TEST_DESIGN.md)（准备性设计；用例归属已在 `tests/providers/` 落地，集成层等 T2）
-- 阶段 1 设计冻结底稿：[`01-plan/STAGE1_PROXY_DESIGN_FREEZE.md`](01-plan/STAGE1_PROXY_DESIGN_FREEZE.md)（数值部分负责人已确认；机制候选；**T1 已证成、T2 未证**）
+- 阶段 1 设计冻结底稿：[`01-plan/STAGE1_PROXY_DESIGN_FREEZE.md`](01-plan/STAGE1_PROXY_DESIGN_FREEZE.md)（数值部分负责人已确认；机制候选；**T1 已在本机与负责人机器两处复测通过；T2 源码结论"允许按服务绕过侧车附加"已拿到，但 T2 未运行**）
 - 阶段 1 负责人交付要求：[`01-plan/TASK05_OWNER_DELIVERY.md`](01-plan/TASK05_OWNER_DELIVERY.md)（负责人已回填 9 项决定；**6 项前置 3/6，总判定仍 STOP**）
 - 负责人只读核对（填充版）：[`01-plan/TASK05_OWNER_DELIVERY_FILLED.md`](01-plan/TASK05_OWNER_DELIVERY_FILLED.md)（第 0–6 节为首次核对当时状态，第 7 节为后续回执；原文未改，仅加一行归档说明）
 - 负责人决定与授权回执：[`01-plan/TASK05_OWNER_ACTION_REQUIRED.md`](01-plan/TASK05_OWNER_ACTION_REQUIRED.md)（**9 项已全部拍板，第 7 项选 A 保守上界**；资源范围已确认但**本轮无执行窗口、不运行探针**）。三份构成"请求 → 回复 → 回执"配对

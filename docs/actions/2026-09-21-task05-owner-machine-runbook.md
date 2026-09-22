@@ -127,3 +127,22 @@ NEGATIVE_CONTROL=1 bash apps/backend/tests/providers/runtime/topology-probe.sh  
 **需要的那句授权**（可直接回执）：同意在负责人机器上按已确认范围创建与删除带 `agentexam.task=05` 标签的容器、网络、卷（项目名 `agentexam-t05-topology`，网络 `internal`/`egress`，服务 `workload`/`proxy`/`fake-upstream`）；只按名称与标签删除，不执行全局 prune；不重建 `framework/harbor`（首次编译约 275 分钟）、不停止既有持久化服务、不读真实 Key、不发起真实供应商请求。
 
 **回报内容**（写回本任务行动文档，不要只给截图）：两条命令的实际输出、网络图、镜像/容器/网络身份、清理复核（残留应为 0）、Harbor 侧车附加能否替换的结论与依据、失败与未验证项如实列出。
+
+## 附三：T2 授权增补与执行口径（2026-09-22；用户确认授权）
+
+**背景**：负责人机器 2026-09-22 已在本轮 `lly/dev` 上复测 T1（正常 28 PASS、`status=verified`；反向对照 4 条预期 FAIL、`status=negative-control-ok`；清理复核为空），并在源码层回答了 T2 的问题：[记录](../../docs/actions/2026-09-22-task05-owner-t2.md) 与 `framework/harbor/src/harbor/environments/docker/docker.py:433-449`。
+
+**源码结论（缩述，正文以该记录为准）**：**允许按服务绕过默认侧车附加**——任务 Compose（或 `extra_docker_compose`）里显式声明 `networks` 或 `network_mode` 的服务会被排除在生成的侧车覆盖文件之外；没有找到"非公网模式下关闭内置侧车"的开关。配置入口是 `JobConfig.environment` → `Trial EnvironmentConfig.extra_docker_compose` → `DockerEnvironment`。**该结论不等于 T2 已运行**，也不等于防绕过已成立。
+
+**T2 未运行的两处原因与本次授权增补**（用户 2026-09-22 明确授权，范围如下，**超出即停并报告**）：
+
+| 项 | 授权内容 | 硬边界（越界即停，不要继续） |
+|---|---|---|
+| Harbor 构造期的内核探针容器 | 允许 Harbor 在 `DockerEnvironment` 构造时创建并自动删除它自己的**无名称、无标签、`--rm`** 短命容器（来自 Harbor 固定的探针镜像） | 仅此一个短命容器；**不得**因此挂载宿主 Docker 套接字、发布宿主端口、写宿主路径或运行任何其他无标签容器。若实际命令包含以上任一项，停下报告而不是继续 |
+| 清理路径 | 允许 Harbor 的常规拆除路径运行，但**只允许**删除该次 Trial 自己的 compose 项目资源（按项目名/标签可辨） | **不得**删除从仓库拉取的固定镜像（如基础镜像与探针镜像）、**不得**删除其他项目或其他成员的卷；执行前先记录镜像与卷的清单，执行后逐项复核并如实报告差异 |
+
+其余约束不变：不重建 `framework/harbor`、不停止或删除既有持久化服务、不读真实 Key、不发起真实供应商请求、不充值、不放宽到公网、不把真 Key 放进做题容器、不改共享 Docker/WSL/全局代理/防火墙、不执行全局 prune。
+
+**建议的最小 T2 形态**（不必接 Codex CLI、不必接真实模型）：用 `extra_docker_compose` 给 `services.main` 声明显式网络并定义 `internal`（`internal: true`）与 `egress` 两条网络，另起本任务的受控 `proxy` 与 `fake-upstream` 服务；把**七条断言作为该次 Trial 的命令**在真实 Harbor 环境里跑（做题侧容器内用 `/dev/tcp` 与 `redis-cli` 检查，假上游记录请求），证据取 Trial 的 stdout 与事后 `docker inspect`。这样回答的是"整套双网络拓扑在固定 Harbor 上是否成立"，而不是依赖某个 Agent 或模型。
+
+**必须回报**：Trial 的实际命令与实际输出；`docker inspect` 证据（网络的 `Internal`、容器挂载与发布端口、标签）；Harbor 拆除路径实际执行的命令；镜像/卷清单的删除前后差异；清理复核（残留为 0）；失败与未验证项如实列出。**若任何断言不成立，照样如实回报**——那会让任务 05 按计划第 7 节停在这一步。

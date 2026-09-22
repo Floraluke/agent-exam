@@ -159,3 +159,11 @@ E 侧已有准备产物：[阶段 1 代理测试设计](../../../docs/LLY/01-pla
 - **验证**：新增 `tests/catalog/agent_identity/test_uncontrolled_records.py`（4 条用例）；**区分力实测**（把实现退回 `raise ValueError(code)` 后 4 条全部失败，还原后通过）；`pytest tests/catalog` 46 passed / 29 skipped、默认回归 **591 passed / 105 skipped / 2 failed**（+4，失败项仍是缺 `framework/harbor` 的 ISSUE-04）、`ruff`/`format`/`mypy` 全绿。过程见[行动记录](../../../docs/actions/2026-09-22-t05-uncontrolled-identity-http-error.md)。
 - **另记 B 对我方转述的一处修正**：HTTP 响应只含 `agent_type` 与 `model_provider`，**不含** `authentication_type` 与凭据 profile（契约本就规定不返回认证方式与凭据引用）；E 侧此前把它算作"要公开的身份"，属转述不准确，已按代码更正。
 - 本片不改变本任务其余停点：**S9/S10/S11 仍等 T2**（T2 需在负责人机器执行，探针已入库、窗口可用，只差一句书面授权）。
+
+2026-09-22 负责人机器复测 T1、Harbor 源码结论与 T2 授权增补
+
+- **T1 已在负责人机器复测通过**：在 `lly/dev`（`ffb2c74`）上运行两条探针命令，正常 **28 PASS / 退出 0 / `status=verified`**，反向对照 **4 条预期 FAIL / `status=negative-control-ok`**；每次 4 容器 3 网络均带双标签、无卷创建，清理复核为空。探针本身也经其收紧：预检拒绝同名资源与未缓存镜像（不自动拉取）、清理改为"名称 + 任务标签 + 本轮 scope"三重匹配、UID 查询容器纳入标签，**断言与 verdict 未改**（E 已逐行核对）。记录见[负责人 T2 复测记录](../../../docs/actions/2026-09-22-task05-owner-t2.md)。
+- **Harbor 侧车附加的源码结论**：**允许按服务绕过默认侧车附加**——任务 Compose 或 `extra_docker_compose` 中显式声明 `networks`/`network_mode` 的服务被排除在生成的侧车覆盖文件外（`docker.py:433-449`、`466-473`）；入口为 `JobConfig.environment` → `Trial EnvironmentConfig.extra_docker_compose` → `DockerEnvironment`。**该结论不等于 T2 已运行，也不等于防绕过成立**。
+- **T2 因此仍未运行**，原因是两处授权冲突：Harbor 构造期会创建**无名称无标签**的内核探针容器；其常规拆除路径可能执行 `down --rmi local --volumes`（超出"只按名称与标签删除、不删镜像"）。**用户 2026-09-22 明确授权增补**，范围与硬边界写在[组长机器预案附三](../../../docs/actions/2026-09-21-task05-owner-machine-runbook.md)：允许那个 `--rm` 短命探针容器（但不得挂载 Docker 套接字/发布端口/写宿主路径，若包含即停并报告）；允许常规拆除但**只可删除该次 Trial 自己的 compose 项目资源**，不得删除拉取的固定镜像或其他项目的卷，且须在执行前后记录并复核镜像/卷清单。
+- **建议的最小 T2 形态**（不接 Codex CLI、不接真实模型）：用 `extra_docker_compose` 给 `services.main` 声明显式网络，定义 `internal`（`internal: true`）与 `egress`，另起受控 `proxy` 与 `fake-upstream`，把**七条断言作为该次 Trial 的命令**在真实 Harbor 环境里跑，证据取 Trial stdout 与事后 `docker inspect`。
+- 任务 05 的拓扑验收**仍未通过**；本轮也没有把 T1 结果外推为 T2 通过。
