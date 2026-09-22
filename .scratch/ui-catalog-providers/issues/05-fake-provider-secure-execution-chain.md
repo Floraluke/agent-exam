@@ -150,3 +150,12 @@ E 侧已有准备产物：[阶段 1 代理测试设计](../../../docs/LLY/01-pla
 **仍未完成，且都等 T2**：S9（worker 按 Run 选绑定）、S10（`net/` 与网络接线）、S11（集成层：容器拓扑、直连拒绝、宿主隔离、假 Key 探查、精确清理）——这些必须在固定 Harbor 上回答，属负责人机器。S2 的 TOML 字段名与事件词表也要在那台机器上用固定 CLI 对账。
 
 **请负责人/用户定夺一件安全取舍**：`build_outbound` 会转发除认证头以外的客户端头。`Host` / `Accept-Encoding` / `Content-Length` / `Transfer-Encoding` / `Connection` 现由传输层接管（否则会出现两个 Host、或压缩流破坏终止事件解析），但 `X-Forwarded-Host` 一类仍会到达注册上游（**目的地本身不受影响**，已断言）。是否收紧为白名单（只留 `Content-Type` 等）需明确。
+
+2026-09-22 关闭 B 指出的缺陷：超受控集合的存量记录不再返回 500（E 侧小片已实施）
+
+- **来源**：B 在[受控词汇对齐行动](../../../docs/architecture/modules/web-and-http/actions/05b-t05-controlled-vocabulary-alignment.md)第 6 节把一处新问题留给 E 决定——`catalog_schemas.py` 的 `_controlled()` 抛裸 `ValueError`，而 `app.py` 只注册了 6 个异常处理器、没有 `ValueError` 的，因此该路径当时表现成 500、不带受控错误码。
+- **修法（E 的实现选择，零契约变更）**：改为抛既有域错误 `CatalogUnavailable`，由 `errors.py` 既有处理器映射为 **503 `DEPENDENCY_UNAVAILABLE`**——`HTTP_API.md` §5 已把"目录对象缺失/损坏"归为 503，故未新增错误码、未改契约。内部码 `UNCONTROLLED_AGENT_TYPE` / `UNCONTROLLED_PROVIDER` 只留在进程内，不回显。
+- **可观察行为（给 B）**：该路径对客户端是 **503 + `DEPENDENCY_UNAVAILABLE`**，正文不含内部码，也不含记录自身的 provider / agent 取值。§4.2 现只把 `UNCONTROLLED_*` 记为失败关闭标记、未写状态码，B 可自行决定是否补一句；本片未改 B 的文档。
+- **验证**：新增 `tests/catalog/agent_identity/test_uncontrolled_records.py`（4 条用例）；**区分力实测**（把实现退回 `raise ValueError(code)` 后 4 条全部失败，还原后通过）；`pytest tests/catalog` 46 passed / 29 skipped、默认回归 **591 passed / 105 skipped / 2 failed**（+4，失败项仍是缺 `framework/harbor` 的 ISSUE-04）、`ruff`/`format`/`mypy` 全绿。过程见[行动记录](../../../docs/actions/2026-09-22-t05-uncontrolled-identity-http-error.md)。
+- **另记 B 对我方转述的一处修正**：HTTP 响应只含 `agent_type` 与 `model_provider`，**不含** `authentication_type` 与凭据 profile（契约本就规定不返回认证方式与凭据引用）；E 侧此前把它算作"要公开的身份"，属转述不准确，已按代码更正。
+- 本片不改变本任务其余停点：**S9/S10/S11 仍等 T2**（T2 需在负责人机器执行，探针已入库、窗口可用，只差一句书面授权）。

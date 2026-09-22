@@ -3,6 +3,21 @@
 > 只记录事实与实际结果：做了什么、实际输出是什么、遇到什么。计划见 [`01-plan/PLAN.md`](../01-plan/PLAN.md)。
 > 格式：按日期倒序追加，最新在最上面。
 
+## 2026-09-22
+
+### 已完成
+
+- **拉取远端并合并**：`origin/main` 由 `1888aa2` 前进到 `4f2c606`（B 的 5 个提交、9 个文件，全部属 Web 与 HTTP 侧），`lly/dev` 合并该增量后 HEAD 为 `606a3da`，无冲突。合并后实测：`ruff check` 通过、`ruff format --check` 341 文件、`mypy` 184 源文件无问题、默认回归 **587 passed / 105 skipped / 2 failed**（92.09 秒，失败项仍是缺 `framework/harbor` 的 ISSUE-04）、`pytest tests/providers` **165 passed / 1 skipped**——与合并前基线逐项一致，无回归。本机领先 `origin/lly/dev` 14 个提交，其中只有 `57a18f5`、`64d5f0b` 与本次合并提交是本机新产生的；**未推送**。
+- **B 已完成两处契约对齐，05 的"待 B 确认"一项关闭**（[B 的对齐行动](../../architecture/modules/web-and-http/actions/05b-t05-controlled-vocabulary-alignment.md)）：`HTTP_API.md` §10.2 列入五个受控 `PROVIDER_*` 码、归入的内部错误族与"内部码绝不回显"规则（与 `provider_access/failures.py` 逐字一致）；§4.2 把 `agent_type`/`model_provider` 记为受控集合、按记录如实呈现、超出集合失败关闭，并说明公开 `internal_test_fake` 是有意的；§6.2 补受控预设 `internal-test-provider-proxy`（与 `catalog_presets.py` 逐字一致）。**B 另修正我方一处转述**：`authentication_type=provider_run_token` **不在** HTTP 响应中，响应只含 `agent_type` 与 `model_provider`——契约本就规定不返回认证方式与凭据 profile，我方此前把它算作要公开的身份，属转述不准确。
+- **修掉 B 指出的真实缺陷：超受控集合的存量记录会返回 500**。根因是 `catalog_schemas.py` 的 `_controlled()` 抛裸 `ValueError`，而 `app.py` 只注册了 6 个异常处理器、没有 `ValueError` 的；仓库读取路径（`AgentRegistry.get/list`）不重校验身份，只有 `register()` 校验，因此越过注册表与库级 CHECK 的存量记录会走到响应构造。**修法**：改为抛既有域错误 `CatalogUnavailable`，由 `errors.py` 既有处理器映射为 **503 `DEPENDENCY_UNAVAILABLE`**——`HTTP_API.md` §5 已把"目录对象缺失/损坏"归为 503，故**零契约变更、无新错误码**；内部码 `UNCONTROLLED_AGENT_TYPE`/`UNCONTROLLED_PROVIDER` 只留在进程内、不回显。
+- 新增 `tests/catalog/agent_identity/test_uncontrolled_records.py`（4 条用例：域层按字段命名拒绝、HTTP 层 503 受控响应、不泄漏内部码与记录自身取值）。**区分力实测**：把实现退回 `raise ValueError(code)`，4 条全部失败；还原后通过。实测：`pytest tests/catalog` **46 passed / 29 skipped**（增量正好是新用例）、默认回归 **591 passed / 105 skipped / 2 failed**（+4，失败项仍是 ISSUE-04）、`ruff check` 通过、`ruff format --check` 342 文件、`mypy` 184 源文件无问题。
+- 顺带记一条工具链事实：文档内说 `apps/backend/.venv` 存在，本机无 PostgreSQL（`55432` 未监听），开启 PG 的集成用例按设计跳过。
+
+### 当前停点
+
+- 本日未改变任务 05 的停点：**S9（worker 按 Run 选绑定）、S10（`net/` 与网络接线）、S11（集成层）仍等 T2**；T2 需在负责人机器执行（探针已入库、窗口可用，只差一句书面授权）。
+- 未推送状态不变：本机领先 `origin/lly/dev` 14 个提交。
+
 ## 2026-09-21
 
 ### 已完成
