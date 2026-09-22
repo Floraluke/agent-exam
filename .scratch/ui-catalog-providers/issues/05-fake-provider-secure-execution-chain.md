@@ -186,3 +186,12 @@ E 侧已有准备产物：[阶段 1 代理测试设计](../../../docs/LLY/01-pla
    - 留给 B 决定（可选，一句即可）：§4.2 现只把 `UNCONTROLLED_*` 记为失败关闭标记、未写状态码；是否补一句"客户端可观察为 503 `DEPENDENCY_UNAVAILABLE`"由 B 定，E 不改 B 的文档。E 建议补——B 的"未知错误码失败关闭"验证会走到这个分支。
 3. **夹具"强制下一次响应出错"的控制端点不依赖 E**，B 现在即可实现。E 的唯一请求：造例覆盖两类码——链路将来会发出的（`PROVIDER_*` 五个）与永不会发出的未知码；并确认页面**不回显**原始内部码或文本（§10.2"内容安全由写入方负责、Web 层不猜测"的呈现侧对照）。
 4. 顺带记一处 E 侧同类隐患（当前不在 HTTP 路径上）：`codex/provider_config.py:62-72` 也抛裸 `ValueError("PROVIDER_CONFIG_*")`，目前零调用方；S10 接线时一并收口为受控失败。
+
+2026-09-22 T2 诊断结果：**侧车入口文件 ENOENT（工具链/环境问题，仍非拓扑结论）**
+
+- **实测证据**（负责人只读取证，`up --detach` 返回 0 后立刻取证）：`docker logs` 原文为 `[FATAL tini (7)] exec /opt/egress-sidecar/entrypoint.sh failed: No such file or directory`；容器 `Exited (127)`；`image=harbor-prebuilt:harbor-docker-egress-control-sidecar--f57c86fb4906508e`、`entrypoint=["/opt/egress-sidecar/entrypoint.sh"]`、`error=` 空、非 OOM；该镜像 `RepoDigests=[]`（**本机构建、非拉取**）。
+- **归类**：**环境/工具链失败**，不是七组断言失败。断言仍未测量，第 2 项验收既不能记通过也不能记"拓扑不成立"。
+- **根因判断（强假设，且有本仓库早已记录的机制）**：`docs/dependencies/DEPENDENCIES.md:314` 明确写过——"侧车由固定提交的五个文件构建，复用 Harbor 原生内容哈希命名及构建缓存，**Windows 检出中的 CRLF 会使脚本解释器无效**"，而 `network.py` 之所以用 `git show <revision>:<path>` 取原始 blob，正是为了绕开这一点。负责人本次的 `probe.py` **没有**设置 `_EGRESS_CONTROL_SIDECAR_CONTEXT_PATH`、也未调用 `export_sidecar()`，因此 Harbor 用的是**它自己默认的侧车上下文**（即固定 Harbor 的 Windows 工作树检出），若该检出为 CRLF，`entrypoint.sh` 的 shebang 变成 `#!/bin/sh`，内核找不到解释器 → 正是 `No such file or directory` → tini 报错 → 退出 127。**该假设仍需一次只读确认**（见下），未确认前不写成已定位。
+- **重要澄清（对产品路径有利）**：产品路径 **Worker → `HarborExecutionAdapter` → `harbor_command()` → `harbor_entry.py`** 一定会先 `export_sidecar()` 并把导出上下文交给 Harbor（`harbor_entry.py:177`、`:186`），因此**这个 CRLF 陷阱不影响产品路径**，只影响绕过该入口的手写探针。同一导出还携带**已在 M0 授权的 DNS 适配**（放行 Docker Desktop 转发解析器 `192.168.65.7:53`），没有它即使侧车起来，域名解析也会失败。
+- **对下一轮 T2 的更正**：本仓库此前的"最小 T2 形态"建议（由 E 写）是**手写 probe**，实测证明这条建议会绕过仓库必需的侧车适配。下一轮应改为**经产品入口跑最小 job config**（同 `harbor_entry.py`），或至少在独立探针里显式设置 `_EGRESS_CONTROL_SIDECAR_CONTEXT_PATH` 指向 `export_sidecar()` 导出的上下文。已同步修正[组长机器预案附三](../../../docs/actions/2026-09-21-task05-owner-machine-runbook.md)。
+- **待办**：① 负责人侧一次只读确认（工作树与镜像内 `entrypoint.sh` 的实际行尾）；② 负责人的两份行动文档（`2026-09-22-task05-harbor-minimal-t2.md`、`2026-09-22-task05-sidecar-127-diagnosis.md`）目前只在其 worktree 中、**尚未提交**，需其提交后本仓库才能引用；③ T2 维持"未测得"。

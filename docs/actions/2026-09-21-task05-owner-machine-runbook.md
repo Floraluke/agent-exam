@@ -143,6 +143,6 @@ NEGATIVE_CONTROL=1 bash apps/backend/tests/providers/runtime/topology-probe.sh  
 
 其余约束不变：不重建 `framework/harbor`、不停止或删除既有持久化服务、不读真实 Key、不发起真实供应商请求、不充值、不放宽到公网、不把真 Key 放进做题容器、不改共享 Docker/WSL/全局代理/防火墙、不执行全局 prune。
 
-**建议的最小 T2 形态**（不必接 Codex CLI、不必接真实模型）：用 `extra_docker_compose` 给 `services.main` 声明显式网络并定义 `internal`（`internal: true`）与 `egress` 两条网络，另起本任务的受控 `proxy` 与 `fake-upstream` 服务；把**七条断言作为该次 Trial 的命令**在真实 Harbor 环境里跑（做题侧容器内用 `/dev/tcp` 与 `redis-cli` 检查，假上游记录请求），证据取 Trial 的 stdout 与事后 `docker inspect`。这样回答的是"整套双网络拓扑在固定 Harbor 上是否成立"，而不是依赖某个 Agent 或模型。
+**建议的最小 T2 形态（2026-09-22 更正）**：**不要用手写探针**——首轮实测证明它会绕过本仓库必需的侧车适配（`export_sidecar()` 导出的 LF 上下文 + M0 已授权的 DNS 适配），导致 Harbor 用它默认的 Windows 工作树上下文，`entrypoint.sh` 若为 CRLF 即 `exec ... No such file or directory`（退出 127）。下一轮应**经产品入口 `harbor_entry.py`** 跑一个最小 job config（产品路径与本入口天然携带该适配）；若确需独立探针，必须显式把 `DockerEnvironment._EGRESS_CONTROL_SIDECAR_CONTEXT_PATH` 指向 `export_sidecar()` 的输出。具体要求（不必接 Codex CLI、不必接真实模型）：用 `extra_docker_compose` 给 `services.main` 声明显式网络并定义 `internal`（`internal: true`）与 `egress` 两条网络，另起本任务的受控 `proxy` 与 `fake-upstream` 服务；把**七条断言作为该次 Trial 的命令**在真实 Harbor 环境里跑（做题侧容器内用 `/dev/tcp` 与 `redis-cli` 检查，假上游记录请求），证据取 Trial 的 stdout 与事后 `docker inspect`。这样回答的是"整套双网络拓扑在固定 Harbor 上是否成立"，而不是依赖某个 Agent 或模型。
 
 **必须回报**：Trial 的实际命令与实际输出；`docker inspect` 证据（网络的 `Internal`、容器挂载与发布端口、标签）；Harbor 拆除路径实际执行的命令；镜像/卷清单的删除前后差异；清理复核（残留为 0）；失败与未验证项如实列出。**若任何断言不成立，照样如实回报**——那会让任务 05 按计划第 7 节停在这一步。

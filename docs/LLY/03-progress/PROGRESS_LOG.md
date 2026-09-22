@@ -28,10 +28,13 @@
 
 - **回复 B 的三问**（落地时间 / 超集合记录的 HTTP 表现 / 夹具控制端点），已写入任务单 Comments。要点：① 落地时间由 T2 结论触发而非日期，且**两项呈现验证不必等链路**——它们验的是 Web 层对"给定码/给定文案"的行为，可在合成夹具上先做（`tests/identity/browser_server.py:194` 已有控制端点先例）；本轮核实链路的实情是 `provider_access` 包外只有一个导入方、`render_provider_config` 零调用方、worker 仍无条件要求 ChatGPT 认证（`runtime.py:66`），故**今天没有任何真实 provider 失败能写到 Run**。② 超集合记录的表现**已实现**（`3a5a9b8`：503 `DEPENDENCY_UNAVAILABLE`，零契约变更），B 可自行决定是否在 §4.2 补一句状态码。③ 夹具控制端点属 B 的测试基建，不依赖 E。另记一处 E 侧同类隐患：`codex/provider_config.py:62-72` 也抛裸 `ValueError("PROVIDER_CONFIG_*")`，当前零调用方，S10 接线时一并收口。过程见[回复行动](../../actions/2026-09-22-t05-b-scheduling-reply.md)。
 
+- **T2 诊断结果：侧车入口 ENOENT（环境/工具链，仍非拓扑结论）**。实测 `exec /opt/egress-sidecar/entrypoint.sh failed: No such file or directory`、`Exited (127)`、镜像为本机构建的 `harbor-prebuilt:...--f57c86fb4906508e`、`RepoDigests=[]`、`error=` 空。**根因强假设且有仓库既有依据**：`DEPENDENCIES.md:314` 早写明"Windows 检出中的 CRLF 会使脚本解释器无效"，而 `network.py` 用 `git show` 取原始 blob 正是为绕开它；负责人的手写 `probe.py` 未设 `_EGRESS_CONTROL_SIDECAR_CONTEXT_PATH`、未调 `export_sidecar()`，于是用了 Harbor 默认上下文。**产品路径不受影响**——`Worker → harbor_command() → harbor_entry.py` 必先导出适配上下文（`:177`/`:186`）。
+- **对我此前建议的更正**：我在附三建议的"手写最小探针"会绕过必需的侧车适配，已改为"**经 `harbor_entry.py` 跑最小 job config**，或显式设置 context path"。待负责人做一次只读确认（工作树与镜像内 `entrypoint.sh` 行尾）后即可定论。
+
 ### 当前停点
 
 - **任务 05 本机侧已实施完毕**（S2–S8、T1 与 `service.py` 的 S6a–S6e），剩余全部等 T2：**S9（worker 按 Run 选绑定）、S10（`net/` 与网络接线）、S11（集成层）**。
-- **T2 的状态（2026-09-22 更新）**：T1 已在负责人机器复测通过；Harbor 源码结论为"允许按服务绕过侧车附加"；授权增补已给出并**已实际执行一次，但未测得**——自带侧车退出 127 且未执行任何 Trial 命令。下一步是**诊断侧车退出原因**（取日志与镜像/入口信息），不是重跑也不是改断言。
+- **T2 的状态（2026-09-22 更新）**：T1 已在负责人机器复测通过；Harbor 源码结论为"允许按服务绕过侧车附加"；授权增补已给出并**已实际执行一次，但未测得**——自带侧车退出 127 且未执行任何 Trial 命令。下一步是**只读确认侧车入口的行尾**（工作树与镜像内各一次），再决定下一轮 T2 走产品入口。
 - 推送状态：本机与 `origin/lly/dev` 一致（上一条"领先 14 个提交"的说法已被本轮推送取代）。
 - 与 B 的往来状态（2026-09-22 更新）：B 已完成两处契约对齐（§10.2 五个受控码、§4.2 受控集合与 `internal_test_fake`，见当日条目），**"仍等 B"的旧说法作废**。当前挂在 B 侧的是：① 可选——在 §4.2 补一句超集合记录的状态码（503 `DEPENDENCY_UNAVAILABLE`）；② 夹具"强制下一次响应出错"的控制端点与两项呈现验证（**不依赖 E 的链路**，见当日回复条目）。
 
