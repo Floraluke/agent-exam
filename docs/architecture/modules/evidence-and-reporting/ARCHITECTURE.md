@@ -37,6 +37,8 @@
 - 界面把 `missing` 分列成“无运行 / 报告缺失”时，唯一判据是 `run_id` 是否为空，不新增字段、不改响应形状。
 - 中文映射唯一落在 `matrix_markdown.py` 的 `_CELL_LABELS`；改文案只改这一处，界面与报告同时生效。
 
+**批次报告在批次未完成时仍返回 `200`**：`stage_message` 说明当前阶段，`completed_runs`/`failed_runs`/`pending_runs` 按 Run 状态计数，尚未形成确定性结果的 Run 记 `outcome=incomplete`、`resolved=null`，不进 `resolved_runs`/`unresolved_runs`。未完成不是 `404`（那表示不存在或无权，含 `internal_test`），也不是 `409`；前端进度区正是消费这些计数。`report_path` 是通往单 Run 报告的链接，不代表结果已可用。契约回归见 `tests/jobs/reporting/test_job_report_states.py`。
+
 ## 3. 当前 Implementation 文件树
 
 ```text
