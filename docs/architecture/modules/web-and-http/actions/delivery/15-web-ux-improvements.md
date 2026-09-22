@@ -146,9 +146,11 @@ cd ../backend && .venv/Scripts/python.exe -m ruff check tests/identity/browser_s
 | 排行榜预填 | 临时把 `useState(initialFilters)` 改回 `useState(empty)` | 用例 1 **失败**：`expect(locator).toHaveValue` 收到 `""`；改回后 2 passed |
 | 夹具行为不变 | 不调用新端点时正常走完"提交 → 批准 → 重读详情" | `refresh-failure.spec.ts` 第 1 条用例通过；其余 26 个既有 spec 全量通过 |
 
-## 7. a11y 扫描清单：12 个视图状态与未修项
+## 7. a11y 扫描清单：26 个视图状态与未修项
 
 **扫描口径**：`AxeBuilder.withTags(["wcag2a","wcag2aa"])`。每个视图打印一行覆盖情况（"通过"是 axe 真正评估过并放行的规则数），并对 `REPORT_ONLY` 命中的规则输出完整明细。**必须为零**的一栏就是本次修复边界内的机械性问题。
+
+下表为本行动第一件落地时的 12 个状态（owner、默认桌面宽度）；其余 14 个状态为[§9 的补充轮次](#9-补充轮次2026-09-22扩展扫描覆盖面--修正过期标题)所加，同表口径。
 
 | 视图状态 | 必须为零 | 只报告 | 通过规则数 |
 |---|---|---|---|
@@ -182,7 +184,7 @@ cd ../backend && .venv/Scripts/python.exe -m ruff check tests/identity/browser_s
 
 - **只有 `wcag2a`/`wcag2aa`**（用户指定）：`landmark-one-main`、`region`、`heading-order` 等 best-practice 规则**不在扫描范围**，"内容都在地标内""页面只有一个 main"这类问题不会被发现。
 - **折叠内容不会被扫到**：`<details>` 收起时其内容不参与渲染，因此排行榜行的"完整比较条件／过程指标／纳入来源"、单次报告的"技术详情"等**没有进扫描**。
-- **状态覆盖有限**：只扫了 owner 角色、默认桌面宽度下的 12 个状态；协作者视图、390/360 手机宽度、登录/加入页、错误态与空态（除排行榜空态外）未扫描。既有 `tests/workbench/mobile.spec.ts`、`tests/identity.spec.ts` 覆盖了这些路径的行为，但不是 a11y 扫描。
+- **状态覆盖已按 §9 补齐**：协作者视角（工作台/评测列表/对比报告）、390 与 360 手机宽度（侧栏收起与展开主导航）、无会话的登录页与邀请加入页、以及注入故障后的错误态现已成为常驻扫描项。仍未扫描的：折叠内容（同上）、`<details>` 展开态、聚焦态视觉、空态（除排行榜与协作者评测列表外）、以及桌面以外的其它宽度（如平板 768）。
 - **悬停态只点测了主按钮一类**：`details`/`summary`、导航按钮、表格斑马纹等其它元素的悬停/聚焦视觉未逐一点测。聚焦态有全局 `:focus-visible` 描边（`globals.css:25`），但未做对比度实测。
 
 ## 8. 实际结果、偏差与未做的事
@@ -197,3 +199,59 @@ cd ../backend && .venv/Scripts/python.exe -m ruff check tests/identity/browser_s
 6. **第三件的两个明确取舍**：① `evaluation_track` **不进 URL**——客户端固定 `closed_book`（`lib/leaderboard/client.ts` 写死），预填不需要它；② 预填的值**只用于表单默认值**，不自动查询、不改写 URL，用户仍要点「查询排行榜」。
 7. **夹具端点未调用时行为不变**：队列为空即透传；新增的 32 行把 `browser_server.py` 推到 279 行（既有已确认例外，见 §3）。
 8. **跑测副作用已还原**：直接 `npx playwright test` 会让 Next dev 重建 `next-env.d.ts`/`tsconfig.json`；收尾用 `git checkout --` 还原，`git status --short` 只剩本轮预期文件（见 §6）。
+
+## 9. 补充轮次（2026-09-22）：扩展扫描覆盖面 + 修正过期标题
+
+### 9.1 情况说明
+
+§7 此前明确记着"只扫了 owner、默认桌面宽度下的 12 个状态；协作者视图、390/360 手机宽度、登录/加入页、错误态未扫描"。本轮把这些**明确标着未扫**的状态变成常驻扫描项，并修掉两条措辞已过期的用例标题（`color-contrast` 的整类排除已在同日收掉，标题里"只剩明确报告项/（只报告）"不再成立）。
+
+**修复边界（未扩张）**：只修机械性问题（可访问名、`label` 关联、landmark/role、`aria-*`、重复 id）；对比度与版式一律只报告不改，且**不重新整类排除** `color-contrast`。
+
+### 9.2 实施措施
+
+1. 新增 `apps/web/tests/support/a11y.ts`：把基线的扫描语义（同一规则集、同一"必须为零/只报告"分工、同样的逐视图覆盖日志）导出给新 spec 复用。**没有改 `baseline.spec.ts` 的扫描逻辑**（它的 `scan` 额外支持显式悬停态，本轮只改它的两条标题字符串）。新增两点，都是为了让"扫到的状态"与"扫描结论"确定：
+   - 扫描前 `await page.evaluate` 等所有 `CSSTransition` 结束：抽屉式主导航在滑动过程中位置/层叠关系未定稳时，axe 会把本来能判定通过的对比度降级成"需人工复核"（本轮实测到过一次：390 展开态 `color-contrast` 命中 `strong`，等过渡结束后复测为 0）。
+   - 打印"需人工复核"的规则 id 与命中元素：它不是违规，但"总数为 1"这种无法复核的说法不该出现在报告里。
+2. 新增 `apps/web/tests/a11y/collaborator.spec.ts`：真实协作者会话（所有者签发一次性邀请码 → 独立浏览器上下文兑换并登录）扫**协作者工作台、协作者评测列表（空/含自己的批次）、协作者对比报告（含矩阵）**共 4 态。协作者只看得见自己提交的批次，因此用例让协作者自己提交一个批次、由所有者批准执行完成后再扫，矩阵里是真实内容。
+3. 新增 `apps/web/tests/a11y/extended-states.spec.ts`：扫**无会话的登录页、邀请加入页（空表单/已填真实邀请码/加入成功后）、登录失败的错误态**（用夹具一次性注入 `POST /api/v1/auth/login` 503）、**390 与 360 手机宽度下的侧栏收起与主导航展开**共 4 态、以及**批次详情重读失败的错误态**（注入 `GET /api/v1/jobs/{id}` 503，与 `tests/jobs/refresh-failure.spec.ts` 同一端点）共 10 态。加入页用的是夹具上真实签发的邀请码，不是只渲染空表单。
+4. 两个新 spec 各自造数据（邀请码、自己的批次），因此**独立成文件**：仓库 runner 对每个 spec 文件各起一次干净后端。
+5. 只改标题字符串：`baseline.spec.ts` 的用例标题"九个可达视图的 axe 基线扫描只剩明确报告项"→"**各可达视图的 axe 基线扫描无未处理违规**"；悬停态视图名"排行榜查询按钮（悬停态·只报告）"→"排行榜查询按钮（悬停态）"。**未改任何逻辑**。
+
+### 9.3 本轮改动的文件树
+
+| 路径 | 改动 | 行数 |
+|---|---|---|
+| `apps/web/tests/support/a11y.ts` | 新增：共享扫描入口（与基线同语义 + 过渡等待 + 需人工复核明细） | 新增，63 行 |
+| `apps/web/tests/a11y/collaborator.spec.ts` | 新增：协作者视角 4 态扫描（含邀请码兑换与协作者自己的批次） | 新增，84 行 |
+| `apps/web/tests/a11y/extended-states.spec.ts` | 新增：登录/加入页、登录失败、390/360 手机宽度、批次详情重读失败共 10 态扫描 | 新增，112 行 |
+| `apps/web/tests/a11y/baseline.spec.ts` | 修改：仅两条标题字符串（用例标题、悬停态视图名），逻辑零改动 | +2/−2 |
+| `docs/architecture/modules/web-and-http/progress.md` | 修改：同步"已扩到 26 个状态"与仍然未覆盖的项 | — |
+
+新增/改动的 TS 文件均在 200 行以内（最大为 `extended-states.spec.ts` 111 行），全部扫描项合计 **26 个视图状态**。
+
+### 9.4 自验证方式与结果
+
+```bash
+cd apps/web
+npm run typecheck && npx eslint tests/                      # 静态检查
+AGENTEXAM_USE_SYSTEM_CHROME=1 npx playwright test tests/a11y/   # 单跑（3 个文件共享一次后端）
+AGENTEXAM_USE_SYSTEM_CHROME=1 npm run test:e2e                  # 全量，判定标准（退出码 0）
+```
+
+| 检查 | 实际输出 |
+|---|---|
+| `npm run typecheck` | 退出码 0（无输出） |
+| `npx eslint tests/` | 退出码 0 |
+| 单跑 `npx playwright test tests/a11y/` | **6 passed（41.6s），退出码 0**；26 条扫描日志全部"必须为零 0／只报告 0／需人工复核 0" |
+| **全量 `npm run test:e2e`** | **退出码 0**：31 个 spec 文件、**63 passed / 0 failed / 0 skipped**（日志 `runtime/tests/a11y-round-full-e2e.log`） |
+| 改动范围 | `git status --short` 只有 §9.3 的三个文件与 `baseline.spec.ts`；框架生成的 `next-env.d.ts`、`tsconfig.json` 已 `git checkout --` 还原。**未 `git add`/`commit`/`push`** |
+
+**负控（证明新断言不是空转）**：临时删掉 `join.tsx` 里「邀请码」的 `<label htmlFor="join-token">` → `加入页（空表单）` 扫描**失败**（`必须为零 1`，报 `label（critical）命中 1 处 … Element does not have an explicit <label>`），该 spec 退出码 1；还原后复跑 3 passed、恢复 0 违规。
+
+### 9.5 本轮扫出的违规与偏差
+
+- **新扫出的违规：机械性问题 0 条**。14 个新状态、共 279 条规则评估（各态"通过规则数"之和，口径同 §7）全部通过，因此本轮**未改任何产品代码**（负控用的那处改动已还原，`git diff` 为空）。26 个状态合计 533 条。
+- **对比度：0 条**（26 个状态全绿，`REPORT_ONLY` 保持为空，未新增任何排除条目）。上一轮修掉的悬停缺陷没有回归。
+- **唯一一次"需人工复核"是过渡中的假象**，不是违规：390 展开态首次扫到 `color-contrast（serious）命中 1 处：strong`；点开是扫描发生在侧栏 0.18s 滑动过渡期间，层叠关系未定稳。等过渡结束（§9.2 第 1 条）后复测为 0，26 个状态此后均为"需人工复核 0"。
+- **偏差与未做**：① 协作者对比报告为了让矩阵有内容，用了"协作者提交 → 所有者批准 → 轮询到执行完成"的链路（无对应夹具捷径），因此该用例耗时约 8.6s；② 手机宽度只扫了工作台视图，未逐个视图重复；③ 平板宽度、聚焦态视觉、`<details>` 展开态仍未扫描（见 §7 末的局限）。
