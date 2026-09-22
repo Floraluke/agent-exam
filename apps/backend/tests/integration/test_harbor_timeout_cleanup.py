@@ -95,9 +95,9 @@ def _request(task: Any, limits: RunLimits) -> ExecutionJobRequest:
         "nop-probe-only",
         "codex",
         "0.0.0-probe",
-        "openai",
+        "openai_chatgpt",
         "model-must-be-confirmed",
-        "chatgpt",
+        "chatgpt_auth_json",
         "not-accessed-by-nop",
         {"reasoning_effort": "low"},
     )

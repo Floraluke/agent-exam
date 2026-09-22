@@ -141,37 +141,10 @@ def test_agent_list_paginates_and_filters_by_state():
         assert [item["agent_configuration_id"] for item in stopped] == [disabled_id]
 
 
-def test_agent_type_filter_is_applied_not_ignored(identity_api):
-    """HTTP contract: a legal filter with no match returns an empty list.
-
-    Records of a second type cannot be registered through the API yet, so the
-    row is seeded straight into the repository. Without the filter being passed
-    down, the endpoint answers with every codex row instead of an empty page.
-    """
-    from datetime import UTC, datetime
-
-    from catalog.conftest import MemoryAgents
-    from eval_platform.domain.catalog import RegisteredAgent
-
-    agents = MemoryAgents()
-    other = RegisteredAgent(
-        AgentConfiguration(
-            "seeded-aider",
-            "aider",
-            "test-version",
-            "openai_chatgpt",
-            "aider-model",
-            "chatgpt_auth_json",
-            "private-test-reference",
-            {"reasoning_effort": "medium"},
-        ),
-        "Seeded other type",
-        datetime.now(UTC),
-    )
-    agents.records[other.configuration.configuration_id] = other
-
+def test_agent_type_filter_accepts_only_the_controlled_type(identity_api):
+    """HTTP and domain share the same single controlled agent type."""
     assert identity_api.login().status_code == 200
-    with catalog_api(agents=agents) as api:
+    with catalog_api() as api:
         assert api.login().status_code == 200
         endpoint = "/api/v1/agent-configurations"
         registered = api.client.post(
@@ -185,6 +158,4 @@ def test_agent_type_filter_is_applied_not_ignored(identity_api):
         assert [item["display_name"] for item in filtered["items"]] == [
             registered["display_name"]
         ]
-        assert "Seeded other type" not in {
-            item["display_name"] for item in filtered["items"]
-        }
+        assert api.client.get(endpoint + "?agent_type=aider").status_code == 422

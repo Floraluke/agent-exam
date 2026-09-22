@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import {
-  loginOwner, navigation, openWizard, registerCatalog, reviewSelection,
+  loginOwner, openWizard, registerCatalog, reviewSelection,
 } from "../support/workbench";
 
 test("new-job history never restores controls for an unrelated existing job", async ({ page }) => {

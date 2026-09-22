@@ -2,17 +2,17 @@
 
 > 文档状态：架构边界已确认；字段契约 v0.3；M0 核心闭环通过，M1 任务 01–13 已验收；任务 13 的 `-04` 正式执行、判卷、持久化、页面和双轴终审均通过；M1/MVP 尚未完成
 >
-> 最后更新：2026-09-17（补充现实模块文档入口；未改变已实现接口）
+> 最后更新：2026-09-22（同步连续规模、六题目录和受控提供方策略切片的现实边界）
 > 权威范围：本文件只维护项目内部模块的职责、输入、输出、错误、不变量和依赖。当前 Interface、Implementation 与 Adapter 的现实代码地图见[模块架构索引](./modules/README.md)；全局组成见 [`ARCHITECTURE.md`](./ARCHITECTURE.md)，字段级边界见 [`RUNNER_PROTOCOL.md`](../interfaces/RUNNER_PROTOCOL.md)、[`HTTP_API.md`](../interfaces/HTTP_API.md) 和 [`DATA_MODEL.md`](./DATA_MODEL.md)。
 
-## 扩展合同增量：已确认方向、未实现
+## 扩展合同增量：已实现切片与后续边界
 
-[扩展规格](../../.scratch/ui-catalog-providers/spec.md)新增 Codex + 两家按量API，不启动P2自研Agent。以下当前模块的责任不变，具体执行顺序见[计划](../../.scratch/ui-catalog-providers/plan.md)：
+[扩展规格](../../.scratch/ui-catalog-providers/spec.md)新增 Codex + 两家按量 API，不启动 P2 自研 Agent。六题目录、连续规模、比较页面及 S3–S8 提供方纯策略切片已经实现；S2、服务装配、T2 和真实提供方仍未完成。以下当前模块的责任不变，具体执行顺序见[计划](../../.scratch/ui-catalog-providers/plan.md)：
 
 - Task Catalog：仅登记资格合格的固定题目，沿用公开/隐藏数据分离；候选存在不等于目录可用。
-- Agent Registry：计划增加有限受控API预设；不是开放任意模型、地址、命令或Key输入。身份、SQL约束与快照校验必须同时升级，旧指纹兼容。
+- Agent Registry：领域对象与 PostgreSQL 只接受 `openai_chatgpt/chatgpt_auth_json` 和测试专用 `internal_test_fake/provider_run_token` 两个成对身份；生产目录仍只创建固定 ChatGPT 预设，不开放任意模型、地址、命令或 Key 输入。
 - Job Submission/Repository：新连续规模版本只影响新提交；仍原子保存冻结Job、全部Run和初始事件并立即等待批准，不读Key/启动Agent。原恢复不续跑、新Job重试保留。
-- ExecutionBackend：接口不变，Harbor Adapter内部在已批准Run开始时建立受控代理绑定。提供方鉴权、协议、限额或生命周期失败映射现有基础设施/策略错误，不伪装为题目未通过、不自动重试。代理不能判分或自行领取任务。
+- ExecutionBackend：接口不变。内部 `provider_access` 已实现令牌、私有文件、预算、请求和失败策略，但尚未由 Harbor Adapter/Worker 建立代理服务；提供方鉴权、协议、限额或生命周期失败必须映射受控基础设施/策略错误，不伪装为题目未通过、不自动重试。代理不能判分或自行领取任务。
 - PatchEvaluator/报告/排行榜：固定Fork独立判断补丁；报告对比复用既有数据，可比性按冻结条件校验，不新增Judge评分或计费平台。
 
 代理短命令牌、真实Key、私有拓扑与故障关闭合同由[认证4.1](../interfaces/CODEX_AUTHENTICATION.md#41-codex-第三方-api-扩展规划2026-09-17)维护。当前只有配置探针，安全实现未验收；后文旧版规模/提供方限制表示当前代码，不撤销此规划。
@@ -169,7 +169,7 @@ Invitation、InvitationSummary、Member 是不含凭据的领域值，创建用�
 | 输入 | 登记配置 ID，或只读筛选条件 |
 | 输出 | 固定版本的 `AgentConfiguration`；可展示列表 |
 | 错误 | 未登记、已禁用、版本/镜像不存在、配置指纹不匹配 |
-| 不变量 | 只返回项目预登记配置；当前为 Codex/ChatGPT，本次计划扩展 Codex `deepseek`/`kimi`；Agent + 提供方 + 模型 + 关键配置共同构成身份；Aider/Claude Code和P2自研不在本轮实施范围 |
+| 不变量 | 只返回项目预登记配置；生产目录当前仅 Codex/ChatGPT。领域与数据库只接受 `openai_chatgpt/chatgpt_auth_json` 和显式 `internal_test` 装配的 `internal_test_fake/provider_run_token` 两个身份对，禁止交叉组合；DeepSeek/Kimi 仍是后续任务 06/07；Agent + 提供方 + 模型 + 关键配置共同构成身份；Aider/Claude Code 和 P2 自研不在本轮实施范围 |
 | 依赖 | PostgreSQL 配置记录；项目内 Adapter Factory |
 | 验证 | 未登记命令不能运行；相同配置生成相同指纹；秘密不进入查询结果 |
 
@@ -280,6 +280,8 @@ M1 不进入上述 Judge/Review 分支；确定性结果和制品固定后完成
 M0 当前实现注记：执行 port、Harbor Adapter、配置/身份映射、patch 校验及本机原型编排已存在；第四场真实 Codex 已接通独立判卷。已有运行证据与完整验收的区别统一见 [Harbor 验收对账](../interfaces/HARBOR_EXECUTION.md#暂停后的验收对账2026-09-08)，不把完整平台所需依赖写成已实现。
 
 Harbor 映射见 [`HARBOR_EXECUTION.md`](../interfaces/HARBOR_EXECUTION.md)；生产网络配置已在既有 Backend 内接线，最新真实运行及未验收边界统一见其[第四场记录](../interfaces/HARBOR_EXECUTION.md#第四次授权运行真实补丁与独立判卷通过2026-09-08)和验收对账，不增加公开请求字段或新 port。自研/后备进程边界见 [`RUNNER_PROTOCOL.md`](../interfaces/RUNNER_PROTOCOL.md)。
+
+任务 05 当前只完成 Execution Adapter 内部策略切片：`provider_access` 验证私有配置文件、Run 令牌绑定、并发预算预留/结算、最小出站 header/path/model 允许集合和受控失败码；真实 DeepSeek/Kimi 身份未注册，固定测试上游使用不可解析的 `.invalid` 保留域。该切片没有接入 `JobExecutor`、Worker Composition Root 或 Harbor 生命周期，因此不能作为真实 API 执行能力；S2、`service.py`、S9–S11、T2 和完整工具循环仍按任务单待办。
 
 ### 6.9 Agent Source Review（P2，MVP 不实现）
 

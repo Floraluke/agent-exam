@@ -22,6 +22,7 @@ from __future__ import annotations
 _CREDENTIAL_UNAVAILABLE = (
     "PRIVATE_ACCESS_UNVERIFIABLE",
     "PRIVATE_FILE_IN_SYNC_LOCATION",
+    "PRIVATE_FILE_CHANGED",
     "PRIVATE_FILE_MALFORMED",
     "PRIVATE_FILE_NOT_REGULAR",
     "PRIVATE_FILE_OWNER_MISMATCH",
@@ -33,11 +34,9 @@ _CREDENTIAL_UNAVAILABLE = (
     "PRIVATE_PROFILE_IDENTITY_EMPTY",
     "PRIVATE_PROFILE_ID_INVALID",
     "PRIVATE_PROFILE_NOT_FOUND",
-    "PRIVATE_PROFILE_RUN_MISMATCH",
     "PRIVATE_SECRET_EMPTY",
     "PRIVATE_UPSTREAM_NOT_REGISTERED",
     "TRANSPORT_CREDENTIAL_EMPTY",
-    "TRANSPORT_UPSTREAM_UNAUTHORIZED",
 )
 _ACCESS_DENIED = (
     "PROVIDER_BINDING_ALREADY_ISSUED",
@@ -51,9 +50,8 @@ _ACCESS_DENIED = (
     "TRANSPORT_PROVIDER_UNREGISTERED",
 )
 _REQUEST_REJECTED = (
-    "REQUEST_BODY_MALFORMED",
     "REQUEST_BODY_NOT_OBJECT",
-    "REQUEST_BODY_TOO_LARGE",
+    "REQUEST_HEADER_NOT_ALLOWED",
     "REQUEST_INPUT_EMPTY",
     "REQUEST_INPUT_INVALID",
     "REQUEST_MAX_OUTPUT_TOKENS_EXCEEDED",
@@ -70,15 +68,6 @@ _REQUEST_REJECTED = (
     "TRANSPORT_REDIRECT_NOT_PERMITTED",
     "TRANSPORT_RETRY_NOT_PERMITTED",
     "TRANSPORT_UPSTREAM_NOT_ENCRYPTED",
-)
-# The call left the proxy and no answer came back: nothing here is retried or repeated.
-_UPSTREAM_FAILED = (
-    "TRANSPORT_CONNECTION_FAILED",
-    "TRANSPORT_STREAM_INTERRUPTED",
-    "TRANSPORT_UPSTREAM_RATE_LIMITED",
-    "TRANSPORT_UPSTREAM_REFUSED",
-    "TRANSPORT_UPSTREAM_TIMEOUT",
-    "TRANSPORT_UPSTREAM_UNAVAILABLE",
 )
 _BUDGET_EXHAUSTED = (
     "BUDGET_CONSUMED_INVALID",
@@ -110,13 +99,22 @@ _GROUPS = (
     (_ACCESS_DENIED, "PROVIDER_ACCESS_DENIED", "模型访问未获授权。"),
     (_REQUEST_REJECTED, "PROVIDER_REQUEST_REJECTED", "模型请求不符合受限策略。"),
     (_BUDGET_EXHAUSTED, "PROVIDER_BUDGET_EXHAUSTED", "运行额度或期限已用尽。"),
-    (_UPSTREAM_FAILED, "PROVIDER_UPSTREAM_FAILED", "上游模型服务未完成本次请求。"),
 )
 MAPPED_CODES = {
     code: (failure, summary) for group, failure, summary in _GROUPS for code in group
 }
 GENERIC_FAILURE = ("PROVIDER_ACCESS_FAILED", "模型访问未完成。")
 ALL_INTERNAL_CODES = frozenset(MAPPED_CODES) | CONFIGURATION_ONLY
+
+
+class ProviderAccessError(ValueError):
+    """A validated internal code; unknown strings cannot silently become generic."""
+
+    def __init__(self, code: str) -> None:
+        if code not in ALL_INTERNAL_CODES:
+            raise ValueError("PROVIDER_INTERNAL_CODE_UNKNOWN")
+        self.code = code
+        super().__init__(code)
 
 
 def controlled_failure(internal_code: str) -> tuple[str, str]:

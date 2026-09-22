@@ -25,6 +25,8 @@
 
 **一处工具链事实（如实记录）**：按项目配置**裸跑 `mypy`**（`[tool.mypy] packages = ["eval_platform"]`、`strict = true`）在本机**不可用**，报 `Package 'eval_platform' cannot be type checked due to missing py.typed marker`（解析到的是未安装 `py.typed` 的包而非 `src/` 树）。改用路径方式（`MYPYPATH=src mypy src/eval_platform`）才是有效信号。另：对**单个测试文件**跑 mypy 会连带检查未纳入项目范围的测试夹具，得到 268 个 `no-untyped-call`/`no-untyped-def` 类错误——**那是范围外的噪声，不是 B 的结论**，不作为指标。
 
+**更正（2026-09-22，同日）**：上游随后修正了 src 布局配置并新增 `mypy.ini`，**裸跑 `mypy` 现对 177 个源文件通过、不再需要路径绕行**；本节此前那条“裸跑不可用”的结论已不再成立，保留作当时的记录。
+
 ### 2.2 前端死代码清理（唯一代码改动）
 
 `apps/web/src/lib/job-client.ts` 的 `runArtifacts`（`GET /runs/{id}/artifacts?limit=100`）经全仓检索**无任何界面调用**，属死代码；已删除该函数，并同步移除随之无用的 `ArtifactPage` 类型导入与 `parseArtifactPage` 导入。
@@ -34,7 +36,7 @@
 ### 2.3 给 A 的说明与给 D 的报告
 
 - 脱离版目录补 `README.md`：这是什么、怎么打开、与"跑起来的前端"的差别、已知边界、反馈什么最有价值。
-- 起草给 D 的契约缺口说明（`runtime/drafts/to-D-report-500-contract-gap.md`，在 gitignored 的 `runtime/` 下，不入库）（**在 gitignored 的 `runtime/` 下，不入库**）：未完成批次的批次报告返回 500 的证据、已核实的代码路径、三个候选方案与 B 的倾向。
+- 起草给 D 的契约缺口说明（`runtime/drafts/to-D-report-500-contract-gap.md`，gitignored 不入库）：**该报告已被 D 复核及 B 复测推翻**——当前 main 与干净装配都复现不出 500，正确行为就是 200；B 的归因（“未完成”导致）是错的。契约已按 D 的措辞补入 `HTTP_API.md` §10.1，见[行动 10](../10-job-report-nonterminal-contract.md)。
 
 ## 3. 实际改动的文件树
 

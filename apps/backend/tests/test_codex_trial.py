@@ -70,9 +70,9 @@ def test_full_synthetic_codex_trial(tmp_path: Path, mode: str) -> None:
         configuration_id="internal-synthetic-only",
         agent_name="codex",
         agent_version="0.153.0",
-        model_provider="openai",
+        model_provider="openai_chatgpt",
         model_name="gpt-5.6-terra",
-        authentication_type="chatgpt",
+        authentication_type="chatgpt_auth_json",
         credential_configuration_id="synthetic-only",
         critical_config={"reasoning_effort": "medium"},
     )

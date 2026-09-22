@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "AgentExam modular backend and M0 evaluation prototype"
 requires-python = ">=3.13,<3.14"
 dependencies = [
-  "pyarrow==22.0.0",
+  "pyarrow==23.0.1",
   "fastapi==0.141.1",
   "uvicorn==0.52.4",
   "psycopg[binary]==3.3.5",
@@ -23,8 +23,12 @@ agentexam-worker = "eval_platform.delivery.worker.runtime:main"
 
 [dependency-groups]
 dev = [
+  "anyio==4.14.2",
+  "httpx2==2.13.0",
   "mypy==1.18.2",
-  "pytest==9.0.2",
+  "pip-audit==2.10.1",
+  "pytest==9.0.3",
+  "pytest-cov==7.1.0",
   "ruff==0.15.17",
   "httpx==0.28.1",
 ]
@@ -39,7 +43,7 @@ where = ["src"]
 "eval_platform.adapters.persistence.jobs" = ["schema.sql"]
 
 [tool.pytest.ini_options]
-addopts = "-ra"
+addopts = "-ra -p no:cacheprovider --cov --cov-report=term-missing"
 pythonpath = ["src", "."]
 testpaths = ["tests"]
 markers = [
@@ -57,4 +61,25 @@ select = ["B", "E", "F", "I", "UP"]
 [tool.mypy]
 python_version = "3.13"
 strict = true
-packages = ["eval_platform"]
+mypy_path = ["src"]
+files = ["src/eval_platform"]
+
+[tool.coverage.run]
+branch = true
+# The default gate covers the in-process product core. PostgreSQL adapters remain
+# behind their explicit integration tier instead of making the unit gate depend on
+# a running database.
+source = [
+  "eval_platform.domain",
+  "eval_platform.application",
+  "eval_platform.delivery",
+  "eval_platform.adapters.artifacts",
+  "eval_platform.adapters.tasks",
+  "eval_platform.adapters.execution",
+  "eval_platform.adapters.evaluation",
+]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+skip_covered = true

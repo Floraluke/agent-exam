@@ -29,6 +29,7 @@ export default function ComparisonWorkspace({
   const [busy, setBusy] = useState(false); const [metricsBusy, setMetricsBusy] = useState(false);
   const [metricsLoaded, setMetricsLoaded] = useState(false); const [failed, setFailed] = useState(0);
   const [error, setError] = useState("");
+  const comparisonRequest = useRef(0);
   const openRequest = useRef(0); const metricsRequest = useRef(0);
 
   async function loadJobs(reconcile = false) {
@@ -47,12 +48,24 @@ export default function ComparisonWorkspace({
       setError(value instanceof ApiError ? value.message : "暂时无法读取评测列表。");
     }
   }
-  useEffect(() => { void loadJobs(); }, []);
+  useEffect(() => {
+    let active = true;
+    void jobs().then((next) => {
+      if (active) setAvailable(next.items);
+    }).catch((value: unknown) => {
+      if (active) {
+        setAvailable(null);
+        setError(value instanceof ApiError ? value.message : "暂时无法读取评测列表。");
+      }
+    });
+    return () => { active = false; };
+  }, []);
 
-  function resetResult() {
+  function resetResult(invalidateComparison = true) {
+    if (invalidateComparison) comparisonRequest.current += 1;
     openRequest.current += 1; metricsRequest.current += 1;
     setMatrix(null); setDetails(new Map()); setReports(new Map()); setOpened(null);
-    setMetricsLoaded(false); setMetricsBusy(false); setFailed(0); setError("");
+    setBusy(false); setMetricsLoaded(false); setMetricsBusy(false); setFailed(0); setError("");
   }
 
   function changeSelection(id: string) {
@@ -65,18 +78,25 @@ export default function ComparisonWorkspace({
 
   async function compare() {
     if (ids.length === 0) return;
-    resetResult(); setBusy(true);
+    const request = ++comparisonRequest.current;
+    resetResult(false); setBusy(true);
     try {
       const next = await comparison(ids);
+      if (request !== comparisonRequest.current) return;
       setMatrix(next);
       const result = await comparisonDetails(next.columns.map((column) => column.job_id));
+      if (request !== comparisonRequest.current) return;
       setDetails(result.values);
       if (result.failed.length > 0) {
         setError(`${result.failed.length} 个冻结配置快照读取失败，相关字段显示未知。`);
       }
     } catch (value) {
-      setError(value instanceof ApiError ? value.message : "暂时无法生成对比报告。");
-    } finally { setBusy(false); }
+      if (request === comparisonRequest.current) {
+        setError(value instanceof ApiError ? value.message : "暂时无法生成对比报告。");
+      }
+    } finally {
+      if (request === comparisonRequest.current) setBusy(false);
+    }
   }
 
   async function loadMetrics() {

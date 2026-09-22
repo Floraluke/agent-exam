@@ -18,18 +18,18 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Any
 
+from eval_platform.adapters.execution.provider_access.failures import (
+    ProviderAccessError,
+)
+from eval_platform.adapters.execution.provider_access.private_file import read_verified
 from eval_platform.domain.agent import INTERNAL_TEST_PROVIDER, INTERNAL_TEST_UPSTREAM
 
 MAX_BYTES = 64 * 1024
 STRUCTURE_VERSION = 1
 PROFILE_ID = re.compile(r"[a-z][a-z0-9-]{1,31}")
-# Candidate; the registered presets live in delivery/catalog_presets.py and are
-# synced here in S8. An arbitrary host must never be accepted from the file.
+# Task 05 runtime permits only the controlled fake identity. Real provider
+# registrations remain owned by tasks 06/07 and cannot be enabled accidentally here.
 REGISTERED_UPSTREAMS = {
-    "deepseek": "https://api.deepseek.com",
-    "kimi": "https://api.moonshot.cn/v1",
-    # internal_test only: the reserved .invalid domain cannot resolve outside the
-    # isolated trial network, so binding it elsewhere fails closed.
     INTERNAL_TEST_PROVIDER: INTERNAL_TEST_UPSTREAM,
 }
 _SYNC_MARKERS = (
@@ -56,25 +56,25 @@ class PrivateProfile:
 
     def __post_init__(self) -> None:
         if not PROFILE_ID.fullmatch(self.profile_id):
-            raise ValueError("PRIVATE_PROFILE_ID_INVALID")
+            raise ProviderAccessError("PRIVATE_PROFILE_ID_INVALID")
         if not self.provider.strip() or not self.model.strip():
-            raise ValueError("PRIVATE_PROFILE_IDENTITY_EMPTY")
+            raise ProviderAccessError("PRIVATE_PROFILE_IDENTITY_EMPTY")
         if REGISTERED_UPSTREAMS.get(self.provider) != self.upstream_base_url:
-            raise ValueError("PRIVATE_UPSTREAM_NOT_REGISTERED")
+            raise ProviderAccessError("PRIVATE_UPSTREAM_NOT_REGISTERED")
         if not self.secret.strip():
-            raise ValueError("PRIVATE_SECRET_EMPTY")
+            raise ProviderAccessError("PRIVATE_SECRET_EMPTY")
 
 
 def owner_only_verifier(path: Path) -> None:
     """POSIX owner-only check; fails closed where the platform cannot prove it."""
 
     if not hasattr(os, "geteuid"):
-        raise ValueError("PRIVATE_ACCESS_UNVERIFIABLE")
+        raise ProviderAccessError("PRIVATE_ACCESS_UNVERIFIABLE")
     info = path.stat()
     if info.st_uid != os.geteuid():
-        raise ValueError("PRIVATE_FILE_OWNER_MISMATCH")
+        raise ProviderAccessError("PRIVATE_FILE_OWNER_MISMATCH")
     if info.st_mode & (stat.S_IRWXG | stat.S_IRWXO):
-        raise ValueError("PRIVATE_FILE_PERMISSIONS_TOO_WIDE")
+        raise ProviderAccessError("PRIVATE_FILE_PERMISSIONS_TOO_WIDE")
 
 
 def load_profile(
@@ -92,53 +92,42 @@ def load_profile(
 
     _reject_sync_location(path)
     _reject_symlink_components(path)
-    info = _stat_regular_file(path)
-    if info.st_size > MAX_BYTES:
-        raise ValueError("PRIVATE_FILE_TOO_LARGE")
-    verify_access(path)
-    return _parse(path.read_bytes(), profile_id)
+    return _parse(
+        read_verified(path, max_bytes=MAX_BYTES, verify_access=verify_access),
+        profile_id,
+    )
 
 
 def _reject_sync_location(path: Path) -> None:
     parts = [part.lower() for part in path.absolute().parts]
     if any(marker in part for part in parts for marker in _SYNC_MARKERS):
-        raise ValueError("PRIVATE_FILE_IN_SYNC_LOCATION")
+        raise ProviderAccessError("PRIVATE_FILE_IN_SYNC_LOCATION")
 
 
 def _reject_symlink_components(path: Path) -> None:
     current = path.absolute()
     for candidate in (current, *current.parents):
         if candidate.is_symlink():
-            raise ValueError("PRIVATE_FILE_SYMLINK_COMPONENT")
-
-
-def _stat_regular_file(path: Path) -> os.stat_result:
-    try:
-        info = path.lstat()
-    except OSError:
-        raise ValueError("PRIVATE_FILE_UNREADABLE") from None
-    if not stat.S_ISREG(info.st_mode):
-        raise ValueError("PRIVATE_FILE_NOT_REGULAR")
-    return info
+            raise ProviderAccessError("PRIVATE_FILE_SYMLINK_COMPONENT")
 
 
 def _parse(payload: bytes, profile_id: str) -> PrivateProfile:
     if not PROFILE_ID.fullmatch(profile_id):
-        raise ValueError("PRIVATE_PROFILE_ID_INVALID")
+        raise ProviderAccessError("PRIVATE_PROFILE_ID_INVALID")
     try:
         document = json.loads(payload)
     except (UnicodeDecodeError, json.JSONDecodeError):
-        raise ValueError("PRIVATE_FILE_MALFORMED") from None
+        raise ProviderAccessError("PRIVATE_FILE_MALFORMED") from None
     if not isinstance(document, dict) or document.get("version") != STRUCTURE_VERSION:
-        raise ValueError("PRIVATE_FILE_STRUCTURE_INVALID")
+        raise ProviderAccessError("PRIVATE_FILE_STRUCTURE_INVALID")
     profiles = document.get("profiles")
     if not isinstance(profiles, dict):
-        raise ValueError("PRIVATE_FILE_STRUCTURE_INVALID")
+        raise ProviderAccessError("PRIVATE_FILE_STRUCTURE_INVALID")
     if profile_id not in profiles:
-        raise ValueError("PRIVATE_PROFILE_NOT_FOUND")
+        raise ProviderAccessError("PRIVATE_PROFILE_NOT_FOUND")
     entry = profiles[profile_id]
     if not isinstance(entry, Mapping):
-        raise ValueError("PRIVATE_FILE_STRUCTURE_INVALID")
+        raise ProviderAccessError("PRIVATE_FILE_STRUCTURE_INVALID")
     return PrivateProfile(
         profile_id=profile_id,
         provider=_text(entry, "provider"),
@@ -151,7 +140,7 @@ def _parse(payload: bytes, profile_id: str) -> PrivateProfile:
 def _text(entry: Mapping[str, Any], key: str) -> str:
     value = entry.get(key)
     if not isinstance(value, str) or not value.strip():
-        raise ValueError("PRIVATE_FILE_STRUCTURE_INVALID")
+        raise ProviderAccessError("PRIVATE_FILE_STRUCTURE_INVALID")
     return value
 
 

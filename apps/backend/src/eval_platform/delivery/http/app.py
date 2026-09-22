@@ -1,6 +1,4 @@
-from collections.abc import Awaitable, Callable
-
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException
 
@@ -25,7 +23,6 @@ from eval_platform.delivery.http.errors import (
     authentication_error,
     catalog_error,
     dependency_error,
-    error_response,
     framework_http_error,
     job_error,
     membership_error,
@@ -39,7 +36,7 @@ from eval_platform.delivery.http.routes.jobs.report_routes import report_router
 from eval_platform.delivery.http.routes.jobs.reporting import comparison_router
 from eval_platform.delivery.http.routes.leaderboard import leaderboard_router
 from eval_platform.delivery.http.routes.membership import membership_router
-from eval_platform.delivery.http.security import LoginLimiter, trusted_write
+from eval_platform.delivery.http.security import install_security
 from eval_platform.delivery.jobs import create_jobs
 from eval_platform.domain.catalog import CatalogError
 from eval_platform.domain.identity import (
@@ -69,10 +66,26 @@ def create_app(
     leaderboard: LeaderboardReporting | None = None,
 ) -> FastAPI:
     app = FastAPI(title="AgentExam", version="0.1.0")
-    limiters = {
-        "/api/v1/auth/login": LoginLimiter(),
-        "/api/v1/invitations/redeem": LoginLimiter(),
-    }
+    _register_error_handlers(app)
+    install_security(app, config)
+    _register_routes(
+        app,
+        service,
+        config,
+        membership,
+        tasks,
+        agents,
+        jobs,
+        approvals,
+        reporting,
+        cancellations,
+        recovery,
+        leaderboard,
+    )
+    return app
+
+
+def _register_error_handlers(app: FastAPI) -> None:
     app.add_exception_handler(AuthenticationRequired, authentication_error)
     app.add_exception_handler(CatalogError, catalog_error)
     app.add_exception_handler(JobError, job_error)
@@ -87,27 +100,21 @@ def create_app(
     ):
         app.add_exception_handler(error, membership_error)
 
-    @app.middleware("http")
-    async def security(
-        request: Request, call_next: Callable[[Request], Awaitable[Response]]
-    ) -> Response:
-        if request.method not in {"GET", "HEAD", "OPTIONS"}:
-            if not trusted_write(request, config):
-                return error_response(403, "FORBIDDEN", "请求来源不可信")
-        if request.method == "POST" and request.url.path in limiters:
-            if not limiters[request.url.path].allow():
-                limited = error_response(429, "RATE_LIMITED", "尝试过多，请稍后重试")
-                limited.headers["Retry-After"] = "60"
-                return limited
-        try:
-            response = await call_next(request)
-        except Exception:
-            # Never let an unexpected driver error print secrets in a server traceback.
-            return error_response(500, "INTERNAL_ERROR", "平台暂时无法完成请求")
-        response.headers["Cache-Control"] = "no-store"
-        response.headers["X-Content-Type-Options"] = "nosniff"
-        return response
 
+def _register_routes(
+    app: FastAPI,
+    service: IdentityService,
+    config: HttpConfig,
+    membership: MembershipService | None,
+    tasks: TaskCatalog | None,
+    agents: AgentRegistry | None,
+    jobs: JobSubmission | None,
+    approvals: OwnerApproval | None,
+    reporting: JobReporting | None,
+    cancellations: JobCancellation | None,
+    recovery: JobRecovery | None,
+    leaderboard: LeaderboardReporting | None,
+) -> None:
     app.include_router(identity_router(service, config))
     if membership is not None:
         app.include_router(membership_router(service, membership, config))
@@ -123,7 +130,6 @@ def create_app(
         app.include_router(artifact_router(service, reporting, config))
     if leaderboard is not None:
         app.include_router(leaderboard_router(service, leaderboard, config))
-    return app
 
 
 def create_runtime_app() -> FastAPI:

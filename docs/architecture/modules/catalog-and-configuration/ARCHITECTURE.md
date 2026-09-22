@@ -1,6 +1,6 @@
 # 目录与配置 Module
 
-> 当前状态：M1 任务 03 已实现；当前可信目录只有一个固定 SWE-Gym 题目和一个固定 Codex 配置。新题和 DeepSeek/Kimi 配置仍处于规划阶段。
+> 当前状态：目录已有六道受控 SWE-Gym 题和一个生产 Codex/ChatGPT 配置；测试专用假提供方配置只在显式 `internal_test` 装配中可用。真实 DeepSeek/Kimi 配置仍未登记。
 > 权威范围：任务目录、不可变来源快照和固定 Agent Configuration 的当前代码组成。
 
 ## 1. 职责与非职责
@@ -17,6 +17,7 @@ Task Catalog 把服务端可信预设转换成可审计的任务记录：先读�
 - `TaskSource`：固定数据来源 seam；当前 Adapter 是 `SWEGymTaskSource`。
 - `ArtifactStore`：原始任务 JSON 的不可变对象 seam；当前正式 Adapter 是 MinIO。
 - PostgreSQL 中的目录记录和 MinIO 对象摘要必须吻合；对象不可验证时不向调用者返回看似正常的任务。
+- Agent 身份必须是领域单一清单中的受控 provider/authentication 成对组合；生产 Composition Root 不包含测试假配置，数据库以同一成对 CHECK 防止交叉组合。
 
 精确字段和错误见[模块契约](../../MODULE_CONTRACTS.md)，对象键和表见[数据模型](../../DATA_MODEL.md)。
 
@@ -39,11 +40,13 @@ apps/backend/src/eval_platform/
     tasks/collect_patch.sh               # Harbor 题目侧最终 patch 收集脚本
     persistence/catalog/tasks.py         # PostgreSQL Task Repository Adapter
     persistence/catalog/agents.py        # PostgreSQL Agent Repository Adapter
+    persistence/catalog/__init__.py      # 建表及受控身份约束的显式、幂等升级
     persistence/catalog/schema.sql       # tasks、task_artifacts、agent_configurations
+    tasks/catalog.py                     # 六题 instance → 固定含摘要镜像身份
     artifacts/minio.py                   # MinIO ArtifactStore Adapter
   delivery/
-    catalog_presets.py                   # 服务端可信题目/配置预设与 Composition Root
-    catalog.py                           # 显式 init-db 本机建表入口；登记/禁用经现有 HTTP 用例
+    catalog_presets.py                   # 六题、生产配置及隔离测试配置；生产 Root 只取正式预设
+    catalog.py                           # 显式 init-db / upgrade-api-constraints 本机入口
     http/routes/catalog.py               # 目录查询和 owner 管理的 HTTP 翻译
     http/catalog_schemas.py              # 目录请求/响应 DTO
 apps/web/src/
@@ -72,6 +75,6 @@ TaskSource、Repository 和 ArtifactStore 是三个不同 seam；SWE-Gym、Postg
 
 ## 6. 当前验证、风险和规划
 
-历史验证见[任务 03 行动](../../../actions/2026-09-12-m1-task-agent-catalog.md)。本轮没有访问数据集、MinIO 或测试环境。
+历史目录验证见[任务 03 行动](../../../actions/2026-09-12-m1-task-agent-catalog.md)与[任务 04 行动](../../../actions/2026-09-19-task-04-catalog-candidates-and-scale.md)。本轮核心修复没有重跑 MinIO，但在隔离真实 PostgreSQL 中验证了身份对约束及旧约束显式迁移；最终命令结果记录在当前[修复行动](../../../actions/2026-09-21-core-diagnostic-remediation.md)。
 
-当前状态（2026-09-21）：**受控题目目录已有 6 道题**——旧题 `python__mypy-15413` 与五道新题（`15131`/`15139`/`15184`/`15208`/`15876`）。五道新题已在隔离容器中逐题跑过三补丁门禁（参考通过、空补丁不通过、可应用但错误的补丁不通过，15/15 场景），白名单实现位于 `adapters/tasks/catalog.py` 的 `FIXED_TASK_IMAGES`（instance → 含 digest 的固定镜像身份），未登记的 instance 一律拒绝；门禁与镜像证据见[任务 04 行动](../../../actions/2026-09-19-task-04-catalog-candidates-and-scale.md)与[依赖总表](../../../dependencies/DEPENDENCIES.md)。受控配置目录仍只有 `codex-0153-terra-medium`；1–20 连续规模已由成员 D 落地，两家新提供方配置（DeepSeek/Kimi）仍是[扩展规格](../../../../.scratch/ui-catalog-providers/spec.md)中的候选，在代理安全门禁与用户授权前不能登记。长期 MinIO 的版本/运维风险由[所有者单机运行](../owner-host-runtime/ARCHITECTURE.md)处理，不改变本 Module 的 ArtifactStore Interface。
+当前状态（2026-09-22）：**受控题目目录已有 6 道题**——旧题 `python__mypy-15413` 与五道新题（`15131`/`15139`/`15184`/`15208`/`15876`）。五道新题已在隔离容器中逐题跑过三补丁门禁（参考通过、空补丁不通过、可应用但错误的补丁不通过，15/15 场景），白名单实现位于 `adapters/tasks/catalog.py` 的 `FIXED_TASK_IMAGES`（instance → 含 digest 的固定镜像身份），未登记的 instance 一律拒绝。生产配置目录仍只有 `codex-0153-terra-medium`；`INTERNAL_TEST_AGENT_PRESETS` 只能由显式测试装配使用，不会被 `create_catalog` 注册。领域和数据库允许的两对身份为 `openai_chatgpt/chatgpt_auth_json` 与 `internal_test_fake/provider_run_token`，旧库由 `python -m eval_platform.delivery.catalog upgrade-api-constraints` 显式升级；未知约束形状失败关闭。真实 DeepSeek/Kimi 仍是后续任务，不能用测试身份替代。长期 MinIO 风险由[所有者单机运行](../owner-host-runtime/ARCHITECTURE.md)处理，不改变本 Module 的 ArtifactStore Interface。

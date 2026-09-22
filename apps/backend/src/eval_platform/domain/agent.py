@@ -50,6 +50,12 @@ class AgentConfiguration:
         )
         if any(not value.strip() for value in values):
             raise ValueError("Agent identity fields must not be empty")
+        if (
+            self.agent_name not in CONTROLLED_AGENT_TYPES
+            or (self.model_provider, self.authentication_type)
+            not in CONTROLLED_IDENTITIES
+        ):
+            raise ValueError("AGENT_IDENTITY_NOT_CONTROLLED")
         safe_config = json.loads(
             json.dumps(dict(self.critical_config), allow_nan=False)
         )

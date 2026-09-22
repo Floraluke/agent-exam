@@ -51,9 +51,9 @@ def test_nop_patch_reaches_real_fork_without_model(tmp_path: Path, monkeypatch):
         "nop-probe-only",
         "codex",
         "0.0.0-probe",
-        "openai",
+        "openai_chatgpt",
         "no-model-call",
-        "chatgpt",
+        "chatgpt_auth_json",
         "not-accessed-by-nop",
         {"reasoning_effort": "low"},
     )

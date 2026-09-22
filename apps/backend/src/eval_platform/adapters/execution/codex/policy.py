@@ -27,6 +27,23 @@ SETUP_COMMANDS = frozenset(
         'rm -rf /tmp/codex-secrets "$CODEX_HOME"',
     }
 )
+REASONING_EFFORTS = frozenset({"low", "medium", "high", "xhigh"})
+UPSTREAM_ARGUMENTS = frozenset(
+    {"logs_dir", "model_name", "logger", "version", "reasoning_effort"}
+)
+
+
+def validate_agent_arguments(arguments: dict[str, Any], version: str) -> None:
+    if arguments.pop("extra_env", {}) != {}:
+        raise ValueError("CODEX_GUARD_CONFIG_INVALID")
+    if arguments.pop("web_search", "disabled") != "disabled":
+        raise ValueError("CODEX_GUARD_CONFIG_INVALID")
+    if (
+        set(arguments) - UPSTREAM_ARGUMENTS
+        or arguments.get("version") != version
+        or arguments.get("reasoning_effort") not in REASONING_EFFORTS
+    ):
+        raise ValueError("CODEX_GUARD_CONFIG_INVALID")
 
 
 def permission_config(workspace: str) -> dict[str, Any]:
@@ -61,12 +78,7 @@ def permission_config(workspace: str) -> dict[str, Any]:
 
 
 def guarded_command(command: str, model: str, effort: str) -> str:
-    if not re.fullmatch(r"[a-zA-Z0-9_.-]+", model) or effort not in {
-        "low",
-        "medium",
-        "high",
-        "xhigh",
-    }:
+    if not re.fullmatch(r"[a-zA-Z0-9_.-]+", model) or (effort not in REASONING_EFFORTS):
         raise ValueError("CODEX_RUNTIME_CONFIG_INVALID")
     flags = (
         f"--skip-git-repo-check --model {model} --json --enable unified_exec "

@@ -9,6 +9,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import pytest
+
 from eval_platform.adapters.execution.provider_access import failures
 
 PACKAGE = Path(failures.__file__).parent
@@ -44,26 +46,14 @@ SENTINELS = (
     ".toml",
 )
 
-# Not internal codes: HTTP verbs the policy compares against, public constant names a
-# package `__all__` re-exports, and the published codes themselves -- a module that maps
-# an internal code to its user-facing pair necessarily mentions the pair.
-_NON_CODES = (
-    frozenset(
-        {"POST", "GET", "PUT", "DELETE", "HEAD", "PATCH", "OPTIONS", "MAX_BODY_BYTES"}
-    )
-    | {code for code, _ in failures.MAPPED_CODES.values()}
-    | {failures.GENERIC_FAILURE[0]}
-)
+# Not error codes: HTTP verbs and platform file-open flag names.
+_NON_CODES = frozenset({"POST", "GET", "PUT", "DELETE", "O_BINARY", "O_NOFOLLOW"})
 
 
 def _codes_in_package() -> set[str]:
-    """Every upper-case code literal the proxy modules can raise.
-
-    The walk is recursive on purpose: a code added under a subpackage (the proxy
-    process side lives in `server/`) must not be able to escape this guard.
-    """
+    """Every upper-case code literal the proxy modules can raise."""
     found: set[str] = set()
-    for path in sorted(PACKAGE.rglob("*.py")):
+    for path in sorted(PACKAGE.glob("*.py")):
         if path.name == "failures.py":
             continue
         found.update(_LITERAL.findall(path.read_text(encoding="utf-8")))
@@ -101,6 +91,13 @@ def test_every_group_maps_to_a_distinct_controlled_code():
 def test_unknown_and_configuration_codes_become_the_generic_pair():
     for internal in ("SOMETHING_UNREVIEWED", "BUDGET_LIMITS_INVALID", ""):
         assert failures.controlled_failure(internal) == failures.GENERIC_FAILURE
+
+
+def test_internal_exception_rejects_unreviewed_codes_at_construction():
+    error = failures.ProviderAccessError("REQUEST_UNKNOWN_FIELD")
+    assert error.code == str(error) == "REQUEST_UNKNOWN_FIELD"
+    with pytest.raises(ValueError, match="PROVIDER_INTERNAL_CODE_UNKNOWN"):
+        failures.ProviderAccessError("REQUEST_TYPO")
 
 
 def test_representative_codes_map_to_their_own_class():

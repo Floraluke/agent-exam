@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError } from "../../lib/api-client";
 import type { JobDetail, JobReport, RunReport } from "../../lib/contracts";
 import { cancelJob, decideJob, jobDetail, jobReport, runReport } from "../../lib/job-client";
@@ -33,10 +33,10 @@ export default function JobsPanel({
   } | null>(null);
   const cancelAttempt = useRef<{ job: string; reason: string; key: string } | null>(null);
 
-  function explain(value: unknown) {
+  const explain = useCallback((value: unknown) => {
     setError(value instanceof ApiError ? value.message : "暂时无法读取评测批次。");
-  }
-  async function restore() {
+  }, []);
+  const restore = useCallback(async () => {
     setBusy(true); setError("");
     try {
       const requested = showWizard ? null :
@@ -45,8 +45,8 @@ export default function JobsPanel({
       setReport(null); setBatchReport(null);
     } catch (value) { explain(value); }
     finally { setBusy(false); }
-  }
-  useEffect(() => { void restore(); }, []);
+  }, [explain, showWizard]);
+  useEffect(() => { void restore(); }, [restore]);
 
   async function refresh() {
     if (!current) return;

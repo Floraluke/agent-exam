@@ -135,7 +135,7 @@ def test_adapter_stages_private_inputs_outside_the_job_config(
         "fixed",
         "codex",
         "0.153.0",
-        "openai",
+        "openai_chatgpt",
         "gpt-5.6-terra",
         "chatgpt_auth_json",
         "owner-login",

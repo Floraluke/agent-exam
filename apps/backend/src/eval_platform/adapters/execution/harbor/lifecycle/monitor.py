@@ -32,6 +32,18 @@ class HarborProgressMonitor:
     def scan(self) -> None:
         if self.observer is None:
             return
+        discovered, duplicates = self._discover_trials()
+        for binding in self.plan.bindings:
+            key = (binding.task_path_key, binding.agent_key)
+            trial_dir = discovered.get(key)
+            if trial_dir is not None and key not in duplicates:
+                self._finish_if_ready(binding.run_id, key, trial_dir)
+        if self.control_dir is not None:
+            self._admit_ready_trials()
+
+    def _discover_trials(
+        self,
+    ) -> tuple[dict[tuple[str, str], Path], set[tuple[str, str]]]:
         discovered: dict[tuple[str, str], Path] = {}
         duplicates: set[tuple[str, str]] = set()
         for config_path in self.job_dir.glob("*/config.json"):
@@ -43,29 +55,26 @@ class HarborProgressMonitor:
                 duplicates.add(key)
             else:
                 discovered[key] = config_path.parent
-        for binding in self.plan.bindings:
-            key = (binding.task_path_key, binding.agent_key)
-            trial_dir = discovered.get(key)
-            if trial_dir is None or key in duplicates:
-                continue
-            if binding.run_id not in self.started and self.control_dir is None:
-                if not self.observer.trial_started(binding.run_id):
-                    continue
-                self.started.add(binding.run_id)
-            if binding.run_id not in self.started:
-                continue
-            if binding.run_id in self.finished:
-                continue
-            try:
-                result = read_json(trial_dir / "result.json")
-                if trial_key(result) != key or not isinstance(result.get("id"), str):
-                    continue
-            except (OSError, ValueError, json.JSONDecodeError):
-                continue
-            self.observer.trial_finished(binding.run_id)
-            self.finished.add(binding.run_id)
-        if self.control_dir is not None:
-            self._admit_ready_trials()
+        return discovered, duplicates
+
+    def _finish_if_ready(
+        self, run_id: str, key: tuple[str, str], trial_dir: Path
+    ) -> None:
+        assert self.observer is not None
+        if run_id not in self.started and self.control_dir is None:
+            if not self.observer.trial_started(run_id):
+                return
+            self.started.add(run_id)
+        if run_id not in self.started or run_id in self.finished:
+            return
+        try:
+            result = read_json(trial_dir / "result.json")
+            if trial_key(result) != key or not isinstance(result.get("id"), str):
+                return
+        except (OSError, ValueError, json.JSONDecodeError):
+            return
+        self.observer.trial_finished(run_id)
+        self.finished.add(run_id)
 
     def _admit_ready_trials(self) -> None:
         assert self.observer is not None and self.control_dir is not None

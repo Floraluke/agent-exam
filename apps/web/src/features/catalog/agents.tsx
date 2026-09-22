@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError } from "../../lib/api-client";
 import { agentDetail, agents, disableAgent, registerAgent } from "../../lib/catalog-client";
 import type { CatalogAgent, Page } from "../../lib/contracts";
@@ -14,10 +14,10 @@ export default function AgentsPanel({ owner }: { owner: boolean }) {
   const generation = useRef(0);
   const filter = useRef("");
 
-  function explain(value: unknown) {
+  const explain = useCallback((value: unknown) => {
     setError(value instanceof ApiError ? value.message : "暂时无法读取配置目录。");
-  }
-  async function load(cursor?: string) {
+  }, []);
+  const load = useCallback(async (cursor?: string) => {
     const revision = ++generation.current;
     setBusy(true); setError(""); setDetail(null);
     const query = new URLSearchParams({ limit: "20", agent_type: "codex" });
@@ -29,8 +29,11 @@ export default function AgentsPanel({ owner }: { owner: boolean }) {
     } catch (value) {
       if (revision === generation.current) { setData(null); explain(value); }
     } finally { if (revision === generation.current) setBusy(false); }
-  }
-  useEffect(() => { void load(); return () => { generation.current++; }; }, []);
+  }, [explain]);
+  useEffect(() => {
+    void load();
+    return () => { generation.current = -1; };
+  }, [load]);
 
   async function inspect(id: string) {
     const revision = ++generation.current;

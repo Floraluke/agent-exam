@@ -2,15 +2,15 @@ Status: needs-info
 
 # 实现地图与文档联动
 
-> 顶层标签只表示 04–08 的产品阶段仍待后续任务确认；任务 02–03 已实现并完成全量验收，03 等待用户确认 UI。五道新题及真实冻结矩阵验收仍未完成。
+> 顶层标签只表示 05–08 的产品阶段尚未全部验收；任务 02–04 已实现并完成相应验收，03、04 等待人工确认。五道新题已经入库；任务 05 的纯策略切片与 T1 已实现，正式代理链、T2 与真实冻结矩阵仍未完成。
 
-> 供[执行计划](plan.md)按阶段读取。任务 02–03 的逐控件契约和实际 Web 文件树已回填；04–08 标有“候选”的内容仍只供后续审阅。后续实现前继续回读源码、锁定当时 HEAD，不得按候选地图重造平行链。
+> 供[执行计划](plan.md)按阶段读取。任务 02–05 的现实实现以代码、任务单和当前模块文档为准；标有“待实现/候选”的内容仍只供后续审阅。后续实现前继续回读源码、锁定当时 HEAD，不得按旧候选地图重造平行链。
 
 ## 1. 责任边界
 
 Web 只改善呈现与交互，复用唯一请求客户端与现有 HTTP；Task Catalog 负责受控题目，Agent Registry 负责受控配置，Job Submission 冻结矩阵及策略，Job Repository 保持事务/幂等/权限，Worker 领取已批准 Job。ExecutionBackend 的 Harbor Adapter 继续执行，PatchEvaluator 的固定 Fork Adapter 继续独立判卷。
 
-本次不新增顶层 Module、公共业务 Interface 或数据库表。代理是 Execution Adapter 内部实现：现有网络侧车只做网络过滤，不能承载秘密注入与预算结算，所以需要专属内部代码和隔离进程。方向已批准；下列精确目录/形状仍是候选，正式实施前确认，不以“内部重构”跳过批准。
+本次没有新增顶层 Module、公共业务 Interface 或数据库表。`provider_access` 已作为 Execution Adapter 内部策略 Implementation 落地；现有网络侧车仍不能承载秘密注入与预算结算，代理服务和隔离进程尚待后续接线。下列文件树明确区分现实文件与待实现项。
 
 设计模式保持 **Adapter（适配器）**：Harbor/Fork 实现原端口；Worker 组合根装配可信私有绑定；内部 provider 配置选择器从有限预设挑选绑定，不接受提交者自定义服务地址。无新的代理业务 API、任务队列或判卷实现。
 
@@ -170,24 +170,25 @@ apps/backend/tests/jobs/submission/          # 候选新增：新规模与旧快
 ```text
 apps/backend/src/eval_platform/
 ├─ application/agent_registry.py            # 修改：仅登记已审核的 API 预设
-├─ domain/agent.py                          # 必要修改：新身份版本；旧指纹完全兼容
-├─ delivery/http/catalog_schemas.py         # 修改：受控目录响应，不接受 Key/URL
-├─ delivery/catalog_presets.py              # 修改：非秘密提供方模板
-├─ delivery/worker/runtime.py               # 修改：不再无条件要求 ChatGPT auth，按 Run 选绑定
-├─ adapters/persistence/catalog/schema.sql  # 修改：新安装约束；不增加表
-├─ adapters/persistence/catalog/upgrade_api.sql # 候选：显式升级旧约束，不自动开机迁移
-├─ adapters/execution/codex/provider_config.py # 候选：固定 TOML/模型目录渲染及摘要
-├─ adapters/execution/provider_access/      # 候选内部实现；不向应用暴露新业务端口
-│  ├─ __init__.py                           # 内部导出
-│  ├─ binding.py                            # Run 绑定、有限 provider 选择
-│  ├─ secrets.py                            # 私有文件权限/结构验证及可信读取
-│  ├─ service.py                            # 代理入口、鉴权、流生命周期
-│  ├─ request_policy.py                     # 路径/字段/模型/工具白名单
-│  ├─ transport.py                          # 固定 HTTPS 上游、无跳转/重试/正文日志
-│  ├─ budget.py                             # 原子预留、usage 结算、未知关闭
-│  └─ network.py                            # 私有拓扑组合、正反可达性预检
-└─ adapters/execution/harbor/                # 修改已有映射/生命周期，根目录保持8文件
-apps/backend/tests/providers/               # 候选：policy/、lifecycle/、integration/分层
+├─ domain/agent.py                          # 已实现：两对受控身份与旧指纹兼容
+├─ delivery/http/catalog_schemas.py         # 已实现：按记录如实呈现受控非秘密 provider
+├─ delivery/catalog_presets.py              # 已实现：生产与 internal_test 预设分离
+├─ delivery/worker/runtime.py               # 待实现：按冻结 Run 选择绑定
+├─ adapters/persistence/catalog/
+│  ├─ schema.sql                            # 已实现：新安装成对 CHECK，不增加表
+│  └─ __init__.py                           # 已实现：已知旧形状的显式幂等约束升级
+├─ adapters/execution/codex/provider_config.py # 待实现：固定 TOML/模型目录渲染及摘要
+├─ adapters/execution/provider_access/      # 已实现纯策略；不向应用暴露新业务 port
+│  ├─ __init__.py / binding.py              # 内部导出、Run 令牌绑定/撤销
+│  ├─ private_file.py / secrets.py          # 私有文件权限/schema/竞态防护
+│  ├─ request_policy.py / transport.py      # 路径/模型/header 白名单与固定出站请求
+│  ├─ budget.py                             # 原子预留、保守 usage 结算
+│  └─ failures.py                           # 受控 PROVIDER_* 失败映射与词汇门禁
+├─ adapters/execution/provider_access/service.py # 待实现：代理入口与流生命周期
+└─ adapters/execution/harbor/               # 待修改：服务/网络/生命周期正式接线
+apps/backend/tests/providers/
+├─ policy/                                  # 已实现：6 个策略测试模块
+└─ runtime/                                 # 已实现：T1 拓扑探针；T2 仍待固定 Harbor
 ```
 
 该树是上限内的责任规划，不强迫按文件名造空壳；若代理实现超过单文件指标，在同职责内部拆分并先更新树。真实 Key 通过受控私有输入流进入代理，不经 Docker 环境变量、命令行、镜像层或 Job 参数；实现须有相反攻击测试。
@@ -200,15 +201,15 @@ apps/backend/tests/providers/               # 候选：policy/、lifecycle/、in
 4. **费用：** 原 `cost_usd` 保留美元语义。无可信美元费用就为 null；人民币估算、缓存折扣推断、汇率折算不塞进现有字段。本期网页可显示未知，不引入新计费实体；预算证据保存在 owner 私有验收记录。
 5. **持久证据：** 原批准、取消、过期恢复/重试与排行榜/保留逻辑不变。新增网络/工具/限制版本须纳入既有可比性校验，旧结果不可被新配置覆写。
 
-## 5. 05 开工必须冻结的安全候选
+## 5. 05 已冻结策略与未完成门禁
 
-这些不是新的业务问卷。执行者先查固定源码、以假值证明技术事实；若实现不了已批准边界，再带证据请求方向决定。
+这些不是新的业务问卷。已实现策略仍不能替代代理服务、T2 和正式链；后续执行者须以代码和任务单核对当前状态。
 
-- 私有文件候选：仓库之外 owner 选择的普通目录下的 `providers.json`，结构版本1，有限逻辑 profile 到 provider/key 的映射；不含任意上游 URL。权限只允许 owner 和必要系统主体，拒绝链接、共享/同步目录和宽读权限。实际绝对路径不进 Git，未确认该文件存在。
+- 私有文件策略：仓库之外 owner 选择的普通目录下的 `providers.json`，结构版本 1，有限逻辑 profile 到 provider/key 的映射；不含任意上游 URL。实现拒绝链接、非普通文件、过大文件、宽权限和打开前后身份变化；实际绝对路径不进 Git。本轮未创建或读取真实文件。
 - 读取范围：只读取当个已批准 Run 需要的 profile；Web/提交/审批不读；环境变量最多携带文件定位，绝不携带 Key。缺文件/权限/账户匹配时失败关闭，错误不回显路径/Key。
-- 候选网络：每 Trial 一条仅做题侧与代理可达的内部网，代理另有受控出网；无共享 PID/FS、主机端口/socket/可写宿主挂载。DNS、IPv6、代理直连绕过与宿主网关路径须分别验证，不能只测 HTTP 正常。
-- 候选预算：私有、非秘密的验收额度账本记录不可复用 Run 配额和已预留上界，写入原子、单作用域锁；代理重启/崩溃无法确认余额则关闭该 Run，不发新满额。账本不包含 Key/令牌，不替代 Job Repository，不自动发起任务，不建设账单平台。
-- Token 上界、请求字段白名单和账本具体格式尚未验证。05 行动须冻结实际方案、风险和正反测试；若需要新的持久表/公共端口/长期服务，必须先请用户确认新增范围。
+- 网络：T1 已证明纯 Docker 假拓扑的正反可达性；T2 固定 Harbor、DNS/IPv6/宿主网关与生命周期仍待完整验证，不能只凭策略测试宣称隔离成立。
+- 预算：进程内账本已实现原子预留、保守结算和未知/超预留失败关闭；它不跨重启持久，不替代 Job Repository，也不是准确账单平台。代理崩溃/重启后的正式失败关闭仍待生命周期接线验证。
+- Run 令牌上界、请求路径/模型/header 白名单和账本对象格式已有单元测试；S2 配置渲染、服务流、完整工具调用、T2 和跨重启行为仍待实现。若后续需要新持久表、公共端口或长期服务，必须先请用户确认新增范围。
 
 ## 6. 权威文档同步点
 

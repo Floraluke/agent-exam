@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ApiError } from "../../lib/api-client";
 import type { JobSummary } from "../../lib/contracts";
 import { jobs } from "../../lib/job-client";
@@ -54,7 +54,7 @@ export default function Dashboard({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  async function load() {
+  const load = useCallback(async () => {
     setBusy(true); setError("");
     try {
       const [visiblePage, pendingJobs, activeJobs, abnormalJobs] = await Promise.all([
@@ -69,8 +69,8 @@ export default function Dashboard({
       setVisible([]); setPending([]); setActive([]); setAbnormal([]);
       setError(value instanceof ApiError ? value.message : "暂时无法读取工作台。");
     } finally { setBusy(false); }
-  }
-  useEffect(() => { void load(); }, []);
+  }, [owner]);
+  useEffect(() => { void load(); }, [load]);
 
   return <section aria-label={owner ? "所有者工作台" : "协作者工作台"}>
     <div className="section-heading">

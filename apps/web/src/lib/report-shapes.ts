@@ -1,7 +1,7 @@
 import { ApiError } from "./api-client";
 import { RUN_STATUSES } from "./contracts";
 import type {
-  ArtifactPage, RunReport, RunStatus, TrajectoryPage,
+  RunReport, RunStatus, TrajectoryPage,
 } from "./contracts";
 import { parseArtifact } from "./reporting/artifact-shape";
 
@@ -114,18 +114,6 @@ export function parseRunReport(value: unknown): RunReport {
     process_metrics: metrics(item.process_metrics), judge_analyses: [],
     human_review: null, quality_tiebreak: null, review_status: "NOT_REQUIRED",
     artifact_links: item.artifact_links.map(parseArtifact),
-  };
-}
-
-export function parseArtifactPage(value: unknown): ArtifactPage {
-  const item = record(value);
-  if (!Array.isArray(item.items) ||
-      item.next_cursor !== null && typeof item.next_cursor !== "string") {
-    throw new ApiError("UNAVAILABLE");
-  }
-  return {
-    items: item.items.map(parseArtifact),
-    next_cursor: item.next_cursor as string | null,
   };
 }
 

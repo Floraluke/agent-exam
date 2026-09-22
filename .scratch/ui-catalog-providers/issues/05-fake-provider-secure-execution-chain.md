@@ -4,9 +4,9 @@ Status: ready-for-agent
 
 **What to build:** 让**假提供方**走完正式执行链，把秘密隔离、请求边界、额度计量与生命周期收束固定在可证的事实上，为真实 Key 放行建立门禁。不接真实 Key、不发起真实供应商请求、不充值。
 
-**Blocked by:** 无实施授权阻塞（2026-09-21 用户转述已直接向负责人确认同意授权）。剩余待办：**T2 在负责人机器执行**（窗口已可用，只差在那台机器上运行探针与本任务授权范围的操作）；**B 的契约确认**（受控提供方的响应呈现方式，见 Comments）。
+**Blocked by:** 无实施授权或 HTTP 契约阻塞。剩余待办：**T2 在负责人机器执行**，以及 S2、`service.py`、S9–S11、Worker/Harbor 正式接线、完整工具循环和生命周期验收。
 
-安全合同三项：额度上界与账本计数方式已由负责人 2026-09-21 拍板（A 保守上界）并已实现；**请求字段白名单**仍须用固定 CLI 复核后才定稿。已有的 5/5 禁外网假令牌配置探针只作历史输入，不重复计为本项通过。
+安全合同三项：额度上界与账本计数方式已由负责人 2026-09-21 拍板（A 保守上界）并已实现；请求路径、模型和 header 白名单已由策略代码与负例固定。S2 固定 CLI 配置渲染、服务流和 T2 仍须后续复核。已有的 5/5 禁外网假令牌配置探针只作历史输入，不重复计为本项通过。
 
 （2026-09-21 事实修正：本机**已安装 Docker**，T1 已在纯 Docker 层证成——原句"本机不安装 Docker"已失效。本任务单**已进入 `main`**（起草提交 `6ccf001` 是 `origin/main` 的祖先），此前"待发布"的说法作废。）
 
@@ -44,7 +44,7 @@ E 侧已有准备产物：[阶段 1 代理测试设计](../../../docs/LLY/01-pla
 
 2026-09-21 负责人只读核对结论（填充版）：**前置总判定 STOP，拓扑实证未执行。** 负责人对本仓库作只读核对后返回[填充版记录](../../../docs/LLY/01-plan/TASK05_OWNER_DELIVERY_FILLED.md)，要点：
 
-- **9 项拍板事项全部仍为"待负责人确认"**，因此本任务单第 1 项验收（冻结安全合同）尚不可开始。第 7 项输入 Token 计数方式负责人**推荐 A 保守上界起步**（当前仓库没有经过供应商账单对齐验证的 tokenizer），但这是建议、不是最终选择。
+- **9 项负责人决定已经确认**：第 1–7 项采用回执值，第 8 项使用仓库外私有路径且绝对路径不入 Git，第 9 项只确认专属资源范围；当前没有探针执行窗口。决定完成解除了数值阻塞，但不等于安全合同、产品实现或 7 条拓扑断言已经完成。
 - **6 项运行前置只有 1 项完整满足**：`framework/harbor` revision `6af8d6e31eced13b93849cdf80feeadf24603d15` 与依赖表一致、工作树干净。Docker Engine 27.5.1 可响应但**未获创建授权**；持久化服务容器在运行；假 Key 文件未提供或核验；专属命名/标签边界与创建删除授权均未给出。
 - **7 条拓扑断言全部未执行**，无探针目录、命令输出、`summary.json`、网络图、镜像 digest 或清理记录。负责人明确：不得用历史 M0 Harbor 侧车探针代替本任务的双网络证明。
 - 负责人已核实的代码事实：Catalog / 目录 HTTP schema / Agent Registry / Worker 组合 / Harbor 引导**仍全部固定 `openai_chatgpt` 与 Codex**，候选 `provider_access`、短期令牌、请求字段白名单、预算账本、双网络均不存在；Harbor 层 `max_retries=0` 已存在，但**不能**替代 Codex CLI 的 `request_max_retries`/`stream_max_retries` 显式置零与代理实际转发次数的独立验证；现有认证文件校验不足以证明 Windows ACL/属主。
@@ -196,3 +196,14 @@ E 侧已有准备产物：[阶段 1 代理测试设计](../../../docs/LLY/01-pla
 - **重要澄清（对产品路径有利）**：产品路径 **Worker → `HarborExecutionAdapter` → `harbor_command()` → `harbor_entry.py`** 一定会先 `export_sidecar()` 并把导出上下文交给 Harbor（`harbor_entry.py:177`、`:186`），因此**这个 CRLF 陷阱不影响产品路径**，只影响绕过该入口的手写探针。同一导出还携带**已在 M0 授权的 DNS 适配**（放行 Docker Desktop 转发解析器 `192.168.65.7:53`），没有它即使侧车起来，域名解析也会失败。
 - **对下一轮 T2 的更正**：本仓库此前的"最小 T2 形态"建议（由 E 写）是**手写 probe**，实测证明这条建议会绕过仓库必需的侧车适配。下一轮应改为**经产品入口跑最小 job config**（同 `harbor_entry.py`），或至少在独立探针里显式设置 `_EGRESS_CONTROL_SIDECAR_CONTEXT_PATH` 指向 `export_sidecar()` 导出的上下文。已同步修正[组长机器预案附三](../../../docs/actions/2026-09-21-task05-owner-machine-runbook.md)。
 - **待办**：① 负责人侧一次只读确认（工作树与镜像内 `entrypoint.sh` 的实际行尾）；② 负责人的两份行动文档（`2026-09-22-task05-harbor-minimal-t2.md`、`2026-09-22-task05-sidecar-127-diagnosis.md`）**只存在于其本机 worktree，用户 2026-09-22 明确不上传、不再等待**——本仓库只保留摘要与关键原文引用，不指向不存在路径；③ T2 维持"未测得"。
+2026-09-22 核心诊断修复后对账（来自 `origin/main` 的加固分支，合并时保留）
+
+- S3–S8 的纯策略切片已经过本轮安全加固：客户端 `Host`、`Forwarded`、`X-Forwarded-*` 与认证头在出站前拒绝；预算用量缺失或超过预留失败关闭；私有文件打开后再次核对文件描述符身份，降低路径替换竞态；受控失败词汇仍只有五个公开 `PROVIDER_*` 码。
+- 领域 `CONTROLLED_IDENTITIES` 和 PostgreSQL 成对 CHECK 共同限制 `openai_chatgpt/chatgpt_auth_json` 与 `internal_test_fake/provider_run_token`；生产 `create_catalog` 不注册假预设。旧库升级由 `python -m eval_platform.delivery.catalog upgrade-api-constraints` 显式执行，只接受已知旧/目标形状，未知定义拒绝。
+- `provider_access/` 当前实际为 8 个源文件；`tests/providers/policy/` 为 6 个测试模块，另有 `tests/providers/runtime/` 的 T1 探针。HTTP 契约已经列出五个受控失败码并说明它们尚无生产调用路径，原“等待 B 契约确认”关闭。
+- 本轮隔离真实 PostgreSQL 已验证身份对与迁移；策略回归、Ruff、Mypy 和复杂度门禁已通过。最终全量结果由[核心修复行动](../../../docs/actions/2026-09-21-core-diagnostic-remediation.md)维护，不用本节覆盖历史数字。
+- 仍未完成：S2、代理 `service.py`、S9–S11、Worker/Harbor Composition Root、T2、完整 Responses/工具/patch/Fork 循环、崩溃与跨重启生命周期。任务 05 的九项验收因此继续保持未勾选；没有读取真实 Key、调用真实 DeepSeek/Kimi 或充值。
+
+> **合并时的状态标注（2026-09-22）**：上一段"仍未完成：S2、代理 `service.py`…"是**加固分支当时的自述**，其中 **S2 与 `service.py`（S6a–S6e）已由本分支同日条目记为完成**（S2 的 TOML 字段名与事件词表仍待固定 CLI 对账），该两项在此已过期；**S9–S11、Composition Root、T2 与跨重启生命周期仍成立**，见上方"仍未完成，且都等 T2"。
+>
+> 该分支对策略层的加固**已随本次合并进入本分支**，本任务单里两条相关的旧悬置项因此关闭：① 上文"请负责人/用户定夺一件安全取舍（`build_outbound` 是否收紧为客户端头白名单）"——加固分支按 CR-11 已实现为**白名单：只放行 `accept`/`accept-encoding`/`user-agent`，路由与转发头在出站前失败关闭**；② `secrets.py` 的 `REGISTERED_UPSTREAMS` 按 CR-13 收窄为**只保留受控假上游**，真实 DeepSeek/Kimi 回到 06/07 范围。

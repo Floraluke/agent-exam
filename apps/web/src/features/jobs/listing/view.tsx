@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { ApiError } from "../../../lib/api-client";
 import type { Actor, JobSummary, Page } from "../../../lib/contracts";
 import { JOB_STATUSES } from "../../../lib/contracts";
@@ -54,7 +54,9 @@ export default function JobList({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  async function load(filters: Filters, cursor: string | null = null) {
+  const load = useCallback(async (
+    filters: Filters, cursor: string | null = null,
+  ) => {
     setBusy(true); setError("");
     const query = new URLSearchParams({ limit: "20" });
     if (filters.status) query.set("status", filters.status);
@@ -65,8 +67,8 @@ export default function JobList({
       setData(null);
       setError(value instanceof ApiError ? value.message : "暂时无法读取评测列表。");
     } finally { setBusy(false); }
-  }
-  useEffect(() => { void load(initial); }, []);
+  }, [actor.user_id]);
+  useEffect(() => { void load(initial); }, [initial, load]);
 
   function apply(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

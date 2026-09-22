@@ -188,7 +188,6 @@ export type JobReport = {
   unresolved_runs: number; runs: JobRunReport[];
 };
 
-export type ArtifactPage = Page<RunReport["artifact_links"][number]>;
 export type TrajectoryEvent = {
   sequence: number; occurred_at: string; source: string; type: string;
   summary: string; payload: Record<string, never>;

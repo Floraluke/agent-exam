@@ -22,6 +22,9 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+from eval_platform.adapters.execution.provider_access.failures import (
+    ProviderAccessError,
+)
 from eval_platform.domain.result import UsageSummary
 
 FRAMING_ALLOWANCE_TOKENS = 256
@@ -38,9 +41,9 @@ class RunBudget:
 
     def __post_init__(self) -> None:
         if self.input_tokens_limit <= 0 or self.output_tokens_limit <= 0:
-            raise ValueError("BUDGET_LIMITS_INVALID")
+            raise ProviderAccessError("BUDGET_LIMITS_INVALID")
         if self.deadline_seconds <= 0:
-            raise ValueError("BUDGET_LIMITS_INVALID")
+            raise ProviderAccessError("BUDGET_LIMITS_INVALID")
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,7 +70,7 @@ def conservative_input_tokens(payload: Any) -> int:
             payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False
         ).encode("utf-8")
     except (TypeError, ValueError):
-        raise ValueError("BUDGET_PAYLOAD_NOT_SERIALIZABLE") from None
+        raise ProviderAccessError("BUDGET_PAYLOAD_NOT_SERIALIZABLE") from None
     return len(encoded) + FRAMING_ALLOWANCE_TOKENS
 
 
@@ -83,11 +86,11 @@ class BudgetLedger:
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
         if consumed_input_tokens < 0 or consumed_output_tokens < 0:
-            raise ValueError("BUDGET_CONSUMED_INVALID")
+            raise ProviderAccessError("BUDGET_CONSUMED_INVALID")
         if consumed_input_tokens > budget.input_tokens_limit:
-            raise ValueError("BUDGET_CONSUMED_INVALID")
+            raise ProviderAccessError("BUDGET_CONSUMED_INVALID")
         if consumed_output_tokens > budget.output_tokens_limit:
-            raise ValueError("BUDGET_CONSUMED_INVALID")
+            raise ProviderAccessError("BUDGET_CONSUMED_INVALID")
         self._budget = budget
         self._clock = clock
         self._started_at = clock()
@@ -133,22 +136,22 @@ class BudgetLedger:
 
         input_bound = conservative_input_tokens(payload)
         if max_output_tokens <= 0:
-            raise ValueError("BUDGET_OUTPUT_REQUEST_INVALID")
+            raise ProviderAccessError("BUDGET_OUTPUT_REQUEST_INVALID")
         with self._lock:
             if self._closed_reason is not None:
-                raise ValueError("BUDGET_RUN_CLOSED")
+                raise ProviderAccessError("BUDGET_RUN_CLOSED")
             if self._clock() - self._started_at > self._budget.deadline_seconds:
-                raise ValueError("BUDGET_DEADLINE_EXCEEDED")
+                raise ProviderAccessError("BUDGET_DEADLINE_EXCEEDED")
             if (
                 self._input_used + self._reserved_input + input_bound
                 > self._budget.input_tokens_limit
             ):
-                raise ValueError("BUDGET_INPUT_EXCEEDED")
+                raise ProviderAccessError("BUDGET_INPUT_EXCEEDED")
             if (
                 self._output_used + self._reserved_output + max_output_tokens
                 > self._budget.output_tokens_limit
             ):
-                raise ValueError("BUDGET_OUTPUT_EXCEEDED")
+                raise ProviderAccessError("BUDGET_OUTPUT_EXCEEDED")
             reservation = Reservation(self._next_id, input_bound, max_output_tokens)
             self._next_id += 1
             self._open[reservation.reservation_id] = reservation
@@ -164,10 +167,10 @@ class BudgetLedger:
         with self._lock:
             held = self._open.pop(reservation.reservation_id, None)
             if held is None:
-                raise ValueError("BUDGET_RESERVATION_UNKNOWN")
+                raise ProviderAccessError("BUDGET_RESERVATION_UNKNOWN")
             self._reserved_input -= held.input_tokens
             self._reserved_output -= held.max_output_tokens
-            measured = _measured_tokens(usage)
+            measured = _measured_tokens(usage, held)
             if measured is None:
                 self._input_used += held.input_tokens
                 self._output_used += held.max_output_tokens
@@ -178,9 +181,16 @@ class BudgetLedger:
             return Settlement(measured[0], measured[1], True)
 
 
-def _measured_tokens(usage: UsageSummary | None) -> tuple[int, int] | None:
+def _measured_tokens(
+    usage: UsageSummary | None, reservation: Reservation
+) -> tuple[int, int] | None:
     if usage is None:
         return None
     if usage.n_input_tokens is None or usage.n_output_tokens is None:
+        return None
+    if (
+        usage.n_input_tokens > reservation.input_tokens
+        or usage.n_output_tokens > reservation.max_output_tokens
+    ):
         return None
     return usage.n_input_tokens, usage.n_output_tokens
