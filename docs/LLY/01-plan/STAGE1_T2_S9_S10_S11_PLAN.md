@@ -1,6 +1,6 @@
 # 阶段 1（05）跨机执行计划：T2 → S9 → S10 → S11
 
-> **状态：计划（未开工）。** 本文把负责人电脑当作**同一人的第二台开发机**（下称 **B 机**），本机（`D:\agent-exam`，下称 **A 机**）负责核对与收口。本文不构成真实模型调用授权。
+> **状态：计划（未开工）。** 本文把**负责人 A 的电脑**当作**同一人的第二台开发机**（下称 **A 机**），本机（`D:\agent-exam`）负责核对与收口。本文不构成真实模型调用授权。
 >
 > 权威边界：拓扑与断言的判定标准见[组长机器预案附三/附四](../../actions/2026-09-21-task05-owner-machine-runbook.md)；安全合同数值见[设计冻结底稿](STAGE1_PROXY_DESIGN_FREEZE.md)；分片与历史状态见[阶段 1 实施方案](STAGE1_IMPLEMENTATION_PLAN.md)；步骤与验收见[执行计划第 7 节](../../../.scratch/ui-catalog-providers/plan.md)。本文只编排顺序、分工与回传物，不复制其正文。
 >
@@ -8,7 +8,7 @@
 
 ## 1. 两台机器与现状
 
-| 项 | A 机（本机） | B 机（负责人电脑） |
+| 项 | 本机 | 负责人机器（负责人 A 的电脑） |
 |---|---|---|
 | 仓库根 | `D:\agent-exam`（分支 `lly/dev`） | 记录为 `E:\9.1agent_exam`；**已有 worktree 在 `runtime\lly-dev-verify`，对应 `lly/dev`**——先用 `git worktree list` 确认，实际路径以那台机器的输出为准 |
 | `framework/harbor`、`framework/swe-bench-fork` | ❌ 无（`.gitignore` 排除） | ✅ 有（固定 revision `6af8d6e3…`，**不重建**） |
@@ -16,7 +16,7 @@
 | 能跑的事 | 策略/契约/生命周期层的替身测试、静态检查、文档与计划、核对 | 固定 Harbor 集成、真实容器与网络、含 `framework/harbor` 的全量回归（ISSUE-04 那两项在那里才会通过） |
 | 不能做的事 | 不能跑 T2、S11 | 不能读真 Key、不能发起真实供应商请求、不充值 |
 
-**两机共享的分支与推送口径**：两边都提交到 `lly/dev`，推送到 `origin/lly/dev`；片级验收后开 PR 合入 `main`，A 机再拉下来核对。提交只含本片明确涉及的文件，不 `git add .`。
+**两机共享的分支与推送口径**：两边都提交到 `lly/dev`，推送到 `origin/lly/dev`；片级验收后开 PR 合入 `main`，本机再拉下来核对。提交只含本片明确涉及的文件，不 `git add .`。
 
 **全程硬边界（越界即停，不要继续）**：不重建/拉取 `framework/harbor`；不停止或删除既有持久化服务；只按**名称 + 任务标签 + 本轮 scope 标签**三重匹配删除资源，**禁止全局 prune**；不删其他项目/其他成员的卷与拉取的固定镜像（`down --rmi local` 只清本轮构建的侧车镜像）；不读真 Key、不发起真实供应商请求、不充值、不放宽到公网、不把真 Key 放进做题容器；不改共享 Docker/WSL/全局代理/防火墙。
 
@@ -26,16 +26,16 @@
 
 | 片 | 一句话目标 | 实施 | 验证 | 关键停止条件 |
 |---|---|---|---|---|
-| **T2** | 在固定 Harbor 上把七条拓扑断言真正测到 | B 机（探针） | B 机 | 侧车仍起不来 / 断言不成立 → 停在本任务，不带真 Key |
-| **S9** | worker 按 Run 选绑定，不再无条件要求 ChatGPT 认证 | 任一台（建议 B 机，便于直接跑全量） | A 机单测 + B 机全量 | 未知身份对必须失败关闭；ChatGPT 旧路径不得退化 |
-| **S10** | 把 T2 的最小形态产品化：run 级拓扑合成与网络接线 | B 机为主 | A 机替身单测 + B 机合成链 | 代理形态无法落实 → 停在 S10，不进入真实 Key |
-| **S11** | 集成层五组对照与收口（含两条挂账项） | B 机 | B 机 | 任一对照不成立 → 如实回报，不调低断言 |
+| **T2** | 在固定 Harbor 上把七条拓扑断言真正测到 | A 机（探针） | A 机 | 侧车仍起不来 / 断言不成立 → 停在本任务，不带真 Key |
+| **S9** | worker 按 Run 选绑定，不再无条件要求 ChatGPT 认证 | 任一台（建议 A 机，便于直接跑全量） | 本机单测 + A 机全量 | 未知身份对必须失败关闭；ChatGPT 旧路径不得退化 |
+| **S10** | 把 T2 的最小形态产品化：run 级拓扑合成与网络接线 | A 机为主 | 本机替身单测 + A 机合成链 | 代理形态无法落实 → 停在 S10，不进入真实 Key |
+| **S11** | 集成层五组对照与收口（含两条挂账项） | A 机 | A 机 | 任一对照不成立 → 如实回报，不调低断言 |
 
 ## 3. T2：固定 Harbor 上的双网络最小实证
 
 **目标**：回答"整套双网络拓扑在固定 Harbor 上是否成立"，并把七条断言**测到**（首轮停在工具链失败：侧车入口 ENOENT、退出 127、七条断言一条未测）。
 
-### 3.1 开工前（B 机，只读，不创建任何资源）
+### 3.1 开工前（A 机，只读，不创建任何资源）
 
 ```bash
 # 0) 先确认 worktree 与分支
@@ -80,7 +80,7 @@ bash apps/backend/tests/providers/runtime/t2-assertions.sh    # 期望 status=ve
 | 文件 | 内容要求 |
 |---|---|
 | `docs/actions/<日期>-task05-t2-verified.md` | ① worktree 与提交号；② 两条只读诊断命令的**原始输出**；③ 探针与 compose 的完整命令/清单；④ Trial 的命令与其**原始 stdout**（含 `status=` 行；若失败，含逐条 `FAIL`）；⑤ 宿主侧 inspect 摘录（网络 `Internal`、发布端口、挂载、标签）；⑥ 镜像/卷清单差异与清理复核（残留应为 0）；⑦ 未验证项与失败项如实列出 |
-| `.tmp/.../manifest.json`（B 机本地，**不进 Git**） | 原始证据文件的路径清单 + **每个文件的 SHA-256**，供 A 机抽检；正文摘录抄进上面那份行动文档 |
+| `.tmp/.../manifest.json`（A 机本地，**不进 Git**） | 原始证据文件的路径清单 + **每个文件的 SHA-256**，供本机抽检；正文摘录抄进上面那份行动文档 |
 | 进度日志与任务单更新 | `docs/LLY/03-progress/PROGRESS_LOG.md` 追加当日事实；任务 05 任务单 `## Comments` 追加一条（含结论与提交号） |
 
 ### 3.4 停止条件
@@ -100,9 +100,9 @@ bash apps/backend/tests/providers/runtime/t2-assertions.sh    # 期望 status=ve
 3. 指标约束：`delivery/worker/runtime.py` 现 161 行，改后仍须 ≤200；`delivery/worker/` 现 3 个 `.py`，新增 1 个后 4 个（上限 8）。
 4. 测试放 `apps/backend/tests/jobs/runtime/`（现 4 个文件，有余量）：至少覆盖——受控身份不需要 ChatGPT auth；ChatGPT 身份行为不变；未知身份对失败关闭；绑定与身份不符失败关闭。**每条都要做区分力实测**（改实现→失败→还原→通过），并把结果写进行动文档。
 
-**验证**：A 机可跑（`pytest tests/jobs/runtime`、默认回归、`ruff`/`mypy`）；B 机跑**含 `framework/harbor` 的全量**（那里 ISSUE-04 那两项应通过）与 PG 开关全量。
+**验证**：本机可跑（`pytest tests/jobs/runtime`、默认回归、`ruff`/`mypy`）；A 机跑**含 `framework/harbor` 的全量**（那里 ISSUE-04 那两项应通过）与 PG 开关全量。
 
-**回传文件**：`docs/actions/<日期>-task05-s9-run-bindings.md`（含改动文件树、逐条区分力实测、A 机与 B 机两套实测数字、未验证项）+ 代码与测试提交 + 进度日志/任务单更新。
+**回传文件**：`docs/actions/<日期>-task05-s9-run-bindings.md`（含改动文件树、逐条区分力实测、本机与 A 机两套实测数字、未验证项）+ 代码与测试提交 + 进度日志/任务单更新。
 
 **停止条件**：无法在不退化 ChatGPT 路径的前提下完成选择 → 停并汇报，不允许"临时特例"。
 
@@ -116,7 +116,7 @@ bash apps/backend/tests/providers/runtime/t2-assertions.sh    # 期望 status=ve
 3. 失败关闭：拓扑无法合成、代理未就绪、令牌缺失一律**拒绝出站**，给受控失败码（`provider_access/failures.py` 的映射表，含 `PROVIDER_UPSTREAM_FAILED`）。
 4. 收口：Run 结束回收代理、令牌与专属网络资源；崩溃后只按已持久化证据收束，不自动续跑。
 
-**验证**：A 机跑替身单测（拓扑合成、失败关闭、令牌生命周期、`config.toml` 内容不含凭据）；B 机跑**一 Run 的合成链**：正式 Registry → 提交 → 批准 → Worker → Harbor，用受控假提供方（**不是**真 Key），证据取"假上游自己的请求记录 + 该 Run 的终态"。
+**验证**：本机跑替身单测（拓扑合成、失败关闭、令牌生命周期、`config.toml` 内容不含凭据）；A 机跑**一 Run 的合成链**：正式 Registry → 提交 → 批准 → Worker → Harbor，用受控假提供方（**不是**真 Key），证据取"假上游自己的请求记录 + 该 Run 的终态"。
 
 **回传文件**：`docs/actions/<日期>-task05-s10-network-wiring.md`（含拓扑图、实际命令行、Run 终态与假上游请求记录原文、失败关闭用例的区分力实测、清理复核）+ 代码与测试提交。
 
@@ -140,7 +140,7 @@ bash apps/backend/tests/providers/runtime/t2-assertions.sh    # 期望 status=ve
 
 ## 7. 两机协作流程
 
-### 7.1 B 机（worktree）日常
+### 7.1 A 机（worktree）日常
 
 ```bash
 git -C <主仓库> fetch origin                      # 主仓库拉取，worktree 共享对象库
@@ -149,15 +149,15 @@ git -C <worktree> status -sb                      # 开始前必须干净
 ```
 
 - 改动只落在本片涉及的文件；提交信息用仓库既有风格（`fix(...)`/`feat(...)`/`test(...)`/`docs(...)` + 英文正文说明"为什么"）。
-- 每片完成即 `git push origin lly/dev`（或先本地提交、由 A 机统一推——**同一时间只由一台机器推送**，避免非快进冲突）。
+- 每片完成即 `git push origin lly/dev`（或先本地提交、由同一侧统一推——**同一时间只由一台机器推送**，避免非快进冲突）。
 
 ### 7.2 合入主分支
 
 1. 在 `origin/lly/dev` 上开 PR：`lly/dev → main`，标题写明片号与结论，正文附"改了哪些文件 + 实测数字 + 未验证项 + 回传的行动文档链接"。
-2. PR 合并后，`main` 前进；A 机拉取核对（下一节）。
+2. PR 合并后，`main` 前进；本机拉取核对（下一节）。
 3. **若 T2 结论是"不成立"**：不合并实现代码，只合并"如实回报"的那份行动文档与状态更新。
 
-### 7.3 A 机核对清单（合并后逐条做）
+### 7.3 本机核对清单（合并后逐条做）
 
 ```bash
 git fetch origin && git switch lly/dev && git merge origin/main
@@ -169,8 +169,8 @@ MYPYPATH=src .venv/Scripts/python.exe -m mypy src/eval_platform
 .venv/Scripts/python.exe -m pytest tests/providers tests/jobs/runtime -q -p no:cacheprovider
 ```
 
-- [ ] 两套实测数字与 B 机回报**逐项对上**（A 机的 2 项 ISSUE-04 失败仍是那两项——本机没有 `framework/harbor`，这是预期）。
-- [ ] 抽检 B 机的证据：按其 `manifest.json` 的 SHA-256 校验 1–2 个原始文件；正文摘录与原始输出一致。
+- [ ] 两套实测数字与 A 机的回报**逐项对上**（本机的 2 项 ISSUE-04 失败仍是那两项——本机没有 `framework/harbor`，这是预期）。
+- [ ] 抽检 A 机的证据：按其 `manifest.json` 的 SHA-256 校验 1–2 个原始文件；正文摘录与原始输出一致。
 - [ ] 抽检合并进代码的**区分力实测**：随手挑一条断言，把实现改回旧行为确认用例真的失败，再还原。
 - [ ] 无新增数据库表、无第二执行接口、无新增顶层目录/模块（`provider_access/net/`、`delivery/worker/bindings.py` 之外）。
 - [ ] 指标：单文件 ≤200 行、每层 ≤8 文件（`provider_access/` 顶层已 8、`server/` 已 8、`tests/providers/runtime/` 将达 8——越界需在行动文档说明理由并取得确认）。
@@ -179,7 +179,7 @@ MYPYPATH=src .venv/Scripts/python.exe -m mypy src/eval_platform
 
 ### 7.4 冲突与回退
 
-- 同一文件被两台机器同时改：**由后到者 rebase/merge 并手工合并**，保留双方条目（文档类）；代码类以 B 机（有新证据的一侧）为准并在行动文档说明。
+- 同一文件被两台机器同时改：**由后到者 rebase/merge 并手工合并**，保留双方条目（文档类）；代码类以 A 机（有新证据的一侧）为准并在行动文档说明。
 - 回退：每片是一个或多个独立提交，`git revert <片的首末提交>` 即可回退，不动其他片。
 - 推送冲突（非快进）：先 `fetch` 再 `rebase`，**不要** `push -f`。
 
@@ -201,9 +201,9 @@ MYPYPATH=src .venv/Scripts/python.exe -m mypy src/eval_platform
 | T2 侧车仍起不来 | 拓扑无法在固定 Harbor 上成立 | 先取原始日志与入口原文；不为让它起来而改侧车或放宽策略；维持"未测得"并停下汇报 |
 | 携带适配后镜像重建 | 前后清单出现增删 | 已在 附四 说明属预期，照实记录 |
 | S9 改动触及 worker 组合 | 可能影响真实运行 | ChatGPT 路径行为必须逐字不变，并用回归与全量证明 |
-| S10 与你（B 机）现有 Harbor 组合的耦合 | 形态取决于 T2 结论 | T2 出结论前不开工；先写替身单测再接线 |
+| S10 与 A 机现有 Harbor 组合的耦合 | 形态取决于 T2 结论 | T2 出结论前不开工；先写替身单测再接线 |
 | 两机同时改同一文件 | 冲突/覆盖 | 约定同一时间只由一台机器推送；提交粒度按片 |
-| A 机无法复现 B 机的集成证据 | 只能抽检 | 用 SHA-256 清单 + 正文摘录抽检；必要时要求补一次最小复现命令 |
+| 本机无法复现 A 机的集成证据 | 只能抽检 | 用 SHA-256 清单 + 正文摘录抽检；必要时要求补一次最小复现命令 |
 
 ## 10. 权威来源
 
