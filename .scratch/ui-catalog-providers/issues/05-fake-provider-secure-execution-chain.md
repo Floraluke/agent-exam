@@ -175,3 +175,14 @@ E 侧已有准备产物：[阶段 1 代理测试设计](../../../docs/LLY/01-pla
 - **仓库内已有的强线索（供诊断，非结论）**：本仓库早就知道**固定 Harbor 自带侧车在这台机器上需要 DNS 适配**——M0 已查明上游 `bin/network-policy` 不放行 Docker Desktop 的转发解析器 `192.168.65.7:53`，导致两个批准域名解析失败；`adapters/execution/network.py` 因此有 `export_sidecar()`（加 DNS 守卫 + 一条 `192.168.65.7 udp dport 53 accept`），并**只通过 `adapters/execution/harbor_entry.py` 的 `_EGRESS_CONTROL_SIDECAR_CONTEXT_PATH` 生效**。负责人这次用的是**自写的最小探针**（`.tmp/t05-harbor-minimal/.../probe.py`），**可能没有走这条链**，于是 Harbor 用的是未适配的侧车上下文。退出码 127 通常表示**容器内命令找不到**（如入口脚本 exec 失败），而我们的 DNS 守卫失败会给退出码 1 并打印 `HARBOR_DOCKER_DNS_CONFIG_UNSUPPORTED`，与 127 不符——**具体原因仍未证实，需取侧车日志**。
 - 另注：即使 `main` 用显式 `networks` 绕开侧车覆盖（源码结论），Harbor 的 compose 里**仍然含侧车服务**且 `up --wait` 会等它——所以侧车至少要能起来，这是 T2 的前置。
 - **待办**：① 负责人侧加取侧车日志与镜像/入口信息（诊断，不新增资源）；② 负责人的行动文档目前只在其 worktree 中（`docs/actions/2026-09-22-task05-harbor-minimal-t2.md`），**尚未提交**，需其提交后本仓库才能引用；③ T2 判定维持"未测得"，等待下一次执行结果。
+
+2026-09-22 回复 B 的三问（落地时间、超集合记录的 HTTP 表现、夹具控制端点）
+
+1. **落地时间：由 T2 的结论触发，不是日期；本轮 T2 尚未测得。** 已核实：链路零件（S1–S8、S6a–S6e）已实现并在 `main`，但**未接运行主链路**——`provider_access` 包外只有一个导入方（`codex/provider_config.py:28` 引 `REGISTERED_UPSTREAMS`），`render_provider_config` **零调用方**；`delivery/worker/runtime.py:66` 仍无条件 `validate_auth_file`，`:26` 的 `MODEL_HOSTS` 仍写死 ChatGPT 两个域名并只构造一个 adapter。因此**今天没有任何真实 provider 失败能写到 Run 的 `failure_code`/`failure_summary`**。
+   - 触发链（顺序固定）：① T2 侧车退出码 127 的诊断 → 七条断言在固定 Harbor 上被测到；② S9/S10/S11；③ 链路接入。另有一项会先做、与本问题无关：把 `origin/main` 的加固改造合入本分支并让 `server/` 适配新接缝（合并后全套实测数字须重测）。
+   - E 的承诺：链路接入后**同一工作窗口内通知 B**（附提交哈希与"如何复现一条真实受控失败"）；若结论是"固定 Harbor 不允许替换侧车"或诊断表明不可行，**立即告知 B**，不让其空等。
+   - **两项呈现验证不必等这条链**：它们验的是 Web 层对"给定码/给定文案"的行为，不是链路可用性。夹具造一条带受控 `failure_summary` 的 Run、再造一条未知码的 Run 即可；`tests/identity/browser_server.py:194` 已有 `POST /__test__/jobs/interrupt-next` 这类控制端点先例。真实链路 → 真实 DB 行 → 页面的端到端证据建议排在任务 08 的矩阵里。
+2. **"超受控集合记录的 HTTP 表现"：已定并已实现，不再是待定项。** 提交 `3a5a9b8`：选 **503 `DEPENDENCY_UNAVAILABLE`**（`HTTP_API.md` §5 已把"对象缺失/损坏或依赖故障"归为 503），**零契约变更、无新错误码**；内部码 `UNCONTROLLED_*` 只留进程内。4 条新用例 + 区分力实测（退回旧实现全部失败）。
+   - 留给 B 决定（可选，一句即可）：§4.2 现只把 `UNCONTROLLED_*` 记为失败关闭标记、未写状态码；是否补一句"客户端可观察为 503 `DEPENDENCY_UNAVAILABLE`"由 B 定，E 不改 B 的文档。E 建议补——B 的"未知错误码失败关闭"验证会走到这个分支。
+3. **夹具"强制下一次响应出错"的控制端点不依赖 E**，B 现在即可实现。E 的唯一请求：造例覆盖两类码——链路将来会发出的（`PROVIDER_*` 五个）与永不会发出的未知码；并确认页面**不回显**原始内部码或文本（§10.2"内容安全由写入方负责、Web 层不猜测"的呈现侧对照）。
+4. 顺带记一处 E 侧同类隐患（当前不在 HTTP 路径上）：`codex/provider_config.py:62-72` 也抛裸 `ValueError("PROVIDER_CONFIG_*")`，目前零调用方；S10 接线时一并收口为受控失败。
