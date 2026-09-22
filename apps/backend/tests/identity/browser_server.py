@@ -16,7 +16,7 @@ from catalog.memory import (
 from catalog.memory import (
     MemoryArtifacts as CatalogArtifacts,
 )
-from jobs.execution.support.fakes import Backend, Evaluator
+from jobs.execution.support.fakes import Backend, Evaluator, FailedBackend
 from jobs.execution.support.fakes import MemoryArtifacts as RunArtifacts
 from jobs.execution.support.memory import ExecutableMemoryJobs
 from leaderboard.browser_repository import BrowserLeaderboardRepository
@@ -46,6 +46,9 @@ if os.environ.get("AGENTEXAM_IDENTITY_BROWSER_TEST") != "1":
 
 class BrowserBackend(Backend):
     def execute(self, request, progress=None):
+        # 故障注入：下一条真正执行的 Run 以失败收束，码与文案由控制端点给定。
+        if forced_failure:
+            return FailedBackend.execute(self, request, progress)
         results = super().execute(request, progress)
         return tuple(
             replace(item, usage=replace(item.usage, n_cache_tokens=None))
@@ -213,6 +216,25 @@ def expire_and_clean_artifacts():
         "deleted": result.deleted,
         "recovered": result.recovered,
     }
+
+
+forced_failure: list[tuple[str, str]] = []
+submitted_fail = job_repository.fail
+
+
+def injected_fail(lease, run_id, code, summary, now, trial=None):
+    # Run 失败码与失败文案的唯一落库点；注入只对下一次失败生效，取走即清空。
+    code, summary = forced_failure.pop() if forced_failure else (code, summary)
+    return submitted_fail(lease, run_id, code, summary, now, trial)
+
+
+job_repository.fail = injected_fail
+
+
+@app.post("/__test__/jobs/fail-next-run")
+def fail_next_run(payload: dict[str, str]):
+    forced_failure.append((payload["failure_code"], payload["failure_summary"]))
+    return {"forced": True}
 
 
 def run_synthetic_worker() -> None:
