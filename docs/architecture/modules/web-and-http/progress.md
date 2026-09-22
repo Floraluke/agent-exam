@@ -21,7 +21,7 @@
 - **死代码清理**：`apps/web/src/lib/job-client.ts` 的 `runArtifacts`（`GET /runs/{id}/artifacts`，全仓无界面调用）连同其无用导入一并删除；`npm run typecheck` 通过。本轮唯一的代码改动。
 - **浏览器全量**：`AGENTEXAM_USE_SYSTEM_CHROME=1 npm run test:e2e` **退出码 0**，22 个 spec 全绿（每个 spec 单独起一次合成后端与前端 dev；运行器遇首个失败即中止）。
 - **给 A 的脱离版补 `README.md`**：这是什么、怎么打开、与"跑起来的前端"的差别、已知边界、反馈什么最有价值。
-- **交 D 一条契约缺口**（见下表）：未完成批次的批次报告返回 500。
+- **一条对 D 的报告已闭环，结论与 B 的初判相反**：B 起初报“未完成批次的批次报告返回 500”，D 复核后指出**当前 main 复现不出**、应为 200，并给出代码依据与回归测试；B 复测确认 D 正确、**自己的归因错了**（详见下表那一行），契约已按 D 的措辞补入 §10.1。
 
 ## 2026-09-21：任务 05 的受控词汇对齐（E 请求；B 侧只改契约）
 
@@ -213,7 +213,7 @@ B 手动尝试从本机接入 owner A 的共享评测环境，**未接通**：
 | OpenAPI 字段级 schema 对账 | ⬜ 未做 | 仅做过 §10.4 正文与实现的 20/20 静态字段对照 |
 | `ruff` / `mypy` | ✅ 已在 B 侧运行 | `ruff check`/`format --check` 对 B 的文件全过；mypy 按项目范围为 175 个源文件零问题。**裸跑 `mypy` 在本机不可用**（缺 `py.typed`，配置问题，非 B 引入） |
 | 受控集合以外记录的 HTTP 表现 | ❓ **待 E 决定** | `_controlled` 数据层"失败关闭"是对的（抛 `ValueError`，不回退默认值），但 HTTP 层只注册了 `AuthenticationRequired`/`CatalogError`/`JobError`/`RequestValidationError`/`IdentityUnavailable`/`HTTPException`，**没有 `ValueError` 处理器**，故当前表现为 500、不带受控错误码。是否包装成受控错误（例如沿用 503 `DEPENDENCY_UNAVAILABLE`）由 E 定；B 只在 §4.2 写了"失败关闭"，**未承诺状态码** |
-| 未完成批次的批次报告返回 500 | ⬜ **已交 D 决定** | 契约 §10.1 未定义"批次尚无结果"该返回什么；已核实 500 来自**产品代码路径**（`reporting.job()` → `_verify`，路由 `report_jobs.py`），非夹具伪造。三个候选方案（409 / 200 全零 / 404）与 B 的倾向见 `runtime/drafts/to-D-report-500-contract-gap.md`（gitignored，不入库）。B 侧前端不需改动：取数失败会给出错误提示而非静默 |
+| 未完成批次的批次报告返回 500 | ✅ **已关闭（D 答复，B 复测）** | **维持 200，不是缺陷**。D 用同一装配在 `official` 作用域实测 `AWAITING`/`QUEUED`/`PREPARING` 均 200，并指出 `application/reporting/service.py` 的 `_verify` 在 `deterministic_result is None` 时提前返回（B 已自行读码确认）；B 在 `internal_test` 作用域复测同样 200。**B 原先的归因是错的**：那两条 500 的批次在录制里 `result_scope` 都是 `internal_test`、且经录制会话的长变更流程反复操作过，**不是“未完成”造成的**，从干净装配复现不出。契约已按 D 的措辞写入 §10.1，行为由 `tests/jobs/reporting/test_job_report_states.py` 四个用例钉住（`831c19c`） |
 | 浏览器夹具"强制下一次响应出错"控制端点 | ⬜ 待排期 | 用于"未知错误码失败关闭"的呈现验证；按约定等代理链落地后与"受控文案忠实呈现"一起做 |
 | 与 D 的工作重复 | ✅ 已关闭 | D 于 2026-09-21 拍板：接受 `main` 为最终形态，`cdcb4cf`/`c5e036d` 不再合入，以 `7553ce0` 为准；"不收敛"决定作废；`xinyue-modules` 转历史存档。**收尾提交已核实**：`3930f24`（关闭提案）与其子提交 `775d7a1`（更正已归档提案）都在远端，`git ls-remote` 权威值为 `775d7a1d065632064de2c3d5f0636f7eb03a80c2`。另记一条拓扑事实：**D 的 `origin` 就是团队仓库本身**（只配了一个 remote、没有 fork），她的推送直达 `anphuchoang5-sys/agent-exam`，与 B 的 fork 提 PR 路径不同 |
 | 任务 03 的 Web 对比页 | ✅ 已完成 | 契约（PR #7）、后端（`7553ce0`）与 Web 页面（PR #8）均已合入 `main`；见[对比页行动](actions/03-comparison-ui.md) |
