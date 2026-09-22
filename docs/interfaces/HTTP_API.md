@@ -594,7 +594,9 @@ Header：`Idempotency-Key: <客户端生成的不透明值>`；正文必须为 `
 
 全部 Run 形成可信确定性结果时 Job 为 `COMPLETED`；至少一个可信结果且另有运行或协议错误时为 `COMPLETED_WITH_ERRORS`；完全没有可汇总结果才为 `FAILED`。`resolved=false` 仍是正常完成，不计入 `failed_runs`；`CANCELED` 属于 `incomplete` 并计入 `pending_runs`。终态 Run 的 `report_path` 可进入既有单次运行报告；报告服务在返回确定性成功前继续复核全部关联对象正文。生产报告查询默认只接受 `result_scope=official`，对 `internal_test` 的 Job 与 Run 均按不存在返回 404；仅显式门控的测试装配可注入内部范围谓词，正式运行配置不能切换该边界。
 
-批次尚未进入终态时，本端点仍返回 `200`：`stage_message` 说明当前阶段，`completed_runs`/`failed_runs`/`pending_runs` 按 Run 状态计数；尚无确定性结果的 Run 记 `outcome=incomplete`、`resolved=null`，不写入 `resolved_runs`/`unresolved_runs`。未完成**不是** `404`（那表示不存在或无权，含 `internal_test`），也**不是** `409`。`report_path` 是通往单 Run 报告的链接，不代表结果已经可用。该行为由 `tests/jobs/reporting/test_job_report_states.py` 的四个用例钉住（`AWAITING` 的 200 形状与 `incomplete`/`resolved=null`、`QUEUED` 与 `PREPARING` 仍可读、对比接口接受未出结果的批次、`internal_test` 仍是 404），不要把它当缺陷改回去。
+批次尚未进入终态时，本端点仍返回 `200`：`stage_message` 说明当前阶段，`completed_runs`/`failed_runs`/`pending_runs` 按 Run 状态计数；尚无确定性结果的 Run 记 `outcome=incomplete`、`resolved=null`，不写入 `resolved_runs`/`unresolved_runs`。未完成**不是** `404`（那表示不存在或无权，含 `internal_test`），也**不是** `409`。`report_path` 是通往单 Run 报告的链接，不代表结果已经可用。已取消与已请求取消的批次同样返回 `200` 与明确的 `stage_message`。该行为由 `tests/jobs/reporting/test_job_report_states.py` 钉住（`AWAITING` 的 200 形状与 `incomplete`/`resolved=null`、`QUEUED` 与 `PREPARING` 仍可读、对比接口接受未出结果的批次、`internal_test` 仍是 404、`CANCELED` 与 `CANCEL_REQUESTED` 的 200 与文案），不要把它当缺陷改回去。
+
+`stage_message` 的状态映射**必须覆盖 `JobStatus` 的每一个取值**：映射在 `routes/jobs/batch_schemas.py`，漏掉任何一个都会让只读端点抛未捕获异常并返回 `500 INTERNAL_ERROR`（2026-09-22 的 `CANCELED`/`CANCEL_REQUESTED` 即如此）。完整性由 `tests/jobs/reporting/test_batch_status_messages.py` 逐个断言，运行时另有一句中性兜底文案。
 
 ### 10.2 单次运行报告
 
@@ -795,6 +797,7 @@ FastAPI route 文件只做 schema、HTTP 状态和用例调用，不能直接启
 
 ## 15. 变更记录
 
+- 2026-09-22：修复只读端点 500——批次报告的 `stage_message` 映射漏了 `CANCELED` 与 `CANCEL_REQUESTED`（`JobStatus` 有 11 个取值、映射只有 9 条），取 `_JOB_MESSAGES[job.status]` 抛未捕获 `KeyError`。已补齐两条文案并把两处取值改为带中性兜底（展示文案不该让只读端点 500）；第 10.1 节补写“已取消与已请求取消同样返回 200”，并注明映射完整性由测试逐个钉住。定位依据是 B 在脱离版录制中留下的两份 500 响应。
 - 2026-09-22：第 10.1 节补写"批次未进入终态仍返回 `200`"的契约（阶段文案与状态计数、`outcome=incomplete`/`resolved=null`、未完成既不是 404 也不是 409、`report_path` 不代表结果可用），并注明该行为由回归测试钉住。依据：D 用同一装配在 `official` 作用域实测 `AWAITING`/`QUEUED`/`PREPARING` 三种状态均 200，且 `application/reporting/service.py` 的 `_verify` 在 `deterministic_result is None` 时提前返回；B 在 `internal_test` 作用域复测同样 200。
 - 2026-09-21：任务 05 对齐受控词汇——第 10.2 节列出提供方访问失败的五个受控 `PROVIDER_*` 码、各自归入的内部错误族与“内部码绝不回显、未映射落兜底”规则；第 4.2 节与第 6 节把 `agent_type`/`model_provider` 记为受控集合、按记录如实呈现（含 `internal_test_fake`）、超出集合失败关闭，并明确 `authentication_type`/凭据 profile/固定上游不在响应中。
 - 2026-09-13：任务 12 扩展制品安全元数据，增加 `available/not_ready/deleted` 和已删除正文 410；保留公开三类正文白名单，未增加 HTTP 删除入口。
