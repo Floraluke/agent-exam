@@ -27,7 +27,7 @@
 `main` 已从 `1888aa2` 前进到 `fb8aadf`（E 的提供方访问链 PR #24/#25、B 的契约对齐 PR #26），**B 的界面此前从未在这些提交上验证过**。本节保留该提交当时的实测与缺口；当前结论以本文件“未验证项与待确认项”表及[核心诊断报告](../../../reviews/2026-09-21-core-code-diagnostic-report.md)为准。本轮把挂着的那几条待办一次收掉：
 
 - **后端全量（`fb8aadf`，本机）**：**2 failed / 494 passed / 106 skipped**（60.35s）。两个失败仍是 `tests/contract/test_execution_network.py` 的两条 Harbor 契约用例（本机缺 `framework/harbor`），**可移植基线成立**；passed/skipped 由旧记录的 408/86 升到 494/106，来自 E 那批提交新增的测试（`tests/providers/policy/*` 等）。
-- **静态检查**：`ruff check` 与 `ruff format --check` 对 `tests/identity/browser_server.py` 全过；mypy 按**项目范围**跑（`MYPYPATH=src mypy src/eval_platform`）为 **175 个源文件零问题**。**注意一处工具链事实**：按配置裸跑 `mypy`（`packages = ["eval_platform"]`）在本机不可用——报缺 `py.typed` 标记，解析到的是未安装标记的包而不是 `src/` 树；因此"B 侧没跑过 mypy"这条的结论只能由路径方式给出。对**单个测试文件**跑 mypy 会连带检查范围外的夹具（268 个未标注类错误），**那是噪声不是结论**。
+- **静态检查**：`ruff check` 与 `ruff format --check` 对 `tests/identity/browser_server.py` 全过；mypy 按**项目范围**跑（`MYPYPATH=src mypy src/eval_platform`）为 **175 个源文件零问题**。**注意一处工具链事实**：按配置裸跑 `mypy`（`packages = ["eval_platform"]`）在本机不可用——报缺 `py.typed` 标记，解析到的是未安装标记的包而不是 `src/` 树；因此"B 侧没跑过 mypy"这条的结论只能由路径方式给出。对**单个测试文件**跑 mypy 会连带检查范围外的夹具（268 个未标注类错误），**那是噪声不是结论**。 **更正（2026-09-22，同日）**：上游随后修正了 src 布局配置并新增 `mypy.ini`，**裸跑 `mypy` 现对 177 个源文件通过、不再需要路径绕行**；本节此前那条“裸跑不可用”的结论已不再成立，保留作当时的记录。
 - **死代码清理**：`apps/web/src/lib/job-client.ts` 的 `runArtifacts`（`GET /runs/{id}/artifacts`，全仓无界面调用）连同其无用导入一并删除；`npm run typecheck` 通过。本轮唯一的代码改动。
 - **浏览器全量**：`AGENTEXAM_USE_SYSTEM_CHROME=1 npm run test:e2e` **退出码 0**，22 个 spec 全绿（每个 spec 单独起一次合成后端与前端 dev；运行器遇首个失败即中止）。
 - **给 A 的脱离版补 `README.md`**：这是什么、怎么打开、与"跑起来的前端"的差别、已知边界、反馈什么最有价值。
@@ -42,7 +42,7 @@ E 已把任务 05 的提供方访问链合入 `main`（PR #24/#25，本地 `1888
 - **命名与粒度**：**沿用 E 的实现**（五码；额度与期限合并进 `PROVIDER_BUDGET_EXHAUSTED`，不拆分）。理由：它与已合入的库级 CHECK、`DATA_MODEL.md` 与 E 的映射表/门禁完全一致，拆分会同时改代码与用例，而对所有者没有可操作差别。
 - **顺带核对 E 报告的自身缺陷已修**：`catalog_schemas.py` 现经 `_controlled(...)` 输出 `agent_type`/`model_provider`，超出受控集合时抛 `UNCONTROLLED_*` 而不是回退默认值——原来的"给 `model_provider="deepseek"` 的记录却照旧回 `openai_chatgpt`"的假报告路径不再存在；`06f59ce fix(catalog): honour the agent_type filter instead of dropping it` 也在同一批。
 
-**B 侧由此新增的待办**：按此前约定，浏览器夹具（`apps/backend/tests/identity/browser_server.py`）需要加"**强制下一次响应出错**"的控制端点，用于"未知错误码失败关闭"的呈现验证；等代理链落地后与"受控文案忠实呈现"一起排期。
+**B 侧由此新增的待办（2026-09-22 更新）**：浏览器夹具（`apps/backend/tests/identity/browser_server.py`）的"**强制下一次响应出错**"控制端点**不再需要等链路**——E 已确认那两项验证只验 Web 层对"给定码 + 给定文案"的行为；B 可自行决定时间点，造例覆盖五类 `PROVIDER_*` 与未知码两类，并验证页面不回显内部码或文本。
 
 ## 2026-09-21：A 要求的"所有前端"脱离版（第一版被否决，已重做为真实组件版）
 
@@ -74,7 +74,7 @@ A 指示"把 web 里的前端代码弄成一个脱离的 HTML，根据 HTTP API 
 
 | 事项 | 等谁 | 依据 |
 |---|---|---|
-| 任务 05 的两项呈现验证（受控文案的忠实呈现、未知错误码的失败关闭） | 等 E 的假提供方链落地 | [任务 05 行动](actions/05-necessary-error-presentation.md)第 4 节 |
+| 任务 05 的两项呈现验证（受控文案的忠实呈现、未知错误码的失败关闭） | ✅ **前置已解除，待 B 实施（2026-09-22，E 答复）** | E 明确：这两项验的是 **Web 层对“给定码 + 给定文案”的行为**，**不依赖链路可用性**——夹具里造一条带受控 `failure_summary` 的 Run、再造一条未知码的 Run 即可；`tests/identity/browser_server.py` 已有 `POST /__test__/jobs/interrupt-next` 一类控制端点先例。**真实链路 → 真实 DB 行 → 页面的端到端证据放到任务 08 的矩阵里**（不在本切片）。E 的请求：造例覆盖两类码——链路将来会发出的五类 `PROVIDER_*`，与永不会发出的未知码；并确认页面不回显原始内部码或文本 |
 | 共享 PostgreSQL `15432` 正向、Tailscale 双机、VPN 两态、未获准设备负向 | 等 A 排查网络与授权 | 本文件"共享环境接入尝试"节 |
 | M1-14 的 HTTPS Web 与浏览器协作验收 | A 主责；依赖同一环境 | [M1-14 任务单](../../../../.scratch/m1-platform/issues/14-private-remote-acceptance.md) |
 | 任务 05 整体开工 | 9 项负责人决定已确认；仍等 A 给出实施指令与拓扑探针窗口 | [任务 05 issue](../../../../.scratch/ui-catalog-providers/issues/05-fake-provider-secure-execution-chain.md)与[负责人回执](../../../LLY/01-plan/TASK05_OWNER_ACTION_REQUIRED.md) |
@@ -94,7 +94,7 @@ A 指示"把 web 里的前端代码弄成一个脱离的 HTML，根据 HTTP API 
 | ~~第三个配置（凑"六题×三配置"）~~ | ✅ **已关闭（2026-09-21，C 答复）**：**不加**、维持六题 + 两配置。理由：① 任务 08 的冻结矩阵本就是"六题×两个新 API 配置 = 12 个 Run"，与现状正好对上；② 第三配置唯一能多验的"3 个恰好允许、4 个拒绝"边界已在 HTTP 层覆盖（`tests/jobs/scale/test_continuous_preset_bounds_sixty_runs_and_three_configurations`）；③ 等 05–07 落地 DeepSeek/Kimi 预设后再看是否需要，不预支。**不为它拆夹具文件、不再涨行数** |
 | 真后端上的"六题可选"核对 | ✅ **已改期到任务 08（2026-09-21，C 答复）**：浏览器侧继续用合成后端；真后端核对由 C 提供 preset id 与门禁证据（白名单六条在 `adapters/tasks/catalog.py` 的 `FIXED_TASK_IMAGES`），**联合验收放到 08 的正式部署窗口**，不再作为 B 的当前待办 |
 | 五档文案一致性 | ✅ **已核对（2026-09-21，D 答复）**：口径按 B 定的五个词，D 已把后端报告渲染器统一到同一套（`5373bf6`），并修掉她发现的后端旧用词；B 侧同步修掉两处前端残留（`report.tsx` 的"基础设施失败"、`comparison.tsx` 的"未通过"）与两处注释 |
-| B 侧尚未运行 `ruff` / `mypy` | ✅ **已运行（2026-09-22）** | `ruff check` 与 `format --check` 对 `tests/identity/browser_server.py` 全过；`mypy` 按**项目范围**（`MYPYPATH=src mypy src/eval_platform`）为 175 个源文件零问题。注意：按配置裸跑 `mypy` 在本机不可用（`packages = ["eval_platform"]` 解析到未安装 `py.typed` 的包），而拿单个测试文件当入口会连带检查范围外的夹具（268 个未标注类错误），那是噪声不是结论 |
+| B 侧尚未运行 `ruff` / `mypy` | ✅ **已运行（2026-09-22）** | `ruff check` 与 `format --check` 对 `tests/identity/browser_server.py` 全过；`mypy` 按**项目范围**（`MYPYPATH=src mypy src/eval_platform`）为 175 个源文件零问题。注意：按配置裸跑 `mypy` 在本机不可用（`packages = ["eval_platform"]` 解析到未安装 `py.typed` 的包），而拿单个测试文件当入口会连带检查范围外的夹具（268 个未标注类错误），那是噪声不是结论 **更正（2026-09-22，同日）**：上游随后修正了 src 布局配置并新增 `mypy.ini`，**裸跑 `mypy` 现对 177 个源文件通过、不再需要路径绕行**；本节此前那条“裸跑不可用”的结论已不再成立，保留作当时的记录。 |
 | 页面渲染面的哨兵扫描 | ✅ **已补齐（2026-09-22）** | 核对代码后发现原表述有一半已过期：**证据页早已覆盖**（`job-evidence.spec.ts` 两次扫描都打在单次运行报告/安全证据上）；本轮补上**批次报告（批次进度）**与**排行榜**两处，排行榜先断言 `.leaderboard-row` 真有行再扫（避免空转），查询字段取自任务目录而非硬编码。局限：只扫页面可见文本，哨兵是固定清单，新增敏感字段需手动加入。见[行动 12](actions/delivery/12-web-page-sentinel-sweep.md) |
 
 **当前主工作区状态（2026-09-21 本次交接核对）**：`main = origin/main = c71d342`；没有重新查询其他成员 fork 或 `upstream`，不得沿用更早的三端相等结论。已关闭的 `task03/comparison-api-spec` 仅作历史存档，其提交不需要再合入 `main`。
@@ -210,12 +210,12 @@ B 手动尝试从本机接入 owner A 的共享评测环境，**未接通**：
 | 本机 Docker / 任务 05 T1 | ✅ 已完成 | 2026-09-22：Docker 27.5.1；正常拓扑 `status=verified`，反向对照 `status=negative-control-ok`，容器/网络/卷残留均为 0。固定 Harbor T2 仍未由此通过 |
 | 本机在**当前 main** 上重跑 | ✅ 已完成 | 2026-09-22（`01feba4`）：后端默认 **510 passed / 102 skipped**，分支覆盖率 86.38%；仓库根统一入口 **521 passed / 112 skipped**。环境门控项仍按 skipped 记录；完整证据见[诊断报告 §8.2](../../../reviews/2026-09-21-core-code-diagnostic-report.md#82-最终实测) |
 | 实时 OpenAPI 计数 | ✅ 已复核 | 用真实装配读 OpenAPI：**32 个端点，与 §2.1 的 32 条逐条集合比对差异 0**（2026-09-21，见上） |
-| OpenAPI 字段级 schema 对账 | ⬜ 未做 | 仅做过 §10.4 正文与实现的 20/20 静态字段对照 |
+| OpenAPI 字段级 schema 对账 | ✅ **已完成（2026-09-22）** | 用 `create_runtime_app()` 读实时 OpenAPI（29 个路径、59 个 schema），与 §4.1–§4.3、§9.2、§10.1–§10.4 的示例/正文逐字段比对。**逐字段一致**：§4.1、§4.2（8/8）、§4.3（19/19）、§10.1（11 顶层 + 11 个 Run 字段）、§9.2、轨迹（9/9）。**修复三处契约缺口**：§4.3 示例缺 6 个字段（实现与 §7 示例本就有，属文档内部不一致）、§10.2 从未定义过程指标字段名（示例是空对象）、§10.4 未写 `cells[].failure_code`。**未逐字段核对**：Job 详情（73）、`job-options`、排行榜（67）、制品索引（18）——无示例，只能人工看正文。只比字段名与层级，不比类型/可空性/枚举。见[行动 13](actions/delivery/13-openapi-field-reconciliation.md) |
 | `ruff` / `mypy` | ✅ 当前统一入口通过 | Ruff lint 与 321 文件格式检查通过；修正 src 布局配置后，无参数 Mypy 对 177 个源文件通过，不再需要路径绕行 |
 | 受控集合以外记录的 HTTP 表现 | ❓ **待 E 决定** | `_controlled` 数据层"失败关闭"是对的（抛 `ValueError`，不回退默认值），但 HTTP 层只注册了 `AuthenticationRequired`/`CatalogError`/`JobError`/`RequestValidationError`/`IdentityUnavailable`/`HTTPException`，**没有 `ValueError` 处理器**，故当前表现为 500、不带受控错误码。是否包装成受控错误（例如沿用 503 `DEPENDENCY_UNAVAILABLE`）由 E 定；B 只在 §4.2 写了"失败关闭"，**未承诺状态码** |
 | 未完成批次的批次报告 | ✅ 已由当前实现关闭 | 等待批准、排队和运行中批次均返回 200，并用 `pending_runs` / `incomplete` 表达未完成；`tests/jobs/execution/batch/test_http_stages.py` 覆盖持久化阶段。具体契约见[非终态报告行动](actions/10-job-report-nonterminal-contract.md) |
 | 取消相关批次的批次报告返回 500 | ✅ **已定位并修复（缺陷）** | `_JOB_MESSAGES` 原缺 `CANCELED`/`CANCEL_REQUESTED`，索引抛未捕获 `KeyError`；仅测 AWAITING/QUEUED/PREPARING 无法发现。`0eeeb16` 补齐文案和中性兜底，并新增完整性测试；B 独立复跑“取消 → 查报告”为 200。此前 B 将其判为录制噪声是误判，详见[非终态报告行动](actions/10-job-report-nonterminal-contract.md) |
-| 浏览器夹具"强制下一次响应出错"控制端点 | ⬜ 待排期 | 用于"未知错误码失败关闭"的呈现验证；按约定等代理链落地后与"受控文案忠实呈现"一起做 |
+| 浏览器夹具"强制下一次响应出错"控制端点 | ✅ **前置已解除，待 B 实施（2026-09-22，E 答复）** | 不再依赖代理链：那两项验证只验 Web 层对给定码与给定文案的行为；时间点由 B 定。造例需覆盖五类 `PROVIDER_*` 与永不会发出的未知码，并确认页面不回显内部码或文本 |
 | 与 D 的工作重复 | ✅ 已关闭 | D 于 2026-09-21 拍板：接受 `main` 为最终形态，`cdcb4cf`/`c5e036d` 不再合入，以 `7553ce0` 为准；"不收敛"决定作废；`xinyue-modules` 转历史存档。**收尾提交已核实**：`3930f24`（关闭提案）与其子提交 `775d7a1`（更正已归档提案）都在远端，`git ls-remote` 权威值为 `775d7a1d065632064de2c3d5f0636f7eb03a80c2`。另记一条拓扑事实：**D 的 `origin` 就是团队仓库本身**（只配了一个 remote、没有 fork），她的推送直达 `anphuchoang5-sys/agent-exam`，与 B 的 fork 提 PR 路径不同 |
 | 任务 03 的 Web 对比页 | ✅ 已完成 | 契约（PR #7）、后端（`7553ce0`）与 Web 页面（PR #8）均已合入 `main`；见[对比页行动](actions/03-comparison-ui.md) |
-| 任务 03 正式 issue | ❓ 待确认 | `.scratch` 下无 `03-*` 任务单，是否发布待 B 决定 |
+| 任务 03 正式 issue | ✅ **不补发（2026-09-22，用户决定）** | 任务 03 已完成、证据链完整（契约 PR #7、后端 `7553ce0`、Web 页面 PR #8、行动记录）；补一张回溯任务单只会多一份需要维护的文档 |

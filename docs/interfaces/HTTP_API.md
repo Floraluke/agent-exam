@@ -207,7 +207,7 @@ FastAPI 对所有成功、业务错误、限流和未预期异常响应统一设
 
 不返回 API key、凭据配置引用、命令模板、宿主路径或私有环境变量。`model_provider` 是非秘密的受控身份字段：生产 `create_catalog` 当前只公开 `openai_chatgpt`；`internal_test_fake` 只能出现在显式 `internal_test` 装配和测试数据中，不能进入正式目录或排行榜。provider 必须与 authentication type 按领域/数据库约束成对，HTTP 不返回认证类型、逻辑凭据引用或任何 Key。MVP 先登记 Codex；闭环通过后登记 Aider、Claude Code。P2 同一自研 Agent 使用 DeepSeek 与 Kimi 时返回两个独立配置。
 
-`agent_type` 与 `model_provider` 都是**受控集合**，唯一权威清单是 `domain/agent.py` 的 `CONTROLLED_IDENTITIES`：M1 的 `agent_type` 只有 `codex`；`model_provider` 有 `openai_chatgpt` 与 `internal_test_fake` 两个值。响应**按记录如实呈现**，不写死默认值；存量记录超出受控集合时**失败关闭**（`UNCONTROLLED_AGENT_TYPE` / `UNCONTROLLED_PROVIDER`），绝不回退成 `openai_chatgpt` 之类的默认值——那会让页面显示一条假身份。`internal_test_fake` 只在 `internal_test` 用途下登记（受控 API 预设，生产 `AGENT_PRESETS` 不含假提供方，见第 6 节）；该身份成对使用的 `authentication_type=provider_run_token`、凭据 profile 与固定上游**都不在 HTTP 响应中**，沿用第 10.3 节“不返回 authentication/credential profile”的同一规则。公开 `internal_test_fake` 是有意的：它让受控预设不可能被误当成真实供应商配置，且本身不含主机、路径、令牌或 topo 信息。
+`agent_type` 与 `model_provider` 都是**受控集合**，唯一权威清单是 `domain/agent.py` 的 `CONTROLLED_IDENTITIES`：M1 的 `agent_type` 只有 `codex`；`model_provider` 有 `openai_chatgpt` 与 `internal_test_fake` 两个值。响应**按记录如实呈现**，不写死默认值；存量记录超出受控集合时**失败关闭**（`UNCONTROLLED_AGENT_TYPE` / `UNCONTROLLED_PROVIDER`），绝不回退成 `openai_chatgpt` 之类的默认值——那会让页面显示一条假身份。**客户端可观察为 `503 DEPENDENCY_UNAVAILABLE`**：沿用第 5 节把“对象缺失/损坏或依赖故障”归给 503 的既有归类，因此**不新增错误码**；内部标记 `UNCONTROLLED_AGENT_TYPE`/`UNCONTROLLED_PROVIDER` 只留在进程内，不外泄。（实现状态：该映射在 `lly/dev` 的 `3a5a9b8`，**尚未合入 `main`**。）`internal_test_fake` 只在 `internal_test` 用途下登记（受控 API 预设，生产 `AGENT_PRESETS` 不含假提供方，见第 6 节）；该身份成对使用的 `authentication_type=provider_run_token`、凭据 profile 与固定上游**都不在 HTTP 响应中**，沿用第 10.3 节“不返回 authentication/credential profile”的同一规则。公开 `internal_test_fake` 是有意的：它让受控预设不可能被误当成真实供应商配置，且本身不含主机、路径、令牌或 topo 信息。
 
 ### 4.3 `JobSummary`
 
@@ -225,11 +225,17 @@ FastAPI 对所有成功、业务错误、限流和未预期异常响应统一设
   "created_at": "2026-09-03T10:00:00Z",
   "owner_decided_by": "00000000-0000-0000-0000-000000000001",
   "owner_decided_at": "2026-09-03T10:00:02Z",
-  "owner_decision_reason": "已检查冻结范围"
+  "owner_decision_reason": "已检查冻结范围",
+  "cancel_requested_by": null,
+  "cancel_requested_at": null,
+  "cancel_reason": null,
+  "failure_code": null,
+  "failure_summary": null,
+  "rerun_of_job_id": null
 }
 ```
 
-`estimated_finish_at=null` 表示没有足够真实历史数据，不能理解成“马上完成”。待批 Job 的三个 `owner_*` 字段均为 null；批准/拒绝后由可信决定事务填写，不在正文中接受决定者。任务 07 的细粒度进度在 Job 报告中按持久化 Run 状态返回；Job 详情仍不返回猜测的预计完成时间。
+`estimated_finish_at=null` 表示没有足够真实历史数据，不能理解成“马上完成”。待批 Job 的三个 `owner_*` 字段均为 null；批准/拒绝后由可信决定事务填写，不在正文中接受决定者。`cancel_requested_by`/`cancel_requested_at`/`cancel_reason` 在取消流程中填写；`failure_code`/`failure_summary` 只在批次级失败时非空（受控枚举与受控短文案，见第 10.2 节）；`rerun_of_job_id` 指向本批次的**重试来源**旧 Job，非重试批次为 `null`。任务 07 的细粒度进度在 Job 报告中按持久化 Run 状态返回；Job 详情仍不返回猜测的预计完成时间。
 
 ### 4.4 `RunSummary`
 
@@ -622,7 +628,8 @@ Header：`Idempotency-Key: <客户端生成的不透明值>`；正文必须为 `
     "failure_code": null,
     "failure_summary": null,
     "started_at": "2026-09-12T12:00:00Z",
-    "finished_at": "2026-09-12T12:00:00Z"
+    "finished_at": "2026-09-12T12:00:00Z",
+    "warnings": []
   },
   "deterministic_result": {
     "patch_exists": true,
@@ -632,7 +639,10 @@ Header：`Idempotency-Key: <客户端生成的不透明值>`；正文必须为 `
     "harness_revision": "fixed-fork-commit",
     "duration_ms": 125
   },
-  "process_metrics": {"usage": {}, "resources": {}},
+  "process_metrics": {
+    "usage": {"n_input_tokens": null, "n_cache_tokens": null, "n_output_tokens": null, "cost_usd": null},
+    "resources": {"wall_time_sec": null, "cpu_time_sec": null, "peak_memory_bytes": null}
+  },
   "judge_analyses": [],
   "human_review": null,
   "quality_tiebreak": null,
@@ -642,6 +652,8 @@ Header：`Idempotency-Key: <客户端生成的不透明值>`；正文必须为 `
 ```
 
 `judge_analyses` 中每项显式区分 `failure_diagnosis` 与 `quality_tiebreak`，并返回状态、模型/Prompt/输入策略版本和证据引用。规则：`deterministic_result`、`process_metrics`、`judge_analyses`、`human_review` 不合并为一个模糊的“总评价”；确定性结果是第一排序事实，Quality 只作为严格并列次序，Failure 不参与排名。
+
+`process_metrics.usage` 的字段是 `n_input_tokens`/`n_cache_tokens`/`n_output_tokens`/`cost_usd`，`process_metrics.resources` 的字段是 `wall_time_sec`/`cpu_time_sec`/`peak_memory_bytes`；任一项不可得时为 `null`（**不是 0**，聚合口径见第 10.3 节的覆盖率三档）。`run.warnings` 是本次运行的非致命告警列表，无告警时为空数组。
 
 M1 保留上述响应兼容形状，但 `judge_analyses=[]`、`human_review=null`、`quality_tiebreak=null`、`review_status=NOT_REQUIRED`；不为填充字段调用模型或新建分析/复核表。基础设施失败时 `deterministic_result=null`，并在 `run.failure_code/failure_summary` 明确说明，不能冒充普通 `resolved=false`。
 
@@ -703,7 +715,7 @@ MVP 排行榜只接受 `evaluation_track=closed_book`。数据模型保留 `open
 - query 必须且只能出现一次 `job_ids`；未知参数、重复参数、空选择或非法 UUID 返回 `400`。逗号分隔项会去首尾空白、规范化为小写 UUID，并按首次出现顺序去重；去重后最多 20 个 Job。
 - owner 可比较全部 official Job；collaborator 只能比较自己创建的 Job。任一 Job 不存在、无权访问或为 `internal_test` 时，整个请求返回 `404 JOB_NOT_FOUND`，不泄漏具体哪一项存在。
 - 成功 `200` 返回 `{columns, rows, totals}`。`columns[]` 包含 `job_id/agent_configuration_id/agent_display_name`；`rows[]` 按 `(repo, task_instance_id)` 稳定排序，并包含同序 `cells[]`；不同仓库的同名实例不得合并。
-- `cells[].outcome` 只允许 `resolved/unresolved/infrastructure_error/incomplete/missing`。`missing` 表示该列没有对应 Run，或 Run 已完成但报告不可用；其 `resolved` 和 `report_path` 必须为 `null`，不能冒充未通过或零。没有 Run 时 `run_id=null`，有 Run 但报告缺失时保留该 `run_id`。
+- `cells[].outcome` 只允许 `resolved/unresolved/infrastructure_error/incomplete/missing`。`missing` 表示该列没有对应 Run，或 Run 已完成但报告不可用；其 `resolved` 和 `report_path` 必须为 `null`，不能冒充未通过或零。没有 Run 时 `run_id=null`，有 Run 但报告缺失时保留该 `run_id`。单元格另带 `failure_code`（受控枚举，见第 10.2 节；无失败时为 `null`）。
 - `totals[]` 与列一一对应，包含五档计数以及整数 `decided`、`total`；`decided=resolved+unresolved+infrastructure_error+incomplete`，`total=decided+missing`。v1 不返回字符串覆盖率，也不包含计费或 Judge 分。
 - 无会话返回 `401`；数据库或报告读取不可用返回 `503 DEPENDENCY_UNAVAILABLE`。响应沿用 `Cache-Control: no-store` 与统一错误形状。
 - Web 在矩阵成功后以最多 3 个并发请求读取所选列的 `GET /jobs/{job_id}` 冻结快照；用量须由用户明确点击后，才以最多 3 个并发请求读取有 `report_path` 的 `GET /reports/runs/{run_id}`。矩阵缺失单元格及任一 Run 指标 `null` 都保持未知；只有每个组成单元格都有值才显示“总量”，否则显示“部分”或“未知”。
@@ -803,6 +815,7 @@ FastAPI route 文件只做 schema、HTTP 状态和用例调用，不能直接启
 
 ## 15. 变更记录
 
+- 2026-09-22：OpenAPI 字段级对账。用 `create_runtime_app()` 读实时 OpenAPI（29 个路径、59 个 schema 组件），与 §4.1/§4.2/§4.3/§9.2/§10.1–§10.4 的示例和正文逐字段比对；补写三处契约缺口：§4.3 的 `JobSummary` 示例补上 `cancel_*`/`failure_*`/`rerun_of_job_id` 六个字段（实现与第 7 节示例本就有，属文档内部不一致）、§10.2 写明 `process_metrics` 两组字段名与 `run.warnings`（原文示例是空对象、字段名在契约里没有定义）、§10.4 写明单元格的 `failure_code`。
 - 2026-09-22：修复只读端点 500——批次报告的 `stage_message` 映射漏了 `CANCELED` 与 `CANCEL_REQUESTED`（`JobStatus` 有 11 个取值、映射只有 9 条），取 `_JOB_MESSAGES[job.status]` 抛未捕获 `KeyError`。已补齐两条文案并把两处取值改为带中性兜底（展示文案不该让只读端点 500）；第 10.1 节补写“已取消与已请求取消同样返回 200”，并注明映射完整性由测试逐个钉住。定位依据是 B 在脱离版录制中留下的两份 500 响应。
 - 2026-09-22：第 10.1 节补写"批次未进入终态仍返回 `200`"的契约（阶段文案与状态计数、`outcome=incomplete`/`resolved=null`、未完成既不是 404 也不是 409、`report_path` 不代表结果可用），并注明该行为由回归测试钉住。依据：D 用同一装配在 `official` 作用域实测 `AWAITING`/`QUEUED`/`PREPARING` 三种状态均 200，且 `application/reporting/service.py` 的 `_verify` 在 `deterministic_result is None` 时提前返回；B 在 `internal_test` 作用域复测同样 200。
 - 2026-09-21：任务 05 对齐受控词汇——第 10.2 节列出提供方访问失败的五个受控 `PROVIDER_*` 码、各自归入的内部错误族与“内部码绝不回显、未映射落兜底”规则；第 4.2 节与第 6 节把 `agent_type`/`model_provider` 记为受控集合、按记录如实呈现（含 `internal_test_fake`）、超出集合失败关闭，并明确 `authentication_type`/凭据 profile/固定上游不在响应中。
