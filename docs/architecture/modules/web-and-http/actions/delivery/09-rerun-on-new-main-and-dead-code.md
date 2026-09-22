@@ -34,7 +34,7 @@
 ### 2.3 给 A 的说明与给 D 的报告
 
 - 脱离版目录补 `README.md`：这是什么、怎么打开、与"跑起来的前端"的差别、已知边界、反馈什么最有价值。
-- 起草给 D 的契约缺口说明（`runtime/drafts/to-D-report-500-contract-gap.md`，在 gitignored 的 `runtime/` 下，不入库）（**在 gitignored 的 `runtime/` 下，不入库**）：未完成批次的批次报告返回 500 的证据、已核实的代码路径、三个候选方案与 B 的倾向。
+- 起草给 D 的契约缺口说明（`runtime/drafts/to-D-report-500-contract-gap.md`，gitignored 不入库）：**该报告已被 D 复核及 B 复测推翻**——当前 main 与干净装配都复现不出 500，正确行为就是 200；B 的归因（“未完成”导致）是错的。契约已按 D 的措辞补入 `HTTP_API.md` §10.1，见[行动 10](../10-job-report-nonterminal-contract.md)。
 
 ## 3. 实际改动的文件树
 
