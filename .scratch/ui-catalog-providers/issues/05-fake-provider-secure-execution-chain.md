@@ -167,3 +167,11 @@ E 侧已有准备产物：[阶段 1 代理测试设计](../../../docs/LLY/01-pla
 - **T2 因此仍未运行**，原因是两处授权冲突：Harbor 构造期会创建**无名称无标签**的内核探针容器；其常规拆除路径可能执行 `down --rmi local --volumes`（超出"只按名称与标签删除、不删镜像"）。**用户 2026-09-22 明确授权增补**，范围与硬边界写在[组长机器预案附三](../../../docs/actions/2026-09-21-task05-owner-machine-runbook.md)：允许那个 `--rm` 短命探针容器（但不得挂载 Docker 套接字/发布端口/写宿主路径，若包含即停并报告）；允许常规拆除但**只可删除该次 Trial 自己的 compose 项目资源**，不得删除拉取的固定镜像或其他项目的卷，且须在执行前后记录并复核镜像/卷清单。
 - **建议的最小 T2 形态**（不接 Codex CLI、不接真实模型）：用 `extra_docker_compose` 给 `services.main` 声明显式网络，定义 `internal`（`internal: true`）与 `egress`，另起受控 `proxy` 与 `fake-upstream`，把**七条断言作为该次 Trial 的命令**在真实 Harbor 环境里跑，证据取 Trial stdout 与事后 `docker inspect`。
 - 任务 05 的拓扑验收**仍未通过**；本轮也没有把 T1 结果外推为 T2 通过。
+
+2026-09-22 负责人机器 T2 首次执行：**未测得**（工具链失败，非拓扑结论）
+
+- **实际结果**：在 `runtime/lly-dev-verify` worktree 的 `lly/dev` 上跑固定 Harbor 最小环境，Harbor 创建了 `internal`/`egress` 两张网络与五个容器，但**自带侧车 `agentexam-t05-topology-harbor-docker-egress-control-sidecar-1` 在 `up --wait` 时退出（码 127）**，因此**七组 Trial 命令一条也未执行**，运行期 inspect 也未取得。负责人按停止条件停手，未调整侧车、未重试。拆除前后镜像 90/卷 16 无增删，按项目名与标签复核残留为 0；首次预检因 Alipine 摘要抄错而提前失败（已修正后重跑一次）。
+- **分类（重要，避免误记）**：这是**工具链失败**，不是"拓扑无法落实"。与 T1 首次失败同一形状（当时监听端容器启动即退出 127）。**七条断言尚未在 Harbor 上被测量**，因此第 2 项验收既不能记为通过、也不能记为"拓扑不成立"；任务**停在 T2**，不得据此进入 06/07。
+- **仓库内已有的强线索（供诊断，非结论）**：本仓库早就知道**固定 Harbor 自带侧车在这台机器上需要 DNS 适配**——M0 已查明上游 `bin/network-policy` 不放行 Docker Desktop 的转发解析器 `192.168.65.7:53`，导致两个批准域名解析失败；`adapters/execution/network.py` 因此有 `export_sidecar()`（加 DNS 守卫 + 一条 `192.168.65.7 udp dport 53 accept`），并**只通过 `adapters/execution/harbor_entry.py` 的 `_EGRESS_CONTROL_SIDECAR_CONTEXT_PATH` 生效**。负责人这次用的是**自写的最小探针**（`.tmp/t05-harbor-minimal/.../probe.py`），**可能没有走这条链**，于是 Harbor 用的是未适配的侧车上下文。退出码 127 通常表示**容器内命令找不到**（如入口脚本 exec 失败），而我们的 DNS 守卫失败会给退出码 1 并打印 `HARBOR_DOCKER_DNS_CONFIG_UNSUPPORTED`，与 127 不符——**具体原因仍未证实，需取侧车日志**。
+- 另注：即使 `main` 用显式 `networks` 绕开侧车覆盖（源码结论），Harbor 的 compose 里**仍然含侧车服务**且 `up --wait` 会等它——所以侧车至少要能起来，这是 T2 的前置。
+- **待办**：① 负责人侧加取侧车日志与镜像/入口信息（诊断，不新增资源）；② 负责人的行动文档目前只在其 worktree 中（`docs/actions/2026-09-22-task05-harbor-minimal-t2.md`），**尚未提交**，需其提交后本仓库才能引用；③ T2 判定维持"未测得"，等待下一次执行结果。
