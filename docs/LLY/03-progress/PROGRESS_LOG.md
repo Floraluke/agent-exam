@@ -18,6 +18,11 @@
 - **Harbor 侧车附加：源码结论为"允许按服务绕过"**（显式 `networks`/`network_mode` 的服务不加入生成的侧车覆盖文件，`docker.py:433-449`；入口 `JobConfig.environment` → `extra_docker_compose`）。**但 T2 仍未运行**：Harbor 构造期会起无名称无标签的内核探针容器，常规拆除可能 `down --rmi local --volumes`，都超出原授权。
 - **用户 2026-09-22 授权增补**：允许那个 `--rm` 短命探针容器（不得挂载 Docker 套接字/发布端口/写宿主路径）；允许常规拆除但只可删除该次 Trial 自己的 compose 项目资源、不得删拉取的固定镜像或其他项目的卷。范围与硬边界见[组长机器预案附三](../../actions/2026-09-21-task05-owner-machine-runbook.md)，含建议的最小 T2 形态（把七条断言作为 Trial 命令跑，不接 CLI 与真实模型）。
 
+- **待办：把 `origin/main` 合并进 `lly/dev`（下一件事，未做）**。`origin/main`（`e6a7138`）比本分支多 24 个提交，其中一批来自 CI 分支的**对我们模块的加固改造**：新增 `provider_access/private_file.py`（抗竞态读私有文件）、`failures.py` 引入 `ProviderAccessError` 并在词表加入 `PRIVATE_FILE_CHANGED`、重写 `request_policy.py`/`secrets.py`/`transport.py`，另加 `mypy.ini`/`pytest.ini` 与较大的 `uv.lock` 更新。
+  - 试合并（`git merge-tree`，未落盘）显示 **6 个冲突文件**：任务单、`failures.py`、`test_controlled_failures.py`、`PLAN.md`、`STAGE1_PROXY_TEST_DESIGN.md`、`PROGRESS_LOG.md`。其中 `failures.py` 与对应测试是**同一版本的两种演进**（main 侧是本分支那版的超集），采用 main 侧即可；docs 几处需手工合并保留双方条目。
+  - **真正的工作量不在冲突**：main 重写了 `secrets`/`request_policy`/`transport` 的接口，而 `server/`（只在 `lly/dev` 上）依赖它们——合并后必须让 `server/` 适配新接缝并跑全套（含 PG 开关；合并后还要 `uv sync`，因为依赖锁与 `mypy.ini`/`pytest.ini` 都变了）。合并前的实测数字（`tests/providers` 165 passed / 1 skipped、默认回归 591/105/2）在合并后必须重测，不能沿用。
+  - **转发 T2 消息不依赖这一步**：负责人的 T2 只跑 `tests/providers/runtime/` 探针，而 main 未改动该目录。
+
 ### 当前停点
 
 - **任务 05 本机侧已实施完毕**（S2–S8、T1 与 `service.py` 的 S6a–S6e），剩余全部等 T2：**S9（worker 按 Run 选绑定）、S10（`net/` 与网络接线）、S11（集成层）**。
