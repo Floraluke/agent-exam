@@ -29,7 +29,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 SUFFIX=""
 [ "${NEGATIVE_CONTROL:-0}" = "1" ] && SUFFIX="-negative-control"
 
-SCOPE="t05-topology-$(date +%Y%m%d-%H%M%S)"
+SCOPE="t05-topology-$(date +%Y%m%d-%H%M%S)-$$"
 LABEL_TASK="agentexam.task=05"
 LABEL_SCOPE="agentexam.scope=${SCOPE}"
 NAME="agentexam-t05-topology"
@@ -76,10 +76,16 @@ trap t05_cleanup EXIT
 
 # --- setup ------------------------------------------------------------------------------
 echo "== setup =="
-t05_cleanup
-listener_ids="$(docker run --rm --entrypoint id "${LISTENER_IMAGE}" redis 2>/dev/null)"
+t05_preflight_resources || exit 2
+listener_ids="$(docker run --rm --name "${UPSTREAM}" "${COMMON[@]}" --pull never --entrypoint id "${LISTENER_IMAGE}" redis 2>/dev/null)"
 REDIS_UID="$(printf '%s' "${listener_ids}" | sed -n 's/.*uid=\([0-9][0-9]*\).*/\1/p')"
 REDIS_GID="$(printf '%s' "${listener_ids}" | sed -n 's/.*gid=\([0-9][0-9]*\).*/\1/p')"
+[ -n "${REDIS_UID}" ] && [ -n "${REDIS_GID}" ] || {
+  echo "harness-failed: listener user id unresolved; no assertion was measured" > "${DIAG}"
+  cat "${DIAG}"
+  echo "status=harness-failed  (see ${DIAG})"
+  exit 2
+}
 # Listeners run as the image's redis user so the official entrypoint skips its privilege
 # drop: with --cap-drop ALL that step fails ("setpriv: setresuid failed", exit 127) and the
 # container dies before it can listen. --cap-drop ALL itself is kept on every container.
@@ -117,6 +123,7 @@ t05_health_gate || exit 2
 GATEWAY="$(docker network inspect -f '{{(index .IPAM.Config 0).Gateway}}' "${INT}")"
 echo "== assertions =="
 t05_record 0 "mode" "${SUFFIX:-normal (no deliberate leak)}"
+t05_record 0 "resource labels" "${LABEL_TASK}, ${LABEL_SCOPE}"
 t05_record 0 "net ${INT} (internal)" "workload, proxy"
 t05_record 0 "net ${EGR} (egress)" "proxy ${PROXY_EGRESS_IP}, upstream ${UPSTREAM_IP}"
 t05_record 0 "net ${OTH} (internal)" "other-trial ${OTHER_IP}"
@@ -169,10 +176,16 @@ t05_record 7 "sentinel hits in workload env / argv" \
 
 t05_record 8 "image identity workload / listener" \
   "$(docker image inspect -f '{{.Id}}' "${WORKLOAD_IMAGE}") $(docker image inspect -f '{{.Id}}' "${LISTENER_IMAGE}")"
+t05_record 8 "image repo digests workload / listener" \
+  "$(docker image inspect -f '{{json .RepoDigests}}' "${WORKLOAD_IMAGE}") $(docker image inspect -f '{{json .RepoDigests}}' "${LISTENER_IMAGE}")"
 t05_record 8 "container identity" \
   "$(docker inspect -f '{{.Name}} {{.Id}}' "${WORKLOAD}" "${PROXY}" "${UPSTREAM}" "${OTHER}" | tr '\n' ' ')"
+t05_record 8 "container labels" \
+  "$(docker inspect -f '{{.Name}} {{json .Config.Labels}}' "${WORKLOAD}" "${PROXY}" "${UPSTREAM}" "${OTHER}" | tr '\n' ' ')"
 t05_record 8 "network identity" \
   "$(docker network inspect -f '{{.Name}} {{.Id}} internal={{.Internal}}' "${INT}" "${EGR}" "${OTH}" | tr '\n' ' ')"
+t05_record 8 "network labels" \
+  "$(docker network inspect -f '{{.Name}} {{json .Labels}}' "${INT}" "${EGR}" "${OTH}" | tr '\n' ' ')"
 
 echo "== cleanup =="
 t05_cleanup

@@ -16,7 +16,8 @@ NEGATIVE_CONTROL=1 bash apps/backend/tests/providers/runtime/topology-probe.sh
 - 证据写到 `${T05_EVIDENCE_DIR:-$PWD/.tmp/t05-topology}/transcript[-negative-control].txt`（`/.tmp/` 已被 Git 忽略）。
   工具链不健康时改为写 `harness-failure*.txt` 并**中止**，不输出任何断言。
 - 假值提供方文件默认用本目录的 `fake-provider.json`，可改：`T05_FAKE_PROVIDER_FILE=/path/to.json`。
-- 两个镜像默认 `debian:bookworm-slim`（做题侧）与 `redis:7-alpine`（监听端）；若目标机器已有等价镜像，用 `T05_WORKLOAD_IMAGE` / `T05_LISTENER_IMAGE` 指过去，避免为一个探针拉新镜像（做题侧需要 bash 与 `/dev/tcp`；监听端需能被自身的 `redis-cli` 驱动，且镜像内要有 `redis` 用户——监听端以该用户运行，探针会**从镜像现取它的 uid/gid**来设置 tmpfs 属主，取不到就按 `harness-failed` 中止而不是猜）。
+- 两个镜像默认 `debian:bookworm-slim`（做题侧）与 `redis:7-alpine`（监听端）；探针在创建资源前确认两者已缓存，缺失时以 `harness-failed` 中止，**不会自动拉取**。若目标机器已有等价镜像，用 `T05_WORKLOAD_IMAGE` / `T05_LISTENER_IMAGE` 指过去（做题侧需要 bash 与 `/dev/tcp`；监听端需能被自身的 `redis-cli` 驱动，且镜像内要有 `redis` 用户——监听端以该用户运行，探针会**从镜像现取它的 uid/gid**来设置 tmpfs 属主，取不到就按 `harness-failed` 中止而不是猜）。
+- UID/GID 查询所用的短命容器复用本任务 `fake-upstream` 名称并带任务与本轮 scope 标签。运行前拒绝任何同名已有容器或网络；退出时只清理同时匹配名称、任务标签和本轮 scope 标签的资源，不触碰其他资源。
 - **Git Bash（Windows）必须在脚本内保持 `export MSYS_NO_PATHCONV=1`**：否则 MSYS 会把传给容器的绝对路径与 `/dev/tcp` 参数改写成 Windows 路径，探针会返回**假阴性 CLOSED**——看起来像"隔离成立"，是最危险的失败方向。
 
 ## 断言清单（对应交接文档第 3.5 节的 7 条）
