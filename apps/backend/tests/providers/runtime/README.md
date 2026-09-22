@@ -40,3 +40,19 @@ NEGATIVE_CONTROL=1 bash apps/backend/tests/providers/runtime/topology-probe.sh
 - 监听端以镜像内的 `redis` 用户运行：`--cap-drop ALL` 会让镜像入口脚本的降权步骤失败（`setpriv: setresuid failed`，退出码 127），容器根本起不来。
 - 监听端镜像是 Alpine：**没有 bash**，凡是 `docker exec … bash -c` 一律静默失败并读成 CLOSED；用镜像自带的 `redis-cli`。
 - redis 会改写自己的进程名（`setproctitle`），所以 PID 标记不能用 redis 的 argv，改用中继脚本路径，且模式写成 `…marke[r]-relay.sh` 以免扫描进程自己命中。
+
+## T2：在 Harbor 建好的容器里只做断言（`t2-assertions.sh`）
+
+T1（上面的探针）**自己创建**容器；T2 的容器由固定 Harbor 创建，所以断言必须在 Harbor 的**做题容器内**执行，另外那些需要 Docker API 的读数（发布端口、宿主挂载、私有文件、清理复核）在跑完后于宿主侧取——分工见[组长机器预案附三/附四](../../../../../docs/actions/2026-09-21-task05-owner-machine-runbook.md)。
+
+```bash
+# 在该次 Trial 的做题容器里（把它作为 Trial 的命令），环境变量按该次 compose 的服务名与端口给：
+T05_PROXY_HOST=proxy T05_PROXY_PORT=8080 \
+T05_UPSTREAM_HOST=fake-upstream T05_UPSTREAM_PORT=8080 \
+bash t2-assertions.sh        # 期望 status=verified，退出码 0
+```
+
+它覆盖断言 1、2、3、7 中**从做题侧可观测**的部分，并打印原始读数与逐条 PASS/FAIL，与 T1 的 `topology-verdicts.sh` 同一套期望名。**两条硬约束，都来自本机的实测教训**：每个 `/dev/tcp` 检查必须带 `timeout`（否则被封地址会一直挂到内核放弃，吃掉 Trial 的墙钟）；私密标记的扫描必须限定在 `/proc`（递归 grep `/home`、`/etc` 是无界操作，本机烟雾测试里真的把脚本挂住了）。
+
+**本机无法执行它**：本机没有 `framework/harbor`、Docker 守护进程也未运行。已做的验证只有 `bash -n` 与一次本机烟雾运行——后者实测 65 秒完成，并在"有公网、无代理"的宿主上正确报出 `a1`/`a2` 失败（即它不是空过）。真实结果以负责人机器上那一轮的输出为准。
+
