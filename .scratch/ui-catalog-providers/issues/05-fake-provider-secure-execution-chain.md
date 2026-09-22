@@ -226,3 +226,11 @@ E 侧已有准备产物：[阶段 1 代理测试设计](../../../docs/LLY/01-pla
 - **已写入[组长机器预案附四](../../../docs/actions/2026-09-21-task05-owner-machine-runbook.md)**（附一/二/三原样保留）：诊断命令、走探针的适配两行、以及"适配会让侧车镜像内容哈希变化→重新构建一次→拆除时清掉"的预期差异说明（避免被当成越界）。
 - **本机侧顺带完成**：把工作树里那份未提交的手工代理定稿入库（`2f96dae`）——那是**唯一不需要 Docker/Harbor 就能看到"真实受控拒绝 + 真实流式应答"的入口**，正好给 Web 侧呈现核对与 S11 集成层做对照；实测 403 / 400 / 200 事件流，两次拒绝上游**零记录**、应答**恰好一条**。
 - **下一件本机可开工的切片**：写 T2 的"**仅断言**"脚本 + 最小 job config 驱动（T1 探针自建容器，而 T2 的断言必须在 Harbor 建好的容器内跑，故不能直接复用）。本机无法执行（无 `framework/harbor`、Docker 守护进程未运行），交付形态是"负责人机器上一条命令 + 明确标注未在本机运行"。过程见[下一轮 T2 准备行动](../../../docs/actions/2026-09-22-t05-t2-next-round.md)。
+
+2026-09-22 B 的两项呈现验证已合入 main，并回了一条对本任务有用的实测结论
+
+- **B 侧已完成**（`9fbefbe`，PR #35）：夹具加 `POST /__test__/jobs/fail-next-run`，注入点选在 Run 失败码的**唯一下沉处** `job_repository.fail`（未调用时行为不变），用例覆盖五类 `PROVIDER_*` 加一个永不会发出的未知码；单独 6 passed、全量 exit 0，并有负控证明断言非空转。
+- **实测结论（写入侧必须记住的一条）**：**Web 层没有"码 → 文案"映射，是纯透传**——`failure_code` 与 `failure_summary` 进的是默认折叠的技术详情；因此"未知码的失败关闭"在该层表现为"只显示码本身、不编造类别文案、状态呈现不受码影响"。B 注入内部码 `PROVIDER_BINDING_ALREADY_ISSUED` 时页面**原样回显**。→ **拦截责任确在写入侧**，与本任务设计冻结第 3.7 节"内容安全由写入方负责"及受控文案映射（`failures.py`）的方向一致；我们这边任何写入 `failure_code`/`failure_summary` 的路径都必须先经受控映射，否则会把内部码直接印到用户界面。
+- **端到端证据的归属**：真实链路 → 真实 DB 行 → 页面的端到端证据由 B 放到**任务 08 的矩阵**里，不在任务 05 的切片内；任务 05 不因此挂账。
+- **一处需要下个合并修掉的悬空引用**：`origin/main` 的 `tests/providers/lifecycle/support.py:199` 注释提到 `serve_proxy.py`，但该脚本**只在 `lly/dev`（`2f96dae`）上、尚未进 main**，所以 B 在 main 里搜不到它、也搜不到端口 `18124`。下一次 `lly/dev → main` 合并即自动修复。
+- **复现脚本在合并后的代码上已复测通过**（E 本机实测）：三次拒绝 `403 PROVIDER_ACCESS_DENIED` / `400 PROVIDER_REQUEST_REJECTED` / `400 PROVIDER_REQUEST_REJECTED` **零 `[upstream]` 行**；唯一正对照 `200` 且中继真实 SSE 流、**恰好一行** `[upstream] request #1: POST /responses model=deepseek-flash`。命令：`python tests/providers/lifecycle/serve_proxy.py --port 18124`。
