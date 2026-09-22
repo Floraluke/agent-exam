@@ -146,3 +146,41 @@ NEGATIVE_CONTROL=1 bash apps/backend/tests/providers/runtime/topology-probe.sh  
 **建议的最小 T2 形态（2026-09-22 更正）**：**不要用手写探针**——首轮实测证明它会绕过本仓库必需的侧车适配（`export_sidecar()` 导出的 LF 上下文 + M0 已授权的 DNS 适配），导致 Harbor 用它默认的 Windows 工作树上下文，`entrypoint.sh` 若为 CRLF 即 `exec ... No such file or directory`（退出 127）。下一轮应**经产品入口 `harbor_entry.py`** 跑一个最小 job config（产品路径与本入口天然携带该适配）；若确需独立探针，必须显式把 `DockerEnvironment._EGRESS_CONTROL_SIDECAR_CONTEXT_PATH` 指向 `export_sidecar()` 的输出。具体要求（不必接 Codex CLI、不必接真实模型）：用 `extra_docker_compose` 给 `services.main` 声明显式网络并定义 `internal`（`internal: true`）与 `egress` 两条网络，另起本任务的受控 `proxy` 与 `fake-upstream` 服务；把**七条断言作为该次 Trial 的命令**在真实 Harbor 环境里跑（做题侧容器内用 `/dev/tcp` 与 `redis-cli` 检查，假上游记录请求），证据取 Trial 的 stdout 与事后 `docker inspect`。这样回答的是"整套双网络拓扑在固定 Harbor 上是否成立"，而不是依赖某个 Agent 或模型。
 
 **必须回报**：Trial 的实际命令与实际输出；`docker inspect` 证据（网络的 `Internal`、容器挂载与发布端口、标签）；Harbor 拆除路径实际执行的命令；镜像/卷清单的删除前后差异；清理复核（残留为 0）；失败与未验证项如实列出。**若任何断言不成立，照样如实回报**——那会让任务 05 按计划第 7 节停在这一步。
+
+## 附四：下一轮 T2 的路径纠正与只读诊断（2026-09-22；原 附一/二/三 保留原样）
+
+**附三 有一处走不通，先纠正再占用窗口。** 附三 写"下一轮应经产品入口 `harbor_entry.py` 跑一个最小 job config"，同时又把最小形态定义为"用 `extra_docker_compose` 给 `services.main` 声明显式网络"。这两句互斥：
+
+- `harbor_entry.validate_network_config`（`apps/backend/src/eval_platform/adapters/execution/harbor_entry.py:136-143`）把 `extra_docker_compose`（以及 `kwargs`/`import_path`/`env`/`mounts`）一律判为非法配置，抛 `HARBOR_NETWORK_CONFIG_INVALID`；
+- 该门禁是**有意为之并有测试钉住**的（`apps/backend/tests/contract/test_execution_network.py:190-198` 的 `extra` 篡改用例）。它是生产路径的安全约束，**不为试验放宽**。
+
+**因此下一轮走 附三 里那条"备选"分支，它现在变成主路径**：探针自行携带侧车适配，即
+
+```python
+context = <trial 目录> / "sidecar-source"
+export_sidecar(<仓库>/framework/harbor, context, HARBOR_REVISION)   # HARBOR_REVISION = 6af8d6e31eced13b93849cdf80feeadf24603d15
+DockerEnvironment._EGRESS_CONTROL_SIDECAR_CONTEXT_PATH = context
+```
+
+仓库内**已有可照抄的先例**：`apps/backend/tests/codex_trial_probe.py:36-38`。
+
+**为什么这能解释首轮的 127**：`export_sidecar` 用 `git show <rev>:<path>` 从 **git 对象**导出侧车上下文（`network.py:129-139`），所以它恒为 LF，并同时注入 M0 已授权的 DNS 守卫（守卫失败会打印 `HARBOR_DOCKER_DNS_CONFIG_UNSUPPORTED` 并以 **1** 退出，与观测到的 127 不同）；而走 Windows 工作树的那条路会把 CRLF 带进 Linux 容器，CRLF 的 `entrypoint.sh` / `bin/network-policy` 在 shebang 处即 `No such file or directory` → **127**。
+
+**首轮取证已到位，只剩一条只读命令**：负责人的[侧车 127 只读取证](../../docs/actions/2026-09-22-task05-sidecar-127-diagnosis.md)已记录原文——`[FATAL tini (7)] exec /opt/egress-sidecar/entrypoint.sh failed: No such file or directory`、`Exited (127)`、镜像 `harbor-prebuilt:harbor-docker-egress-control-sidecar--f57c86fb4906508e`（**本机构建、`RepoDigests` 为空**），并确认**原 `probe.py` 没有设置 `_EGRESS_CONTROL_SIDECAR_CONTEXT_PATH`、也没有调用 `export_sidecar()`**。该记录同时明确：这四条证据**不能**区分"镜像内入口文件确实缺失""脚本解释器不可用"或"换行/构建产物"——根因**尚未定位**。
+
+**因此第一步只需一条只读命令**（不创建任何资源；它决定上面两种成因哪一种成立）：
+
+```bash
+git -C framework/harbor ls-files --eol src/harbor/environments/docker/harbor-docker-egress-control-sidecar/
+# 若 entrypoint.sh / bin/network-policy 显示 w/crlf，则"构建上下文带 CRLF"成立，
+# 与 DEPENDENCIES.md:314 早已记录的"Windows 检出中的 CRLF 会使脚本解释器无效"一致。
+
+# 若还要看镜像内那份（不启动容器）：docker save 后解层核对，命令与结果照抄进报告
+docker image inspect -f '{{.Id}}' harbor-prebuilt:harbor-docker-egress-control-sidecar--f57c86fb4906508e
+docker save harbor-prebuilt:harbor-docker-egress-control-sidecar--f57c86fb4906508e -o <临时目录>/sidecar.tar
+```
+
+**第二步：跑最小 T2（走探针 + 上面的两行适配）**，形态、断言与回报要求仍以 附三 为准。改变有两处：① **适配必须由探针显式携带**（这是唯一可行路径——见上）；② 报告里写明"本轮经探针携带适配，未走产品入口，原因是产品入口按 `HARBOR_NETWORK_CONFIG_INVALID` 拒绝自定义 compose"。携带适配后侧车镜像的内容哈希会变、会重新构建一次（Harbor 的正常行为，不是重建 `framework/harbor`），拆除时 `--rmi local` 会清掉它——**前后镜像清单若出现这一处新增+移除，属预期，照实记录即可**。
+
+> 本轮改动只纠正路径与收敛诊断命令；未见任何断言或判定标准被改动。
+
