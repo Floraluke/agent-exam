@@ -83,7 +83,7 @@ test("扫描器不是空转：注入的无名控件会被抓到", async ({ page 
     "自检注入的无名控件没有被 label 规则抓到").toContain("#a11y-self-check");
 });
 
-test("九个可达视图的 axe 基线扫描只剩明确报告项", async ({ page }) => {
+test("各可达视图的 axe 基线扫描无未处理违规", async ({ page }) => {
   const info = test.info();
   await loginOwner(page);
   await registerCatalog(page, true);
@@ -146,7 +146,7 @@ test("九个可达视图的 axe 基线扫描只剩明确报告项", async ({ pag
   await scan(page, info, "排行榜（含榜单）");
   // 悬停态单独扫描一次：这是唯一已实测到的对比度命中（表单主按钮），
   // 显式写进用例，证据每次都随套件产出，而不是靠"某次鼠标刚好停在那里"。
-  await scan(page, info, "排行榜查询按钮（悬停态·只报告）",
+  await scan(page, info, "排行榜查询按钮（悬停态）",
     leaderboard.getByRole("button", { name: "查询排行榜" }));
 
   // 对比报告：第二个批次让矩阵有两列。
