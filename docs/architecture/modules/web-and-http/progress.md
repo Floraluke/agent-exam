@@ -31,7 +31,7 @@
 - **死代码清理**：`apps/web/src/lib/job-client.ts` 的 `runArtifacts`（`GET /runs/{id}/artifacts`，全仓无界面调用）连同其无用导入一并删除；`npm run typecheck` 通过。本轮唯一的代码改动。
 - **浏览器全量**：`AGENTEXAM_USE_SYSTEM_CHROME=1 npm run test:e2e` **退出码 0**，22 个 spec 全绿（每个 spec 单独起一次合成后端与前端 dev；运行器遇首个失败即中止）。
 - **给 A 的脱离版补 `README.md`**：这是什么、怎么打开、与"跑起来的前端"的差别、已知边界、反馈什么最有价值。
-- **交 D 一条契约缺口**（见下表）：未完成批次的批次报告返回 500。
+- **一条对 D 的报告最终是缺陷**：B 起初报“未完成批次的批次报告返回 500”，D 复核时先纠正了 B 的归因（不是“未完成”），随后**定位到真正的根因**——`_JOB_MESSAGES` 漏了 `CANCELED`/`CANCEL_REQUESTED` 两个状态，并修复（`0eeeb16`）。B 独立复核确认并端到端复跑通过。**B 中途一度判定“不是缺陷”也是错的**，教训是复现要打到证据指向的具体状态 |
 
 ## 2026-09-21：任务 05 的受控词汇对齐（E 请求；B 侧只改契约）
 
@@ -90,12 +90,12 @@ A 指示"把 web 里的前端代码弄成一个脱离的 HTML，根据 HTTP API 
 
 | 缺口 | 现状与原因 |
 |---|---|
-| 对比矩阵在**多列**量级下的横向滚动手感 | ⬜ **缺口保留（2026-09-21）**：曾写过 12 列的宽矩阵用例断言容器真的横向滚动，**单独通过但全量 suite 里不稳定**（勾选框计数竞态、矩阵表未渲染），已按"不稳定测试比没有测试更糟"撤掉；补测前需先查清它与全量长时运行的相互影响 |
+| 对比矩阵在**多列**量级下的横向滚动 | ✅ **已关闭（2026-09-22）** | 既有的 390/360 用例只验了 2 列下的 `overflow-x: auto` 与页面不溢出，**没验过宽表真的超出容器、真的滚得动**。已补 `apps/web/tests/reporting/comparison-wide-scroll.spec.ts`（12 列、窄视口）：断言容器 `scrollWidth > clientWidth`、`scrollLeft` 真的改变、页面不被撑破。**根因更正**：旧版不稳不是断言写法问题，而是①在矩阵渲染完成前量几何；②**与兄弟用例共享后端**——造 12 个批次会污染同文件其他用例，而 runner 是"每个 spec 文件才起一次干净后端"，故必须独立成文件（放进 `jobs/comparison.spec.ts` 实测 6 条挂 3 条）。验证：单文件重复 3 次通过 + **全量退出码 0（23 个 spec 全绿）**。见[行动 11](actions/delivery/11-comparison-wide-matrix-scroll.md) |
 | ~~第三个配置（凑"六题×三配置"）~~ | ✅ **已关闭（2026-09-21，C 答复）**：**不加**、维持六题 + 两配置。理由：① 任务 08 的冻结矩阵本就是"六题×两个新 API 配置 = 12 个 Run"，与现状正好对上；② 第三配置唯一能多验的"3 个恰好允许、4 个拒绝"边界已在 HTTP 层覆盖（`tests/jobs/scale/test_continuous_preset_bounds_sixty_runs_and_three_configurations`）；③ 等 05–07 落地 DeepSeek/Kimi 预设后再看是否需要，不预支。**不为它拆夹具文件、不再涨行数** |
 | 真后端上的"六题可选"核对 | ✅ **已改期到任务 08（2026-09-21，C 答复）**：浏览器侧继续用合成后端；真后端核对由 C 提供 preset id 与门禁证据（白名单六条在 `adapters/tasks/catalog.py` 的 `FIXED_TASK_IMAGES`），**联合验收放到 08 的正式部署窗口**，不再作为 B 的当前待办 |
 | 五档文案一致性 | ✅ **已核对（2026-09-21，D 答复）**：口径按 B 定的五个词，D 已把后端报告渲染器统一到同一套（`5373bf6`），并修掉她发现的后端旧用词；B 侧同步修掉两处前端残留（`report.tsx` 的"基础设施失败"、`comparison.tsx` 的"未通过"）与两处注释 |
-| B 侧尚未运行 `ruff` / `mypy` | 仅指后端文件；B 改过的 `browser_server.py` 已跑过 `ruff check` 与 `format`，其余后端文件不属 B |
-| 页面渲染面的哨兵扫描 | C 已覆盖 12 个 HTTP 读取面；网页面只在本轮动线可达的目录页做过，报告/证据/排行榜页未扫描 |
+| B 侧尚未运行 `ruff` / `mypy` | ✅ **已运行（2026-09-22）** | `ruff check` 与 `format --check` 对 `tests/identity/browser_server.py` 全过；`mypy` 按**项目范围**（`MYPYPATH=src mypy src/eval_platform`）为 175 个源文件零问题。注意：按配置裸跑 `mypy` 在本机不可用（`packages = ["eval_platform"]` 解析到未安装 `py.typed` 的包），而拿单个测试文件当入口会连带检查范围外的夹具（268 个未标注类错误），那是噪声不是结论 |
+| 页面渲染面的哨兵扫描 | ✅ **已补齐（2026-09-22）** | 核对代码后发现原表述有一半已过期：**证据页早已覆盖**（`job-evidence.spec.ts` 两次扫描都打在单次运行报告/安全证据上）；本轮补上**批次报告（批次进度）**与**排行榜**两处，排行榜先断言 `.leaderboard-row` 真有行再扫（避免空转），查询字段取自任务目录而非硬编码。局限：只扫页面可见文本，哨兵是固定清单，新增敏感字段需手动加入。见[行动 12](actions/delivery/12-web-page-sentinel-sweep.md) |
 
 **当前主工作区状态（2026-09-21 本次交接核对）**：`main = origin/main = c71d342`；没有重新查询其他成员 fork 或 `upstream`，不得沿用更早的三端相等结论。已关闭的 `task03/comparison-api-spec` 仅作历史存档，其提交不需要再合入 `main`。
 
@@ -213,7 +213,8 @@ B 手动尝试从本机接入 owner A 的共享评测环境，**未接通**：
 | OpenAPI 字段级 schema 对账 | ⬜ 未做 | 仅做过 §10.4 正文与实现的 20/20 静态字段对照 |
 | `ruff` / `mypy` | ✅ 当前统一入口通过 | Ruff lint 与 321 文件格式检查通过；修正 src 布局配置后，无参数 Mypy 对 177 个源文件通过，不再需要路径绕行 |
 | 受控集合以外记录的 HTTP 表现 | ❓ **待 E 决定** | `_controlled` 数据层"失败关闭"是对的（抛 `ValueError`，不回退默认值），但 HTTP 层只注册了 `AuthenticationRequired`/`CatalogError`/`JobError`/`RequestValidationError`/`IdentityUnavailable`/`HTTPException`，**没有 `ValueError` 处理器**，故当前表现为 500、不带受控错误码。是否包装成受控错误（例如沿用 503 `DEPENDENCY_UNAVAILABLE`）由 E 定；B 只在 §4.2 写了"失败关闭"，**未承诺状态码** |
-| 未完成批次的批次报告 | ✅ 已由当前实现关闭 | `JobReporting.job()` 逐个验证实际 Run report；等待批准、排队和运行中批次均返回 200，并用 `pending_runs` / `incomplete` 表达未完成。`tests/jobs/execution/batch/test_http_stages.py` 覆盖各持久化阶段 |
+| 未完成批次的批次报告 | ✅ 已由当前实现关闭 | 等待批准、排队和运行中批次均返回 200，并用 `pending_runs` / `incomplete` 表达未完成；`tests/jobs/execution/batch/test_http_stages.py` 覆盖持久化阶段。具体契约见[非终态报告行动](actions/10-job-report-nonterminal-contract.md) |
+| 取消相关批次的批次报告返回 500 | ✅ **已定位并修复（缺陷）** | `_JOB_MESSAGES` 原缺 `CANCELED`/`CANCEL_REQUESTED`，索引抛未捕获 `KeyError`；仅测 AWAITING/QUEUED/PREPARING 无法发现。`0eeeb16` 补齐文案和中性兜底，并新增完整性测试；B 独立复跑“取消 → 查报告”为 200。此前 B 将其判为录制噪声是误判，详见[非终态报告行动](actions/10-job-report-nonterminal-contract.md) |
 | 浏览器夹具"强制下一次响应出错"控制端点 | ⬜ 待排期 | 用于"未知错误码失败关闭"的呈现验证；按约定等代理链落地后与"受控文案忠实呈现"一起做 |
 | 与 D 的工作重复 | ✅ 已关闭 | D 于 2026-09-21 拍板：接受 `main` 为最终形态，`cdcb4cf`/`c5e036d` 不再合入，以 `7553ce0` 为准；"不收敛"决定作废；`xinyue-modules` 转历史存档。**收尾提交已核实**：`3930f24`（关闭提案）与其子提交 `775d7a1`（更正已归档提案）都在远端，`git ls-remote` 权威值为 `775d7a1d065632064de2c3d5f0636f7eb03a80c2`。另记一条拓扑事实：**D 的 `origin` 就是团队仓库本身**（只配了一个 remote、没有 fork），她的推送直达 `anphuchoang5-sys/agent-exam`，与 B 的 fork 提 PR 路径不同 |
 | 任务 03 的 Web 对比页 | ✅ 已完成 | 契约（PR #7）、后端（`7553ce0`）与 Web 页面（PR #8）均已合入 `main`；见[对比页行动](actions/03-comparison-ui.md) |

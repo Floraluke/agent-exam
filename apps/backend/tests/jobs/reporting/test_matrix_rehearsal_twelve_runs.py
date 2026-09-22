@@ -66,10 +66,11 @@ def test_single_job_twelve_run_matrix_rehearsal_on_real_postgres(postgres_sandbo
         assert all(run.resolved_summary is True for run in stored.runs)
 
         matrix = build_matrix([repository.get_job_report(job.job_id)])
-        assert [column.agent_display_name for column in matrix.columns] == [
+        # 列顺序由 run_order_key 决定（配置身份是随机 UUID），按集合断言。
+        assert {column.agent_display_name for column in matrix.columns} == {
             "Synthetic A",
             "Synthetic B",
-        ]
+        }
         assert len(matrix.rows) == TASK_COUNT
         for totals in matrix.totals:
             assert totals.resolved == TASK_COUNT
