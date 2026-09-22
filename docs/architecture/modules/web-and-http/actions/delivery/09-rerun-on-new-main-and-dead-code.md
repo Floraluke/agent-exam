@@ -25,6 +25,8 @@
 
 **一处工具链事实（如实记录）**：按项目配置**裸跑 `mypy`**（`[tool.mypy] packages = ["eval_platform"]`、`strict = true`）在本机**不可用**，报 `Package 'eval_platform' cannot be type checked due to missing py.typed marker`（解析到的是未安装 `py.typed` 的包而非 `src/` 树）。改用路径方式（`MYPYPATH=src mypy src/eval_platform`）才是有效信号。另：对**单个测试文件**跑 mypy 会连带检查未纳入项目范围的测试夹具，得到 268 个 `no-untyped-call`/`no-untyped-def` 类错误——**那是范围外的噪声，不是 B 的结论**，不作为指标。
 
+**更正（2026-09-22，同日）**：上游随后修正了 src 布局配置并新增 `mypy.ini`，**裸跑 `mypy` 现对 177 个源文件通过、不再需要路径绕行**；本节此前那条“裸跑不可用”的结论已不再成立，保留作当时的记录。
+
 ### 2.2 前端死代码清理（唯一代码改动）
 
 `apps/web/src/lib/job-client.ts` 的 `runArtifacts`（`GET /runs/{id}/artifacts?limit=100`）经全仓检索**无任何界面调用**，属死代码；已删除该函数，并同步移除随之无用的 `ArtifactPage` 类型导入与 `parseArtifactPage` 导入。
