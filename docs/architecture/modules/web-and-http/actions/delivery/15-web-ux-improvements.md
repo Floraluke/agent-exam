@@ -172,6 +172,7 @@ cd ../backend && .venv/Scripts/python.exe -m ruff check tests/identity/browser_s
 | rule id | 影响面 | 命中元素 | axe 实测数据 | 不改理由 |
 |---|---|---|---|---|
 | `color-contrast` | serious（1 处） | `form > button`，即 `<button>查询排行榜</button>` 的**悬停态** | `fgColor #ffffff`／`bgColor #f7faf8`／**contrastRatio 1.05:1**（要求 4.5:1）；16px、bold（不属"大号文本"） | 属配色决定：要改就动 hover 底色或主按钮字色（`globals.css`），按约定只报告 |
+- **已修（同日）**：在 `globals.css` 补一条权重更高的悬停规则（`form > button:hover:not(:disabled)` 等，深绿底 `--accent-dark` + 白字），修掉上面那条缺陷；并把 a11y 用例里**整条 `color-contrast` 的排除收掉**（原先是整类排除，等于对比度全不扫）——重新纳入扫描后**所有状态「只报告 0」、全绿**，说明那是唯一一条对比度问题。
 
 **这条为什么不止是"颜色不好看"**（根因是 CSS 权重，不是随手写错一个色值）：全局 `button:hover:not(:disabled) { background: #f7faf8 }`（`src/app/globals.css:23`）的权重是 (0,2,1)，压过同表 `form > button { background: var(--accent); color: white }`（`globals.css:27`）的 (0,0,2)；hover 规则**只改底色、不改字色**，于是白字落在近白底上。
 

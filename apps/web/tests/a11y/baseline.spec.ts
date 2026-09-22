@@ -15,15 +15,11 @@ type Violation = AxeViolations[number];
 
 // 只报告、不修：配色与字号由用户决定是否调整（行动 15 §1 的修复边界）。
 // 排除范围最小化——这里只列**规则 id**，其余规则照常参与"必须为零"的断言。
-// 已实测的命中：`form > button` 这类表单主按钮悬停时，`button:hover:not(:disabled)`
-// 的 `background: #f7faf8`（选择器权重 0,2,1）压过 `form > button` 的
-// `background: var(--accent)`（0,0,2），而白字 `color: white` 仍在 → 白字落在
-// #f7faf8 上，实测 1.05:1。`.heading-actions button:last-child` 与
-// `.wizard-actions button:nth-last-child(2)` 权重同为 0,2,1 且写在后面，不受影响。
-// 这是配色决定，按约定只报告不改，故整条 color-contrast 规则不参与断言。
-const REPORT_ONLY: Record<string, string> = {
-  "color-contrast": "文本与背景对比度不足；属配色决定，只报告不改",
-};
+// 2026-09-22 已修：`form > button` 这类表单主按钮的悬停原来会被通用的
+// `button:hover:not(:disabled)`（权重 0,2,1）压掉底色而字色仍是白色 → 白字落在 #f7faf8 上，实测 1.05:1。
+// 已在 globals.css 补一条权重更高的悬停规则（深绿底 + 白字）。**因此 color-contrast 不再排除、参与断言**：
+// 若再有对比度问题出现，就是要处理的，而不是预先放行。
+const REPORT_ONLY: Record<string, string> = {};
 
 // 夹具任务的冻结比较条件（与 tests/catalog/conftest.py 的 task_bundle 一致）。
 const FROZEN = {
